@@ -18,8 +18,6 @@ class _LoginScreenState extends State<LoginScreen> {
   
   bool _isLoading = false;
   String? _errorMessage;
-  
-  // State untuk mengatur visibilitas kata sandi
   bool _obscurePassword = true;
 
   @override
@@ -30,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    // Validasi kosong
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() => _errorMessage = 'Email dan Password tidak boleh kosong');
       return;
@@ -64,103 +61,133 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Cek apakah layar lebar (landscape/tablet/web)
+    final isWideScreen = MediaQuery.of(context).size.width > 800;
+
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(
-                  Icons.account_balance_wallet_outlined, 
-                  size: 64, 
-                  color: AppTheme.primaryColor
-                ),
-                const SizedBox(height: 32),
-                const Text(
-                  'Selamat Datang',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Silakan masuk untuk mengakses NatunaPOS',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textLightColor),
-                ),
-                const SizedBox(height: 40),
-                
-                if (_errorMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: isWideScreen
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(child: _buildBranding()),
+                        const SizedBox(width: 64),
+                        Expanded(child: _buildForm()),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildBranding(),
+                        const SizedBox(height: 48),
+                        _buildForm(),
+                      ],
                     ),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: AppTheme.dangerColor),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword, // Menggunakan state
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _handleLogin(),
-                  decoration: InputDecoration(
-                    labelText: 'Kata Sandi',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    // Tambahan ikon mata di sebelah kanan
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword 
-                            ? Icons.visibility_off_outlined 
-                            : Icons.visibility_outlined,
-                        color: AppTheme.textLightColor,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleLogin,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20, 
-                          width: 20, 
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                        )
-                      : const Text('MASUK'),
-                ),
-              ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBranding() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(
+          Icons.account_balance_wallet_outlined, 
+          size: 80, 
+          color: AppTheme.primaryColor
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          'Selamat Datang',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textColor,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Silakan masuk untuk mengakses NatunaPOS',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16, color: AppTheme.textLightColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_errorMessage != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.dangerColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(color: AppTheme.dangerColor),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: 'Email Karyawan',
+            prefixIcon: Icon(Icons.email_outlined),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _handleLogin(),
+          decoration: InputDecoration(
+            labelText: 'Kata Sandi',
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword 
+                    ? Icons.visibility_off_outlined 
+                    : Icons.visibility_outlined,
+                color: AppTheme.textLightColor,
+              ),
+              onPressed: () {
+                setState(() {
+                  _obscurePassword = !_obscurePassword;
+                });
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _handleLogin,
+          child: _isLoading
+              ? const SizedBox(
+                  height: 20, 
+                  width: 20, 
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                )
+              : const Text('MASUK'),
+        ),
+      ],
     );
   }
 }

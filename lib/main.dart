@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Penting untuk SystemChrome
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme.dart';
-import 'core/landscape_wrapper.dart'; // Import wrapper baru
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/supabase_service.dart';
@@ -10,12 +9,11 @@ import 'services/supabase_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 1. KUNCI ORIENTASI ANDROID KE LANDSCAPE
+  // Hanya kunci orientasi untuk Android/iOS. Web akan responsif.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  // Sembunyikan status bar agar lebih maksimal (Opsional)
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -36,14 +34,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLoggedIn = SupabaseService().isLoggedIn;
 
-    // 2. BUNGKUS DENGAN LANDSCAPE WRAPPER UNTUK WEB
-    return LandscapeWrapper(
-      child: MaterialApp(
-        title: 'NatunaPOS',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
-      ),
+    return MaterialApp(
+      title: 'NatunaPOS',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
     );
   }
 }

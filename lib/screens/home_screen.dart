@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _service = SupabaseService();
   List<Product> _products = [];
-  final Map<Product, int> _cart = {}; // Menyimpan product dan quantity
+  final Map<Product, int> _cart = {};
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -53,9 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int get _totalPrice {
     int total = 0;
-    _cart.forEach((product, qty) {
-      total += product.price * qty;
-    });
+    _cart.forEach((product, qty) => total += product.price * qty);
     return total;
   }
 
@@ -106,6 +104,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Deteksi lebar layar untuk menentukan jumlah kolom grid
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth > 1200 ? 4 : (screenWidth > 800 ? 3 : 2);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('NatunaPOS'),
@@ -118,87 +120,84 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _buildBody(),
-      bottomNavigationBar: _cart.isEmpty ? null : _buildBottomBar(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor)),
-            const SizedBox(height: 16),
-            TextButton(onPressed: _loadProducts, child: const Text('Coba Lagi')),
-          ],
-        ),
-      );
-    }
-
-    if (_products.isEmpty) {
-      return const Center(child: Text('Belum ada data produk.'));
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _products.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final product = _products[index];
-        return Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Rp ${product.price}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textLightColor,
-                        ),
-                      ),
+                      Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor)),
+                      const SizedBox(height: 16),
+                      TextButton(onPressed: _loadProducts, child: const Text('Coba Lagi')),
                     ],
                   ),
-                ),
-                OutlinedButton(
-                  onPressed: () => _addToCart(product),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
-                    side: const BorderSide(color: AppTheme.primaryColor),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  child: const Text('Tambah'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+                )
+              : _products.isEmpty
+                  ? const Center(child: Text('Belum ada data produk.'))
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 2.5, // Menjaga kotak tetap proporsional
+                      ),
+                      itemCount: _products.length,
+                      itemBuilder: (context, index) {
+                        final product = _products[index];
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        product.name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textColor,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Rp ${product.price}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AppTheme.textLightColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => _addToCart(product),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                    foregroundColor: AppTheme.primaryColor,
+                                  ),
+                                  icon: const Icon(Icons.add),
+                                )
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+      bottomNavigationBar: _cart.isEmpty ? null : _buildBottomBar(),
     );
   }
 
