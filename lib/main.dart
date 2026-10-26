@@ -1,8 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Membaca kunci dari GitHub Secrets saat build
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+  );
+  
   runApp(const MyApp());
 }
+// (Biarkan kode UI KasirPage kamu di bawahnya, tidak perlu diubah dulu)
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
