@@ -34,9 +34,11 @@ class _PosScreenState extends State<PosScreen> {
     }
 
     try {
-      // 1. BACA LOKAL (INSTAN)
-      final products = await _service.getLocalProducts();
+      final allProducts = await _service.getLocalProducts();
       if (!mounted) return;
+      
+      // HANYA TAMPILKAN PRODUK YANG AKTIF
+      final products = allProducts.where((p) => p.isActive).toList();
       
       final validIds = products.map((p) => p.id).toSet();
       setState(() {
@@ -45,11 +47,11 @@ class _PosScreenState extends State<PosScreen> {
         _isLoading = false;
       });
 
-      // 2. TRIGGER SINKRONISASI BACKGROUND
       _service.syncData().then((_) async {
         try {
-          final updatedProducts = await _service.getLocalProducts();
+          final updatedAll = await _service.getLocalProducts();
           if (!mounted) return;
+          final updatedProducts = updatedAll.where((p) => p.isActive).toList();
           final updatedValidIds = updatedProducts.map((p) => p.id).toSet();
           setState(() {
             _products = updatedProducts;
@@ -253,7 +255,7 @@ class _PosScreenState extends State<PosScreen> {
                   ),
                 )
               : _products.isEmpty
-                  ? const Center(child: Text('Belum ada data produk.'))
+                  ? const Center(child: Text('Belum ada data produk aktif.'))
                   : GridView.builder(
                       padding: const EdgeInsets.all(16),
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(

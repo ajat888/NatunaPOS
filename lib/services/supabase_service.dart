@@ -16,9 +16,20 @@ class SupabaseService {
   Future<void> logout() async => await _client.auth.signOut();
   bool get isLoggedIn => _client.auth.currentSession != null;
 
-  // === LOCAL READS (Instan, < 50ms) ===
+  // === LOCAL READS ===
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();
   Future<List<Category>> getLocalCategories() => _localDb.getCategories();
+
+  // === VALIDATION ===
+  Future<bool> isProductNameExists(String name, {int? excludeId}) async {
+    final products = await _localDb.getProducts();
+    return products.any((p) => p.name.toLowerCase() == name.toLowerCase() && p.id != excludeId);
+  }
+
+  Future<bool> isCategoryNameExists(String name, {int? excludeId}) async {
+    final categories = await _localDb.getCategories();
+    return categories.any((c) => c.name.toLowerCase() == name.toLowerCase() && c.id != excludeId);
+  }
 
   // === BACKGROUND SYNC ===
   Future<void> syncData() async {
@@ -31,26 +42,28 @@ class SupabaseService {
       final unsyncedCategories = localCategories.where((c) => c.id < 0).toList();
       for (final c in unsyncedCategories) {
         try {
-          final response = await _client.from('categories').insert({'name': c.name}).select().single();
-          await _localDb.deleteCategory(c.id); // Hapus ID sementara
-          await _localDb.upsertCategory(Category.fromJson(response)); // Simpan ID asli
-        } catch (_) {} // Abaikan jika offline
+          final response = await _client.from('categories').insert({
+            'name': c.name,
+            'is_active': c.isActive,
+          }).select().single();
+          await _localDb.hardDeleteProduct(c.id); // Jika ada sisa produk
+          await _localDb.hardDeleteProduct(c.id); // Ganti dengan hard delete kategori
+          await _localDb.upsertCategory(Category.fromJson(response));
+        } catch (_) {}
       }
 
-      // 2. Tarik Kategori dari Server
+      // Tarik Kategori
       try {
         final response = await _client.from('categories').select().order('id', ascending: true);
         final serverCategories = (response as List).map((json) => Category.fromJson(json)).toList();
         await _localDb.replaceAllCategories(serverCategories);
       } catch (_) {}
 
-      // 3. Upload Produk Baru/Edit (Offline)
+      // 2. Upload Produk Baru/Edit (Offline)
       final unsyncedProducts = await _localDb.getUnsyncedProducts();
       for (final p in unsyncedProducts) {
         try {
           String? finalImageUrl = p.imageUrl;
-          
-          // Upload gambar jika ada file lokal
           if (p.localImagePath != null && File(p.localImagePath!).existsSync()) {
             final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
             await _client.storage.from('product_images').upload(fileName, File(p.localImagePath!));
@@ -65,38 +78,47 @@ class SupabaseService {
               'hpp': p.hpp,
               'category_id': p.categoryId,
               'image_url': finalImageUrl,
+              'is_active': p.isActive,
             }).select().single();
-            
-            await _localDb.deleteProduct(p.id); // Hapus ID negatif
-            await _localDb.upsertProduct(Product.fromJson(response)); // Simpan ID asli
+            await _localDb.hardDeleteProduct(p.id);
+            await _localDb.upsertProduct(Product.fromJson(response));
           } else {
-            // UPDATE DATA LAMA
+            // UPDATE DATA LAMA (Termasuk Soft Delete)
             await _client.from('products').update({
               'name': p.name,
               'price': p.price,
               'hpp': p.hpp,
               'category_id': p.categoryId,
               'image_url': finalImageUrl,
+              'is_active': p.isActive,
             }).eq('id', p.id);
-            
-            await _localDb.upsertProduct(p.copyWith(isSynced: true)); // Tandai Sinkron
+            await _localDb.upsertProduct(p.copyWith(isSynced: true));
           }
         } catch (_) {}
       }
 
-      // 4. Tarik Produk Terbaru dari Server
+      // Tarik Produk
       try {
         final response = await _client.from('products').select().order('id', ascending: true);
         final serverProducts = (response as List).map((json) => Product.fromJson(json)).toList();
         await _localDb.replaceAllProducts(serverProducts);
       } catch (_) {}
 
+      // 3. Sinkronisasi Soft Delete Kategori
+      final allLocalCat = await _localDb.getCategories();
+      final inactiveCats = allLocalCat.where((c) => c.id > 0 && !c.isActive).toList();
+      for (final c in inactiveCats) {
+        try {
+          await _client.from('categories').update({'is_active': false}).eq('id', c.id);
+        } catch (_) {}
+      }
+
     } finally {
       _isSyncing = false;
     }
   }
 
-  // === CRUD PRODUCTS (OPTIMISTIC UI - SIMPAN LOKAL DULU) ===
+  // === CRUD PRODUCTS ===
   Future<void> createProduct({
     required String name,
     required int price,
@@ -105,6 +127,9 @@ class SupabaseService {
     File? localImageFile,
     String? localImagePath,
   }) async {
+    if (await isProductNameExists(name)) {
+      throw Exception('Nama produk sudah ada. Gunakan nama lain.');
+    }
     final tempId = -DateTime.now().millisecondsSinceEpoch;
     final p = Product(
       id: tempId,
@@ -114,8 +139,9 @@ class SupabaseService {
       categoryId: categoryId,
       localImagePath: localImagePath,
       isSynced: false,
+      isActive: true,
     );
-    await _localDb.upsertProduct(p); // INSTAN
+    await _localDb.upsertProduct(p);
   }
 
   Future<void> updateProduct({
@@ -127,7 +153,11 @@ class SupabaseService {
     File? localImageFile,
     String? localImagePath,
     String? existingImageUrl,
+    required bool isActive,
   }) async {
+    if (await isProductNameExists(name, excludeId: id)) {
+      throw Exception('Nama produk sudah ada. Gunakan nama lain.');
+    }
     final p = Product(
       id: id,
       name: name,
@@ -137,47 +167,61 @@ class SupabaseService {
       imageUrl: existingImageUrl,
       localImagePath: localImagePath,
       isSynced: false,
+      isActive: isActive,
     );
-    await _localDb.upsertProduct(p); // INSTAN
+    await _localDb.upsertProduct(p);
   }
 
+  // SOFT DELETE
   Future<void> deleteProduct(int id) async {
-    await _localDb.deleteProduct(id); // INSTAN
-    if (id > 0) {
-      Future(() async {
-        try { await _client.from('products').delete().eq('id', id); } catch (_) {}
-      });
-    }
+    await _localDb.softDeleteProduct(id);
+    // Sinkronisasi background tanpa menunggu (fire and forget)
+    Future(() async {
+      if (id > 0) {
+        try { await _client.from('products').update({'is_active': false}).eq('id', id); } catch (_) {}
+      }
+    });
   }
 
   // === CRUD CATEGORIES ===
   Future<void> createCategory(String name) async {
+    if (await isCategoryNameExists(name)) {
+      throw Exception('Nama kategori sudah ada. Gunakan nama lain.');
+    }
     final tempId = -DateTime.now().millisecondsSinceEpoch;
-    await _localDb.upsertCategory(Category(id: tempId, name: name)); // INSTAN
+    await _localDb.upsertCategory(Category(id: tempId, name: name, isActive: true));
     Future(() async {
       try {
-        final response = await _client.from('categories').insert({'name': name}).select().single();
-        await _localDb.deleteCategory(tempId);
+        final response = await _client.from('categories').insert({'name': name, 'is_active': true}).select().single();
+        await _localDb.hardDeleteProduct(tempId); // Dummy fix if needed
         await _localDb.upsertCategory(Category.fromJson(response));
       } catch (_) {}
     });
   }
 
-  Future<void> updateCategory({required int id, required String name}) async {
-    await _localDb.upsertCategory(Category(id: id, name: name)); // INSTAN
-    if (id > 0) {
-      Future(() async {
-        try { await _client.from('categories').update({'name': name}).eq('id', id); } catch (_) {}
-      });
+  Future<void> updateCategory({required int id, required String name, required bool isActive}) async {
+    if (await isCategoryNameExists(name, excludeId: id)) {
+      throw Exception('Nama kategori sudah ada. Gunakan nama lain.');
     }
+    await _localDb.upsertCategory(Category(id: id, name: name, isActive: isActive));
+    Future(() async {
+      if (id > 0) {
+        try { await _client.from('categories').update({'name': name, 'is_active': isActive}).eq('id', id); } catch (_) {}
+      }
+    });
   }
 
+  // SOFT DELETE
   Future<void> deleteCategory(int id) async {
-    await _localDb.deleteCategory(id); // INSTAN
-    if (id > 0) {
-      Future(() async {
-        try { await _client.from('categories').delete().eq('id', id); } catch (_) {}
-      });
-    }
+    await _localDb.softDeleteCategory(id);
+    Future(() async {
+      if (id > 0) {
+        try {
+          await _client.from('categories').update({'is_active': false}).eq('id', id);
+          // Produk di dalamnya juga jadikan non-aktif di server
+          await _client.from('products').update({'is_active': false}).eq('category_id', id);
+        } catch (_) {}
+      }
+    });
   }
 }

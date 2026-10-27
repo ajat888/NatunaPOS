@@ -20,14 +20,14 @@ class LocalDb {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
-    await db.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+    await db.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, is_active INTEGER DEFAULT 1)');
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY,
@@ -37,7 +37,8 @@ class LocalDb {
         category_id INTEGER,
         image_url TEXT,
         local_image_path TEXT,
-        is_synced INTEGER DEFAULT 1
+        is_synced INTEGER DEFAULT 1,
+        is_active INTEGER DEFAULT 1
       )
     ''');
   }
@@ -55,15 +56,17 @@ class LocalDb {
       await db.execute('ALTER TABLE products ADD COLUMN local_image_path TEXT');
       await db.execute('ALTER TABLE products ADD COLUMN is_synced INTEGER DEFAULT 1');
     }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE categories ADD COLUMN is_active INTEGER DEFAULT 1');
+      await db.execute('ALTER TABLE products ADD COLUMN is_active INTEGER DEFAULT 1');
+    }
   }
 
   // === PRODUCTS ===
   Future<void> replaceAllProducts(List<Product> serverProducts) async {
     final db = await database;
     await db.transaction((txn) async {
-      // HANYA HAPUS YANG SUDAH SINKRON
       await txn.delete('products', where: 'is_synced = 1');
-      
       final batch = txn.batch();
       for (final p in serverProducts) {
         batch.insert('products', p.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
@@ -89,7 +92,18 @@ class LocalDb {
     await db.insert('products', product.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<void> deleteProduct(int id) async {
+  // Ubah fungsi delete menjadi Soft Delete (Update is_active = 0)
+  Future<void> softDeleteProduct(int id) async {
+    final db = await database;
+    await db.update(
+      'products',
+      {'is_active': 0, 'is_synced': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> hardDeleteProduct(int id) async {
     final db = await database;
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
   }
@@ -98,10 +112,7 @@ class LocalDb {
   Future<void> replaceAllCategories(List<Category> categories) async {
     final db = await database;
     await db.transaction((txn) async {
-      // HANYA HAPUS YANG ID NYA POSITIF (dari server)
-      // Jangan hapus yang ID negatif (kategori offline baru)
       await txn.delete('categories', where: 'id > 0');
-      
       final batch = txn.batch();
       for (final c in categories) {
         batch.insert('categories', c.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
@@ -121,11 +132,23 @@ class LocalDb {
     await db.insert('categories', category.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<void> deleteCategory(int id) async {
+  Future<void> softDeleteCategory(int id) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.update('products', {'category_id': null}, where: 'category_id = ?', whereArgs: [id]);
-      await txn.delete('categories', where: 'id = ?', whereArgs: [id]);
+      // Nonaktifkan kategori
+      await txn.update(
+        'categories',
+        {'is_active': 0},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      // Nonaktifkan semua produk di kategori ini juga (opsional, tapi logis)
+      await txn.update(
+        'products',
+        {'is_active': 0, 'is_synced': 0},
+        where: 'category_id = ?',
+        whereArgs: [id],
+      );
     });
   }
 }

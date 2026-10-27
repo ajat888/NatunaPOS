@@ -24,6 +24,7 @@ class _KelolaScreenState extends State<KelolaScreen>
   List<Product> _products = [];
   List<Category> _categories = [];
   int? _filterCategoryId;
+  bool _showInactive = false; // Filter Status
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -49,7 +50,6 @@ class _KelolaScreenState extends State<KelolaScreen>
     }
 
     try {
-      // 1. BACA LOKAL (INSTAN)
       final products = await _service.getLocalProducts();
       final categories = await _service.getLocalCategories();
       
@@ -60,7 +60,6 @@ class _KelolaScreenState extends State<KelolaScreen>
         _isLoading = false;
       });
 
-      // 2. TRIGGER SINKRONISASI BACKGROUND
       _service.syncData().then((_) async {
         try {
           final updatedProducts = await _service.getLocalProducts();
@@ -89,9 +88,17 @@ class _KelolaScreenState extends State<KelolaScreen>
     return null;
   }
 
+  // FILTER BERDASARKAN KATEGORI & STATUS
   List<Product> get _filteredProducts {
-    if (_filterCategoryId == null) return _products;
-    return _products.where((p) => p.categoryId == _filterCategoryId).toList();
+    return _products.where((p) {
+      final matchCategory = _filterCategoryId == null || p.categoryId == _filterCategoryId;
+      final matchStatus = p.isActive == !_showInactive;
+      return matchCategory && matchStatus;
+    }).toList();
+  }
+
+  List<Category> get _filteredCategories {
+    return _categories.where((c) => c.isActive == !_showInactive).toList();
   }
 
   Future<void> _showProductDialog({Product? existing}) async {
@@ -100,7 +107,7 @@ class _KelolaScreenState extends State<KelolaScreen>
       barrierDismissible: false,
       builder: (_) => _ProductDialog(
         existing: existing,
-        categories: _categories,
+        categories: _categories.where((c) => c.isActive).toList(),
         service: _service,
       ),
     );
@@ -124,14 +131,14 @@ class _KelolaScreenState extends State<KelolaScreen>
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Hapus Produk'),
-        content: Text('Yakin ingin menghapus "${product.name}"?'),
+        title: const Text('Nonaktifkan Produk'),
+        content: Text('Yakin ingin menonaktifkan "${product.name}"?\nProduk tidak akan muncul di kasir.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('BATAL')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerColor),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('HAPUS'),
+            child: const Text('NONAKTIFKAN'),
           ),
         ],
       ),
@@ -140,28 +147,28 @@ class _KelolaScreenState extends State<KelolaScreen>
     await _service.deleteProduct(product.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Produk dihapus'), backgroundColor: Colors.green),
+      const SnackBar(content: Text('Produk dinonaktifkan'), backgroundColor: Colors.green),
     );
     await _loadAll();
   }
 
   Future<void> _confirmDeleteCategory(Category category) async {
-    final affected = _products.where((p) => p.categoryId == category.id).length;
+    final affected = _products.where((p) => p.categoryId == category.id && p.isActive).length;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Hapus Kategori'),
+        title: const Text('Nonaktifkan Kategori'),
         content: Text(
-          'Yakin ingin menghapus kategori "${category.name}"?'
-          '${affected > 0 ? '\n\n$affected produk akan menjadi Tanpa Kategori.' : ''}',
+          'Yakin ingin menonaktifkan kategori "${category.name}"?'
+          '${affected > 0 ? '\n\n$affected produk aktif di dalamnya akan ikut dinonaktifkan.' : ''}',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('BATAL')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerColor),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('HAPUS'),
+            child: const Text('NONAKTIFKAN'),
           ),
         ],
       ),
@@ -170,7 +177,7 @@ class _KelolaScreenState extends State<KelolaScreen>
     await _service.deleteCategory(category.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Kategori dihapus'), backgroundColor: Colors.green),
+      const SnackBar(content: Text('Kategori dinonaktifkan'), backgroundColor: Colors.green),
     );
     await _loadAll();
   }
@@ -183,7 +190,31 @@ class _KelolaScreenState extends State<KelolaScreen>
         title: const Text('Kelola Data'),
         automaticallyImplyLeading: false,
         actions: [
+          // Toggle Filter Nonaktif
+          Row(
+            children: [
+              Text(
+                _showInactive ? 'Non-Aktif' : 'Aktif',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _showInactive ? AppTheme.dangerColor : AppTheme.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Switch(
+                value: _showInactive,
+                activeColor: AppTheme.dangerColor,
+                onChanged: (val) {
+                  setState(() {
+                    _showInactive = val;
+                    _filterCategoryId = null;
+                  });
+                },
+              ),
+            ],
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadAll, tooltip: 'Muat ulang'),
+          const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -219,7 +250,7 @@ class _KelolaScreenState extends State<KelolaScreen>
       children: [
         Column(
           children: [
-            if (_categories.isNotEmpty)
+            if (!_showInactive && _categories.isNotEmpty)
               Container(
                 height: 50,
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -233,7 +264,7 @@ class _KelolaScreenState extends State<KelolaScreen>
                       onSelected: (val) => setState(() => _filterCategoryId = null),
                     ),
                     const SizedBox(width: 8),
-                    ..._categories.map((c) => Padding(
+                    ..._categories.where((c) => c.isActive).map((c) => Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
                         label: Text(c.name),
@@ -246,7 +277,12 @@ class _KelolaScreenState extends State<KelolaScreen>
               ),
             Expanded(
               child: _filteredProducts.isEmpty
-                  ? const Center(child: Text('Tidak ada produk di kategori ini.', style: TextStyle(color: AppTheme.textLightColor)))
+                  ? Center(
+                      child: Text(
+                        _showInactive ? 'Tidak ada data non-aktif.' : 'Tidak ada produk aktif.',
+                        style: const TextStyle(color: AppTheme.textLightColor),
+                      ),
+                    )
                   : GridView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -305,11 +341,13 @@ class _KelolaScreenState extends State<KelolaScreen>
                                           onTap: () => _showProductDialog(existing: product),
                                           child: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor, size: 20),
                                         ),
-                                        const SizedBox(width: 12),
-                                        InkWell(
-                                          onTap: () => _confirmDeleteProduct(product),
-                                          child: const Icon(Icons.delete_outline, color: AppTheme.dangerColor, size: 20),
-                                        ),
+                                        if (!_showInactive) ...[
+                                          const SizedBox(width: 12),
+                                          InkWell(
+                                            onTap: () => _confirmDeleteProduct(product),
+                                            child: const Icon(Icons.block, color: AppTheme.dangerColor, size: 20),
+                                          ),
+                                        ]
                                       ],
                                     )
                                   ],
@@ -323,34 +361,42 @@ class _KelolaScreenState extends State<KelolaScreen>
             ),
           ],
         ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            onPressed: () => _showProductDialog(),
-            icon: const Icon(Icons.add),
-            label: const Text('Tambah Produk'),
+        if (!_showInactive)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              onPressed: () => _showProductDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah Produk'),
+            ),
           ),
-        ),
       ],
     );
   }
 
   Widget _buildProductImage(Product product) {
+    Widget img = _buildImagePlaceholder();
     if (product.localImagePath != null && File(product.localImagePath!).existsSync()) {
-      return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
-    }
-    if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
-      return Image.network(
+      img = Image.file(File(product.localImagePath!), fit: BoxFit.cover);
+    } else if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
+      img = Image.network(
         product.imageUrl!,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
       );
     }
-    return _buildImagePlaceholder();
+    
+    if (!product.isActive) {
+      return ColorFiltered(
+        colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+        child: img,
+      );
+    }
+    return img;
   }
 
   Widget _buildImagePlaceholder() {
@@ -363,15 +409,20 @@ class _KelolaScreenState extends State<KelolaScreen>
   Widget _buildCategoriesTab() {
     return Stack(
       children: [
-        _categories.isEmpty
-            ? const Center(child: Text('Belum ada kategori. Tambahkan kategori pertama Anda.', style: TextStyle(color: AppTheme.textLightColor)))
+        _filteredCategories.isEmpty
+            ? Center(
+                child: Text(
+                  _showInactive ? 'Tidak ada kategori non-aktif.' : 'Belum ada kategori aktif.',
+                  style: const TextStyle(color: AppTheme.textLightColor),
+                ),
+              )
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-                itemCount: _categories.length,
+                itemCount: _filteredCategories.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final count = _products.where((p) => p.categoryId == category.id).length;
+                  final category = _filteredCategories[index];
+                  final count = _products.where((p) => p.categoryId == category.id && p.isActive).length;
                   return Container(
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceColor,
@@ -383,31 +434,33 @@ class _KelolaScreenState extends State<KelolaScreen>
                       title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textColor)),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text('$count produk', style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13)),
+                        child: Text('$count produk aktif', style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13)),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor), onPressed: () => _showCategoryDialog(existing: category), tooltip: 'Edit'),
-                          IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor), onPressed: () => _confirmDeleteCategory(category), tooltip: 'Hapus'),
+                          if (!_showInactive)
+                            IconButton(icon: const Icon(Icons.block, color: AppTheme.dangerColor), onPressed: () => _confirmDeleteCategory(category), tooltip: 'Nonaktifkan'),
                         ],
                       ),
                     ),
                   );
                 },
               ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            onPressed: () => _showCategoryDialog(),
-            icon: const Icon(Icons.add),
-            label: const Text('Tambah Kategori'),
+        if (!_showInactive)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              onPressed: () => _showCategoryDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah Kategori'),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -527,15 +580,16 @@ class _ProductDialogState extends State<_ProductDialog> {
           localImageFile: _imageFile,
           localImagePath: _localImagePath,
           existingImageUrl: _existingImageUrl,
+          isActive: widget.existing!.isActive,
         );
       }
       if (!mounted) return;
-      Navigator.pop(context, true); // INSTAN TUTUP DIALOG
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSaving = false;
-        _errorMessage = e.toString();
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     }
   }
@@ -692,15 +746,15 @@ class _CategoryDialogState extends State<_CategoryDialog> {
       if (widget.existing == null) {
         await widget.service.createCategory(name);
       } else {
-        await widget.service.updateCategory(id: widget.existing!.id, name: name);
+        await widget.service.updateCategory(id: widget.existing!.id, name: name, isActive: widget.existing!.isActive);
       }
       if (!mounted) return;
-      Navigator.pop(context, true); // INSTAN
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSaving = false;
-        _errorMessage = e.toString();
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     }
   }

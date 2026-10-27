@@ -1,16 +1,19 @@
 class Category {
   final int id;
   final String name;
+  final bool isActive;
 
   Category({
     required this.id,
     required this.name,
+    this.isActive = true,
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
+      isActive: json['is_active'] as bool? ?? true,
     );
   }
 
@@ -18,6 +21,7 @@ class Category {
     return {
       'id': id,
       'name': name,
+      'is_active': isActive,
     };
   }
 
@@ -25,6 +29,7 @@ class Category {
     return Category(
       id: map['id'] as int,
       name: map['name'] as String,
+      isActive: (map['is_active'] as int? ?? 1) == 1,
     );
   }
 
@@ -32,7 +37,16 @@ class Category {
     return {
       'id': id,
       'name': name,
+      'is_active': isActive ? 1 : 0,
     };
+  }
+
+  Category copyWith({int? id, String? name, bool? isActive}) {
+    return Category(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      isActive: isActive ?? this.isActive,
+    );
   }
 
   @override
