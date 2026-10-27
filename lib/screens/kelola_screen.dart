@@ -235,7 +235,8 @@ class _KelolaScreenState extends State<KelolaScreen>
                 ),
               )
             : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                // Padding bawah diperbesar menjadi 120 agar tidak tertutup FAB
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 itemCount: _products.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
@@ -317,7 +318,8 @@ class _KelolaScreenState extends State<KelolaScreen>
                 ),
               )
             : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                // Padding bawah diperbesar menjadi 120 agar tidak tertutup FAB
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 itemCount: _categories.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
