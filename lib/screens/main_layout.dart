@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import 'dashboard_screen.dart';
 import 'pos_screen.dart';
+import 'kelola_screen.dart';
 import 'history_screen.dart';
 import 'login_screen.dart';
 import '../services/supabase_service.dart';
@@ -17,11 +18,12 @@ class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   final _service = SupabaseService();
 
-  // Daftar halaman yang akan ditampilkan
-  final List<Widget> _pages = [
-    const DashboardScreen(),
-    const PosScreen(),
-    const HistoryScreen(),
+  // IndexedStack menjaga state semua halaman tetap hidup
+  static const List<Widget> _pages = [
+    DashboardScreen(),
+    PosScreen(),
+    KelolaScreen(),
+    HistoryScreen(),
   ];
 
   Future<void> _handleLogout() async {
@@ -39,7 +41,6 @@ class _MainLayoutState extends State<MainLayout> {
     return Scaffold(
       body: Row(
         children: [
-          // Navigation Rail (Menu Samping)
           NavigationRail(
             backgroundColor: AppTheme.surfaceColor,
             selectedIndex: _selectedIndex,
@@ -49,18 +50,22 @@ class _MainLayoutState extends State<MainLayout> {
               });
             },
             labelType: NavigationRailLabelType.all,
-            selectedIconTheme: const IconThemeData(color: AppTheme.primaryColor),
+            selectedIconTheme:
+                const IconThemeData(color: AppTheme.primaryColor),
             selectedLabelTextStyle: const TextStyle(
               color: AppTheme.primaryColor,
               fontWeight: FontWeight.bold,
             ),
-            unselectedIconTheme: const IconThemeData(color: AppTheme.textLightColor),
-            unselectedLabelTextStyle: const TextStyle(color: AppTheme.textLightColor),
+            unselectedIconTheme:
+                const IconThemeData(color: AppTheme.textLightColor),
+            unselectedLabelTextStyle:
+                const TextStyle(color: AppTheme.textLightColor),
             leading: Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 children: [
-                  const Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
+                  const Icon(Icons.storefront,
+                      color: AppTheme.primaryColor, size: 32),
                   const SizedBox(height: 8),
                   Text(
                     'NatunaPOS',
@@ -81,7 +86,8 @@ class _MainLayoutState extends State<MainLayout> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 24),
                   child: IconButton(
-                    icon: const Icon(Icons.logout, color: AppTheme.dangerColor),
+                    icon: const Icon(Icons.logout,
+                        color: AppTheme.dangerColor),
                     onPressed: _handleLogout,
                     tooltip: 'Keluar',
                   ),
@@ -100,18 +106,24 @@ class _MainLayoutState extends State<MainLayout> {
                 label: Text('Kasir'),
               ),
               NavigationRailDestination(
+                icon: Icon(Icons.inventory_2_outlined),
+                selectedIcon: Icon(Icons.inventory_2),
+                label: Text('Kelola'),
+              ),
+              NavigationRailDestination(
                 icon: Icon(Icons.receipt_long_outlined),
                 selectedIcon: Icon(Icons.receipt_long),
                 label: Text('Riwayat'),
               ),
             ],
           ),
-          // Garis pemisah vertikal tipis (khas UI korporat)
-          const VerticalDivider(thickness: 1, width: 1, color: Color(0xFFE2E8F0)),
-          
-          // Area Konten Utama
+          const VerticalDivider(
+              thickness: 1, width: 1, color: Color(0xFFE2E8F0)),
           Expanded(
-            child: _pages[_selectedIndex],
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: _pages,
+            ),
           ),
         ],
       ),

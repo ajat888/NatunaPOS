@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/product.dart';
+import '../models/category.dart';
 
 class LocalDb {
   static final LocalDb instance = LocalDb._init();
@@ -17,45 +18,112 @@ class LocalDb {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Membuat tabel produk
+    await db.execute('''
+      CREATE TABLE categories (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL
+      )
+    ''');
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
-        price INTEGER NOT NULL
+        price INTEGER NOT NULL,
+        category_id INTEGER
       )
     ''');
   }
 
-  // Fungsi untuk menyimpan data dari Supabase ke HP
-  Future<void> saveProducts(List<Product> products) async {
-    final db = await database;
-    final batch = db.batch();
-
-    for (var product in products) {
-      batch.insert(
-        'products',
-        product.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.replace, // Timpa jika ID sama
-      );
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS categories (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL
+        )
+      ''');
+      await db.execute('ALTER TABLE products ADD COLUMN category_id INTEGER');
     }
-    await batch.commit();
   }
 
-  // Fungsi untuk mengambil data dari HP saat offline
+  // === PRODUCTS ===
+
+  Future<void> replaceAllProducts(List<Product> products) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('products');
+      final batch = txn.batch();
+      for (final p in products) {
+        batch.insert('products', p.toDb(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
   Future<List<Product>> getProducts() async {
     final db = await database;
     final maps = await db.query('products');
+    return maps.map((m) => Product.fromDb(m)).toList();
+  }
 
-    return maps.map((map) => Product.fromDb(map)).toList();
+  Future<void> upsertProduct(Product product) async {
+    final db = await database;
+    await db.insert('products', product.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteProduct(int id) async {
+    final db = await database;
+    await db.delete('products', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // === CATEGORIES ===
+
+  Future<void> replaceAllCategories(List<Category> categories) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('categories');
+      final batch = txn.batch();
+      for (final c in categories) {
+        batch.insert('categories', c.toDb(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  Future<List<Category>> getCategories() async {
+    final db = await database;
+    final maps = await db.query('categories');
+    return maps.map((m) => Category.fromDb(m)).toList();
+  }
+
+  Future<void> upsertCategory(Category category) async {
+    final db = await database;
+    await db.insert('categories', category.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteCategory(int id) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'products',
+        {'category_id': null},
+        where: 'category_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete('categories', where: 'id = ?', whereArgs: [id]);
+    });
   }
 }
