@@ -26,7 +26,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # PERBAIKAN: Menggunakan KEYSTORE_PASSWORD sesuai nama Secret Anda
       - name: Decode keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
@@ -35,8 +34,12 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=key.jks" >> android/key.properties
 
+      # PERBAIKAN: Menambahkan --dart-define agar Supabase terbaca saat login
       - name: Build release APK
-        run: flutter build apk --release --target-platform android-arm64
+        run: |
+          flutter build apk --release --target-platform android-arm64 \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
