@@ -2,66 +2,54 @@ name: Build Flutter APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      # 1. CACHE PUB DEPENDENCIES (DART PACKAGES)
-      - name: Cache Pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 2. CACHE GRADLE DEPENDENCIES
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
+      # 1. Setup Java (Menggunakan cache Gradle)
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
-          
-      - name: Setup Flutter
+          cache: 'gradle'
+
+      # 2. Setup Flutter SDK (Mengaktifkan cache: true)
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
-          channel: stable
-          cache: true
+          channel: 'stable'
+          cache: true # Ini akan meng-cache Flutter SDK dan dependencies-nya
 
+      # 3. Ambil Dependencies (Akan sangat cepat jika cache pub-cache aktif)
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Decode Keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
-
-      - name: Create key.properties
+      # 4. Decode Keystore dari Secrets
+      - name: Decode keystore
         run: |
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=upload-keystore.jks" >> android/key.properties
-        
-      - name: Build APK
-        run: flutter build apk --release --target-platform=android-arm64 --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-        
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.STORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=upload-keystore.jks
+          EOF
+
+      # 5. Build APK Release
+      - name: Build release APK
+        run: flutter build apk --release
+
+      # 6. Upload APK sebagai Artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
