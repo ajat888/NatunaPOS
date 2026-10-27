@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme.dart';
 import 'screens/login_screen.dart';
-import 'screens/main_layout.dart'; // Import MainLayout
+import 'screens/main_layout.dart'; // Memanggil MainLayout
 import 'services/supabase_service.dart';
 
 void main() async {

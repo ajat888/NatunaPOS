@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../core/theme.dart';
-import 'home_screen.dart';
-import 'main_layout.dart';
+import 'main_layout.dart'; // PENTING: Memanggil MainLayout, bukan home_screen
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,10 +27,11 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(builder: (_) => const MainLayout()), // Ubah ke MainLayout
-);
+  Future<void> _handleLogin() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      setState(() => _errorMessage = 'Email dan Password tidak boleh kosong');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -44,9 +44,11 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
       if (!mounted) return;
+      
+      // Navigasi ke MainLayout setelah sukses login
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainLayout()),
       );
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -61,7 +63,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Cek apakah layar lebar (landscape/tablet/web)
     final isWideScreen = MediaQuery.of(context).size.width > 800;
 
     return Scaffold(
@@ -148,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
-            labelText: 'Email Karyawan',
+            labelText: 'Email',
             prefixIcon: Icon(Icons.email_outlined),
           ),
         ),
