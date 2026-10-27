@@ -92,7 +92,6 @@ class LocalDb {
     await db.insert('products', product.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // Ubah fungsi delete menjadi Soft Delete (Update is_active = 0)
   Future<void> softDeleteProduct(int id) async {
     final db = await database;
     await db.update(
@@ -135,20 +134,14 @@ class LocalDb {
   Future<void> softDeleteCategory(int id) async {
     final db = await database;
     await db.transaction((txn) async {
-      // Nonaktifkan kategori
-      await txn.update(
-        'categories',
-        {'is_active': 0},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      // Nonaktifkan semua produk di kategori ini juga (opsional, tapi logis)
-      await txn.update(
-        'products',
-        {'is_active': 0, 'is_synced': 0},
-        where: 'category_id = ?',
-        whereArgs: [id],
-      );
+      await txn.update('categories', {'is_active': 0}, where: 'id = ?', whereArgs: [id]);
+      await txn.update('products', {'is_active': 0, 'is_synced': 0}, where: 'category_id = ?', whereArgs: [id]);
     });
+  }
+
+  // FUNGSI BARU: Untuk menghapus kategori offline dari HP setelah sukses upload
+  Future<void> hardDeleteCategory(int id) async {
+    final db = await database;
+    await db.delete('categories', where: 'id = ?', whereArgs: [id]);
   }
 }

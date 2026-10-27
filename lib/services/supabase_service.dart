@@ -46,13 +46,14 @@ class SupabaseService {
             'name': c.name,
             'is_active': c.isActive,
           }).select().single();
-          await _localDb.hardDeleteProduct(c.id); // Jika ada sisa produk
-          await _localDb.hardDeleteProduct(c.id); // Ganti dengan hard delete kategori
-          await _localDb.upsertCategory(Category.fromJson(response));
+          
+          // PERBAIKAN BUG: Hapus ID negatif dari HP
+          await _localDb.hardDeleteCategory(c.id); 
+          await _localDb.upsertCategory(Category.fromJson(response)); 
         } catch (_) {}
       }
 
-      // Tarik Kategori
+      // Tarik Kategori dari Server
       try {
         final response = await _client.from('categories').select().order('id', ascending: true);
         final serverCategories = (response as List).map((json) => Category.fromJson(json)).toList();
@@ -71,7 +72,6 @@ class SupabaseService {
           }
 
           if (p.id < 0) {
-            // INSERT BARU
             final response = await _client.from('products').insert({
               'name': p.name,
               'price': p.price,
@@ -80,10 +80,10 @@ class SupabaseService {
               'image_url': finalImageUrl,
               'is_active': p.isActive,
             }).select().single();
-            await _localDb.hardDeleteProduct(p.id);
-            await _localDb.upsertProduct(Product.fromJson(response));
+            
+            await _localDb.hardDeleteProduct(p.id); // Hapus ID negatif
+            await _localDb.upsertProduct(Product.fromJson(response)); 
           } else {
-            // UPDATE DATA LAMA (Termasuk Soft Delete)
             await _client.from('products').update({
               'name': p.name,
               'price': p.price,
@@ -92,6 +92,7 @@ class SupabaseService {
               'image_url': finalImageUrl,
               'is_active': p.isActive,
             }).eq('id', p.id);
+            
             await _localDb.upsertProduct(p.copyWith(isSynced: true));
           }
         } catch (_) {}
@@ -172,10 +173,8 @@ class SupabaseService {
     await _localDb.upsertProduct(p);
   }
 
-  // SOFT DELETE
   Future<void> deleteProduct(int id) async {
     await _localDb.softDeleteProduct(id);
-    // Sinkronisasi background tanpa menunggu (fire and forget)
     Future(() async {
       if (id > 0) {
         try { await _client.from('products').update({'is_active': false}).eq('id', id); } catch (_) {}
@@ -193,7 +192,7 @@ class SupabaseService {
     Future(() async {
       try {
         final response = await _client.from('categories').insert({'name': name, 'is_active': true}).select().single();
-        await _localDb.hardDeleteProduct(tempId); // Dummy fix if needed
+        await _localDb.hardDeleteCategory(tempId);
         await _localDb.upsertCategory(Category.fromJson(response));
       } catch (_) {}
     });
@@ -211,14 +210,12 @@ class SupabaseService {
     });
   }
 
-  // SOFT DELETE
   Future<void> deleteCategory(int id) async {
     await _localDb.softDeleteCategory(id);
     Future(() async {
       if (id > 0) {
         try {
           await _client.from('categories').update({'is_active': false}).eq('id', id);
-          // Produk di dalamnya juga jadikan non-aktif di server
           await _client.from('products').update({'is_active': false}).eq('category_id', id);
         } catch (_) {}
       }
