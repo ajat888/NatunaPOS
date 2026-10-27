@@ -46,48 +46,27 @@ class _MainLayoutState extends State<MainLayout> {
                 width: 80,
                 decoration: const BoxDecoration(
                   color: AppTheme.surfaceColor,
-                  border: Border(
-                    right: BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
+                  border: Border(right: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
-                // MENGHAPUS IntrinsicHeight UNTUK MENCEGAH BUG RENDER BERULANG
                 child: SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: constraints.maxHeight),
                     child: NavigationRail(
                       backgroundColor: Colors.transparent,
                       selectedIndex: _selectedIndex,
-                      onDestinationSelected: (int index) {
-                        setState(() {
-                          _selectedIndex = index;
-                        });
-                      },
+                      onDestinationSelected: (int index) => setState(() => _selectedIndex = index),
                       labelType: NavigationRailLabelType.all,
-                      selectedIconTheme:
-                          const IconThemeData(color: AppTheme.primaryColor),
-                      selectedLabelTextStyle: const TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      unselectedIconTheme:
-                          const IconThemeData(color: AppTheme.textLightColor),
-                      unselectedLabelTextStyle:
-                          const TextStyle(color: AppTheme.textLightColor),
+                      selectedIconTheme: const IconThemeData(color: AppTheme.primaryColor),
+                      selectedLabelTextStyle: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                      unselectedIconTheme: const IconThemeData(color: AppTheme.textLightColor),
+                      unselectedLabelTextStyle: const TextStyle(color: AppTheme.textLightColor),
                       leading: Padding(
                         padding: const EdgeInsets.only(top: 16, bottom: 8),
                         child: Column(
                           children: [
-                            const Icon(Icons.storefront,
-                                color: AppTheme.primaryColor, size: 32),
+                            const Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
                             const SizedBox(height: 4),
-                            Text(
-                              'NatunaPOS',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryColor.withOpacity(0.8),
-                              ),
-                            ),
+                            Text('NatunaPOS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor.withOpacity(0.8))),
                             const SizedBox(height: 8),
                             const Divider(height: 1),
                           ],
@@ -100,36 +79,15 @@ class _MainLayoutState extends State<MainLayout> {
                           children: [
                             const Divider(height: 1),
                             const SizedBox(height: 8),
-                            IconButton(
-                              icon: const Icon(Icons.logout,
-                                  color: AppTheme.dangerColor),
-                              onPressed: _handleLogout,
-                              tooltip: 'Keluar',
-                            ),
+                            IconButton(icon: const Icon(Icons.logout, color: AppTheme.dangerColor), onPressed: _handleLogout, tooltip: 'Keluar'),
                           ],
                         ),
                       ),
                       destinations: const [
-                        NavigationRailDestination(
-                          icon: Icon(Icons.dashboard_outlined),
-                          selectedIcon: Icon(Icons.dashboard),
-                          label: Text('Beranda'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.point_of_sale_outlined),
-                          selectedIcon: Icon(Icons.point_of_sale),
-                          label: Text('Kasir'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.inventory_2_outlined),
-                          selectedIcon: Icon(Icons.inventory_2),
-                          label: Text('Kelola'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.receipt_long_outlined),
-                          selectedIcon: Icon(Icons.receipt_long),
-                          label: Text('Riwayat'),
-                        ),
+                        NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: Text('Beranda')),
+                        NavigationRailDestination(icon: Icon(Icons.point_of_sale_outlined), selectedIcon: Icon(Icons.point_of_sale), label: Text('Kasir')),
+                        NavigationRailDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: Text('Kelola')),
+                        NavigationRailDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: Text('Riwayat')),
                       ],
                     ),
                   ),
@@ -137,12 +95,8 @@ class _MainLayoutState extends State<MainLayout> {
               );
             },
           ),
-          
           Expanded(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: _pages,
-            ),
+            child: IndexedStack(index: _selectedIndex, children: _pages),
           ),
         ],
       ),

@@ -7,7 +7,6 @@ class Product {
   final String? imageUrl;
   final String? localImagePath;
   final bool isSynced;
-  final bool isActive;
 
   Product({
     required this.id,
@@ -18,7 +17,6 @@ class Product {
     this.imageUrl,
     this.localImagePath,
     this.isSynced = true,
-    this.isActive = true,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -30,7 +28,6 @@ class Product {
       categoryId: (json['category_id'] as num?)?.toInt(),
       imageUrl: json['image_url'] as String?,
       isSynced: true,
-      isActive: json['is_active'] as bool? ?? true,
     );
   }
 
@@ -42,7 +39,6 @@ class Product {
       'hpp': hpp,
       'category_id': categoryId,
       'image_url': imageUrl,
-      'is_active': isActive,
     };
   }
 
@@ -56,7 +52,6 @@ class Product {
       imageUrl: map['image_url'] as String?,
       localImagePath: map['local_image_path'] as String?,
       isSynced: (map['is_synced'] as int? ?? 1) == 1,
-      isActive: (map['is_active'] as int? ?? 1) == 1,
     );
   }
 
@@ -70,7 +65,6 @@ class Product {
       'image_url': imageUrl,
       'local_image_path': localImagePath,
       'is_synced': isSynced ? 1 : 0,
-      'is_active': isActive ? 1 : 0,
     };
   }
 
@@ -83,7 +77,6 @@ class Product {
     String? imageUrl,
     String? localImagePath,
     bool? isSynced,
-    bool? isActive,
   }) {
     return Product(
       id: id ?? this.id,
@@ -94,7 +87,6 @@ class Product {
       imageUrl: imageUrl ?? this.imageUrl,
       localImagePath: localImagePath ?? this.localImagePath,
       isSynced: isSynced ?? this.isSynced,
-      isActive: isActive ?? this.isActive,
     );
   }
 

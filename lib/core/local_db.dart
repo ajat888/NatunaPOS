@@ -20,14 +20,14 @@ class LocalDb {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 5,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
-    await db.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, is_active INTEGER DEFAULT 1)');
+    await db.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY,
@@ -37,8 +37,7 @@ class LocalDb {
         category_id INTEGER,
         image_url TEXT,
         local_image_path TEXT,
-        is_synced INTEGER DEFAULT 1,
-        is_active INTEGER DEFAULT 1
+        is_synced INTEGER DEFAULT 1
       )
     ''');
   }
@@ -56,13 +55,8 @@ class LocalDb {
       await db.execute('ALTER TABLE products ADD COLUMN local_image_path TEXT');
       await db.execute('ALTER TABLE products ADD COLUMN is_synced INTEGER DEFAULT 1');
     }
-    if (oldVersion < 5) {
-      await db.execute('ALTER TABLE categories ADD COLUMN is_active INTEGER DEFAULT 1');
-      await db.execute('ALTER TABLE products ADD COLUMN is_active INTEGER DEFAULT 1');
-    }
   }
 
-  // === PRODUCTS ===
   Future<void> replaceAllProducts(List<Product> serverProducts) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -92,22 +86,11 @@ class LocalDb {
     await db.insert('products', product.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<void> softDeleteProduct(int id) async {
-    final db = await database;
-    await db.update(
-      'products',
-      {'is_active': 0, 'is_synced': 0},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<void> hardDeleteProduct(int id) async {
+  Future<void> deleteProduct(int id) async {
     final db = await database;
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
   }
 
-  // === CATEGORIES ===
   Future<void> replaceAllCategories(List<Category> categories) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -131,17 +114,11 @@ class LocalDb {
     await db.insert('categories', category.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<void> softDeleteCategory(int id) async {
+  Future<void> deleteCategory(int id) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.update('categories', {'is_active': 0}, where: 'id = ?', whereArgs: [id]);
-      await txn.update('products', {'is_active': 0, 'is_synced': 0}, where: 'category_id = ?', whereArgs: [id]);
+      await txn.update('products', {'category_id': null}, where: 'category_id = ?', whereArgs: [id]);
+      await txn.delete('categories', where: 'id = ?', whereArgs: [id]);
     });
-  }
-
-  // FUNGSI BARU: Untuk menghapus kategori offline dari HP setelah sukses upload
-  Future<void> hardDeleteCategory(int id) async {
-    final db = await database;
-    await db.delete('categories', where: 'id = ?', whereArgs: [id]);
   }
 }

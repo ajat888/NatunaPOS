@@ -18,10 +18,8 @@ pluginManagement {
 
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    // PERBAIKAN: Naikkan AGP dari 8.1.4 ke 8.11.1
-    id "com.android.application" version "8.11.1" apply false
-    // PERBAIKAN: Naikkan Kotlin ke versi yang kompatibel (>= 2.1.0)
-    id "org.jetbrains.kotlin.android" version "2.2.20" apply false
+    id "com.android.application" version "8.1.4" apply false
+    id "org.jetbrains.kotlin.android" version "2.0.20" apply false
 }
 
 include ":app"
