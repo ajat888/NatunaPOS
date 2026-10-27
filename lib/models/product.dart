@@ -1,47 +1,42 @@
-import 'package:syncable/syncable.dart';
-
-class Product extends SyncableEntity {
-  String name;
-  int price;
+class Product {
+  final int id;
+  final String name;
+  final int price;
 
   Product({
-    super.id, // ID dari Supabase
+    required this.id,
     required this.name,
     required this.price,
-    super.createdAt,
-    super.updatedAt,
-    super.deleted,
   });
 
-  // Konversi dari JSON Supabase (untuk sinkronisasi)
+  // Untuk mengambil data dari Supabase (JSON)
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id']?.toString(),
+      id: json['id'] as int,
       name: json['name'] as String? ?? '',
       price: (json['price'] as num?)?.toInt() ?? 0,
     );
   }
 
-  // Konversi ke JSON untuk dikirim ke Supabase
-  @override
+  // Untuk mengirim data ke Supabase
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
+      'id': id,
       'name': name,
       'price': price,
     };
   }
 
-  // Konversi dari Database SQLite (untuk dibaca aplikasi)
+  // Untuk mengambil data dari SQLite (Database HP)
   factory Product.fromDb(Map<String, dynamic> map) {
     return Product(
-      id: map['id']?.toString(),
+      id: map['id'] as int,
       name: map['name'] as String,
       price: map['price'] as int,
     );
   }
 
-  // Konversi ke Database SQLite
+  // Untuk menyimpan ke SQLite
   Map<String, dynamic> toDb() {
     return {
       'id': id,
