@@ -41,24 +41,42 @@ class _KelolaScreenState extends State<KelolaScreen>
   }
 
   Future<void> _loadAll() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
     try {
-      final products = await _service.fetchProducts();
-      final categories = await _service.fetchCategories();
+      // 1. BACA LOKAL (INSTAN)
+      final products = await _service.getLocalProducts();
+      final categories = await _service.getLocalCategories();
+      
       if (!mounted) return;
       setState(() {
         _products = products;
         _categories = categories;
         _isLoading = false;
       });
+
+      // 2. TRIGGER SINKRONISASI BACKGROUND
+      _service.syncData().then((_) async {
+        try {
+          final updatedProducts = await _service.getLocalProducts();
+          final updatedCategories = await _service.getLocalCategories();
+          if (!mounted) return;
+          setState(() {
+            _products = updatedProducts;
+            _categories = updatedCategories;
+          });
+        } catch (_) {}
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Gagal memuat data. Periksa koneksi Anda.';
+        _errorMessage = 'Gagal memuat data lokal.';
       });
     }
   }
@@ -119,18 +137,12 @@ class _KelolaScreenState extends State<KelolaScreen>
       ),
     );
     if (confirmed != true) return;
-    try {
-      await _service.deleteProduct(product.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Produk dihapus'), backgroundColor: Colors.green),
-      );
-      await _loadAll();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      await _loadAll();
-    }
+    await _service.deleteProduct(product.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Produk dihapus'), backgroundColor: Colors.green),
+    );
+    await _loadAll();
   }
 
   Future<void> _confirmDeleteCategory(Category category) async {
@@ -155,17 +167,12 @@ class _KelolaScreenState extends State<KelolaScreen>
       ),
     );
     if (confirmed != true) return;
-    try {
-      await _service.deleteCategory(category.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kategori dihapus'), backgroundColor: Colors.green),
-      );
-      await _loadAll();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
+    await _service.deleteCategory(category.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Kategori dihapus'), backgroundColor: Colors.green),
+    );
+    await _loadAll();
   }
 
   @override
@@ -333,11 +340,9 @@ class _KelolaScreenState extends State<KelolaScreen>
   }
 
   Widget _buildProductImage(Product product) {
-    // 1. Prioritas Utama: File Lokal (jika offline atau belum di-upload)
     if (product.localImagePath != null && File(product.localImagePath!).existsSync()) {
       return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
     }
-    // 2. Jika sudah di-upload dan ada URL
     if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
       return Image.network(
         product.imageUrl!,
@@ -345,7 +350,6 @@ class _KelolaScreenState extends State<KelolaScreen>
         errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
       );
     }
-    // 3. Placeholder
     return _buildImagePlaceholder();
   }
 
@@ -482,7 +486,6 @@ class _ProductDialogState extends State<_ProductDialog> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     
     if (pickedFile != null) {
-      // Simpan file ke folder dokumen permanen aplikasi (bukan cache)
       final appDir = await getApplicationDocumentsDirectory();
       final fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final localFile = await File(pickedFile.path).copy('${appDir.path}/$fileName');
@@ -527,7 +530,7 @@ class _ProductDialogState extends State<_ProductDialog> {
         );
       }
       if (!mounted) return;
-      Navigator.pop(context, true);
+      Navigator.pop(context, true); // INSTAN TUTUP DIALOG
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -692,7 +695,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
         await widget.service.updateCategory(id: widget.existing!.id, name: name);
       }
       if (!mounted) return;
-      Navigator.pop(context, true);
+      Navigator.pop(context, true); // INSTAN
     } catch (e) {
       if (!mounted) return;
       setState(() {

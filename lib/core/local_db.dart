@@ -61,8 +61,7 @@ class LocalDb {
   Future<void> replaceAllProducts(List<Product> serverProducts) async {
     final db = await database;
     await db.transaction((txn) async {
-      // Hapus hanya produk yang SUDAH sinkron (is_synced = 1)
-      // Jangan hapus produk lokal yang belum di-upload (is_synced = 0)
+      // HANYA HAPUS YANG SUDAH SINKRON
       await txn.delete('products', where: 'is_synced = 1');
       
       final batch = txn.batch();
@@ -75,7 +74,7 @@ class LocalDb {
 
   Future<List<Product>> getProducts() async {
     final db = await database;
-    final maps = await db.query('products');
+    final maps = await db.query('products', orderBy: 'id ASC');
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
@@ -99,7 +98,10 @@ class LocalDb {
   Future<void> replaceAllCategories(List<Category> categories) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.delete('categories');
+      // HANYA HAPUS YANG ID NYA POSITIF (dari server)
+      // Jangan hapus yang ID negatif (kategori offline baru)
+      await txn.delete('categories', where: 'id > 0');
+      
       final batch = txn.batch();
       for (final c in categories) {
         batch.insert('categories', c.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
@@ -110,7 +112,7 @@ class LocalDb {
 
   Future<List<Category>> getCategories() async {
     final db = await database;
-    final maps = await db.query('categories');
+    final maps = await db.query('categories', orderBy: 'id ASC');
     return maps.map((m) => Category.fromDb(m)).toList();
   }
 

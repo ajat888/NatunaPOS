@@ -68,6 +68,28 @@ class Product {
     };
   }
 
+  Product copyWith({
+    int? id,
+    String? name,
+    int? price,
+    int? hpp,
+    int? categoryId,
+    String? imageUrl,
+    String? localImagePath,
+    bool? isSynced,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      price: price ?? this.price,
+      hpp: hpp ?? this.hpp,
+      categoryId: categoryId ?? this.categoryId,
+      imageUrl: imageUrl ?? this.imageUrl,
+      localImagePath: localImagePath ?? this.localImagePath,
+      isSynced: isSynced ?? this.isSynced,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) || (other is Product && other.id == id);

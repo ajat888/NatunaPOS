@@ -15,7 +15,6 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen> {
   final _service = SupabaseService();
   List<Product> _products = [];
-  // Cart pakai productId sebagai key -> aman walau Product object diganti
   final Map<int, int> _cart = {};
   bool _isLoading = true;
   String? _errorMessage;
@@ -27,25 +26,42 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<void> _loadProducts() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
     try {
-      final products = await _service.fetchProducts();
+      // 1. BACA LOKAL (INSTAN)
+      final products = await _service.getLocalProducts();
       if (!mounted) return;
+      
       final validIds = products.map((p) => p.id).toSet();
       setState(() {
         _products = products;
-        // Bersihkan cart dari produk yang sudah tidak ada
         _cart.removeWhere((id, _) => !validIds.contains(id));
         _isLoading = false;
+      });
+
+      // 2. TRIGGER SINKRONISASI BACKGROUND
+      _service.syncData().then((_) async {
+        try {
+          final updatedProducts = await _service.getLocalProducts();
+          if (!mounted) return;
+          final updatedValidIds = updatedProducts.map((p) => p.id).toSet();
+          setState(() {
+            _products = updatedProducts;
+            _cart.removeWhere((id, _) => !updatedValidIds.contains(id));
+          });
+        } catch (_) {}
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Gagal memuat produk.';
+        _errorMessage = 'Gagal memuat data lokal.';
       });
     }
   }
@@ -100,22 +116,18 @@ class _PosScreenState extends State<PosScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text('Konfirmasi Pembayaran'),
-        content: Text(
-            'Total tagihan: Rp ${formatCurrency.format(_totalPrice)}\n\nLanjutkan proses pembayaran?'),
+        content: Text('Total tagihan: Rp ${formatCurrency.format(_totalPrice)}\n\nLanjutkan proses pembayaran?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('BATAL',
-                style: TextStyle(color: AppTheme.textLightColor)),
+            child: const Text('BATAL', style: TextStyle(color: AppTheme.textLightColor)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               setState(() => _cart.clear());
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Transaksi Berhasil!'),
-                    backgroundColor: Colors.green),
+                const SnackBar(content: Text('Transaksi Berhasil!'), backgroundColor: Colors.green),
               );
             },
             child: const Text('BAYAR'),
@@ -130,9 +142,7 @@ class _PosScreenState extends State<PosScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(8))),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -144,38 +154,28 @@ class _PosScreenState extends State<PosScreen> {
                   children: [
                     const Padding(
                       padding: EdgeInsets.all(16),
-                      child: Text(
-                        'Keranjang Belanja',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
+                      child: Text('Keranjang Belanja', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                     const Divider(height: 1),
                     Flexible(
                       child: _cart.isEmpty
                           ? const Padding(
                               padding: EdgeInsets.all(24),
-                              child: Text('Keranjang kosong',
-                                  style: TextStyle(
-                                      color: AppTheme.textLightColor)),
+                              child: Text('Keranjang kosong', style: TextStyle(color: AppTheme.textLightColor)),
                             )
                           : ListView(
                               shrinkWrap: true,
                               children: _cart.entries.map((entry) {
                                 final product = _findProduct(entry.key);
-                                if (product == null) {
-                                  return const SizedBox.shrink();
-                                }
+                                if (product == null) return const SizedBox.shrink();
                                 return ListTile(
                                   title: Text(product.name),
-                                  subtitle: Text(
-                                      'Rp ${formatCurrency.format(product.price)} x ${entry.value}'),
+                                  subtitle: Text('Rp ${formatCurrency.format(product.price)} x ${entry.value}'),
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: const Icon(
-                                            Icons.remove_circle_outline),
+                                        icon: const Icon(Icons.remove_circle_outline),
                                         onPressed: () {
                                           _removeFromCart(product);
                                           setSheetState(() {});
@@ -183,8 +183,7 @@ class _PosScreenState extends State<PosScreen> {
                                       ),
                                       Text('${entry.value}'),
                                       IconButton(
-                                        icon: const Icon(
-                                            Icons.add_circle_outline),
+                                        icon: const Icon(Icons.add_circle_outline),
                                         onPressed: () {
                                           _addToCart(product);
                                           setSheetState(() {});
@@ -207,11 +206,9 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Widget _buildProductImage(Product product) {
-    // 1. Prioritas Utama: File Lokal (jika offline atau belum di-upload)
     if (product.localImagePath != null && File(product.localImagePath!).existsSync()) {
       return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
     }
-    // 2. Jika sudah di-upload dan ada URL
     if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
       return Image.network(
         product.imageUrl!,
@@ -219,16 +216,13 @@ class _PosScreenState extends State<PosScreen> {
         errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
       );
     }
-    // 3. Placeholder
     return _buildImagePlaceholder();
   }
 
   Widget _buildImagePlaceholder() {
     return Container(
       color: const Color(0xFFF1F5F9),
-      child: const Center(
-        child: Icon(Icons.image_outlined, color: AppTheme.textLightColor, size: 40),
-      ),
+      child: const Center(child: Icon(Icons.image_outlined, color: AppTheme.textLightColor, size: 40)),
     );
   }
 
@@ -242,11 +236,7 @@ class _PosScreenState extends State<PosScreen> {
         title: const Text('Kasir'),
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadProducts,
-            tooltip: 'Muat ulang produk',
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadProducts, tooltip: 'Muat ulang produk'),
         ],
       ),
       body: _isLoading
@@ -256,12 +246,9 @@ class _PosScreenState extends State<PosScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_errorMessage!,
-                          style: const TextStyle(color: AppTheme.dangerColor)),
+                      Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
-                      TextButton(
-                          onPressed: _loadProducts,
-                          child: const Text('Coba Lagi')),
+                      TextButton(onPressed: _loadProducts, child: const Text('Coba Lagi')),
                     ],
                   ),
                 )
@@ -273,7 +260,7 @@ class _PosScreenState extends State<PosScreen> {
                         maxCrossAxisExtent: 220,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        childAspectRatio: 0.75, // Proporsi Card Portrait
+                        childAspectRatio: 0.75,
                       ),
                       itemCount: _products.length,
                       itemBuilder: (context, index) {
@@ -292,11 +279,9 @@ class _PosScreenState extends State<PosScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Bagian Gambar
                                 Expanded(
                                   child: ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(8)),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                                     child: Stack(
                                       fit: StackFit.expand,
                                       children: [
@@ -307,25 +292,14 @@ class _PosScreenState extends State<PosScreen> {
                                             right: 8,
                                             child: Container(
                                               padding: const EdgeInsets.all(6),
-                                              decoration: const BoxDecoration(
-                                                color: AppTheme.primaryColor,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Text(
-                                                '$qty',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
+                                              decoration: const BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle),
+                                              child: Text('$qty', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                                             ),
                                           ),
                                       ],
                                     ),
                                   ),
                                 ),
-                                // Bagian Teks
                                 Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Column(
@@ -333,21 +307,14 @@ class _PosScreenState extends State<PosScreen> {
                                     children: [
                                       Text(
                                         product.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTheme.textColor,
-                                        ),
+                                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textColor),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         'Rp ${formatCurrency.format(product.price)}',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.primaryColor,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: const TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
@@ -379,28 +346,14 @@ class _PosScreenState extends State<PosScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '$_totalItems Barang (ketuk untuk detail)',
-                    style: const TextStyle(
-                        color: AppTheme.textLightColor, fontSize: 13),
-                  ),
+                  Text('$_totalItems Barang (ketuk untuk detail)', style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13)),
                   const SizedBox(height: 4),
-                  Text(
-                    'Rp ${formatCurrency.format(_totalPrice)}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textColor,
-                    ),
-                  ),
+                  Text('Rp ${formatCurrency.format(_totalPrice)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
                 ],
               ),
               ElevatedButton(
                 onPressed: _showCheckoutDialog,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 40, vertical: 16),
-                ),
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16)),
                 child: const Text('BAYAR'),
               ),
             ],
