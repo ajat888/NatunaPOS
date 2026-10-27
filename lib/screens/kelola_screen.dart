@@ -235,7 +235,6 @@ class _KelolaScreenState extends State<KelolaScreen>
                 ),
               )
             : ListView.separated(
-                // Padding bawah diperbesar menjadi 120 agar tidak tertutup FAB
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 itemCount: _products.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -318,7 +317,6 @@ class _KelolaScreenState extends State<KelolaScreen>
                 ),
               )
             : ListView.separated(
-                // Padding bawah diperbesar menjadi 120 agar tidak tertutup FAB
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 itemCount: _categories.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -474,78 +472,81 @@ class _ProductDialogState extends State<_ProductDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // FIX: Memastikan dialog bisa discroll saat keyboard muncul
+      scrollable: true,
+      // FIX: Mengurangi padding vertikal agar ruang lebih luas di landscape
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: Text(widget.existing == null ? 'Tambah Produk' : 'Edit Produk'),
       content: SizedBox(
         width: 400,
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_errorMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                          color: AppTheme.dangerColor, fontSize: 12),
-                    ),
+          // SingleChildScrollView dihapus karena AlertDialog(scrollable: true) sudah menanganinya
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_errorMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  controller: _nameController,
-                  decoration:
-                      const InputDecoration(labelText: 'Nama Produk'),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Nama wajib diisi'
-                      : null,
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                        color: AppTheme.dangerColor, fontSize: 12),
+                  ),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Harga',
-                    prefixText: 'Rp ',
-                  ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Harga wajib diisi';
-                    }
-                    final n = int.tryParse(v.trim());
-                    if (n == null || n < 0) return 'Harga tidak valid';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<int?>(
-                  value: _selectedCategoryId,
-                  decoration: const InputDecoration(
-                      labelText: 'Kategori (opsional)'),
-                  items: [
-                    const DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text('Tanpa Kategori'),
-                    ),
-                    ...widget.categories.map(
-                      (c) => DropdownMenuItem<int?>(
-                        value: c.id,
-                        child: Text(c.name),
-                      ),
-                    ),
-                  ],
-                  onChanged: (v) => setState(() => _selectedCategoryId = v),
-                ),
               ],
-            ),
+              TextFormField(
+                controller: _nameController,
+                decoration:
+                    const InputDecoration(labelText: 'Nama Produk'),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Nama wajib diisi'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _priceController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Harga',
+                  prefixText: 'Rp ',
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Harga wajib diisi';
+                  }
+                  final n = int.tryParse(v.trim());
+                  if (n == null || n < 0) return 'Harga tidak valid';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                value: _selectedCategoryId,
+                decoration: const InputDecoration(
+                    labelText: 'Kategori (opsional)'),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Tanpa Kategori'),
+                  ),
+                  ...widget.categories.map(
+                    (c) => DropdownMenuItem<int?>(
+                      value: c.id,
+                      child: Text(c.name),
+                    ),
+                  ),
+                ],
+                onChanged: (v) => setState(() => _selectedCategoryId = v),
+              ),
+            ],
           ),
         ),
       ),
@@ -633,6 +634,10 @@ class _CategoryDialogState extends State<_CategoryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // FIX: Memastikan dialog bisa discroll saat keyboard muncul
+      scrollable: true,
+      // FIX: Mengurangi padding vertikal agar ruang lebih luas di landscape
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title:
           Text(widget.existing == null ? 'Tambah Kategori' : 'Edit Kategori'),
