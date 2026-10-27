@@ -5,6 +5,8 @@ class Product {
   final int hpp;
   final int? categoryId;
   final String? imageUrl;
+  final String? localImagePath;
+  final bool isSynced;
 
   Product({
     required this.id,
@@ -13,6 +15,8 @@ class Product {
     required this.hpp,
     this.categoryId,
     this.imageUrl,
+    this.localImagePath,
+    this.isSynced = true,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,7 @@ class Product {
       hpp: (json['hpp'] as num?)?.toInt() ?? 0,
       categoryId: (json['category_id'] as num?)?.toInt(),
       imageUrl: json['image_url'] as String?,
+      isSynced: true,
     );
   }
 
@@ -45,6 +50,8 @@ class Product {
       hpp: map['hpp'] as int? ?? 0,
       categoryId: map['category_id'] as int?,
       imageUrl: map['image_url'] as String?,
+      localImagePath: map['local_image_path'] as String?,
+      isSynced: (map['is_synced'] as int? ?? 1) == 1,
     );
   }
 
@@ -56,6 +63,8 @@ class Product {
       'hpp': hpp,
       'category_id': categoryId,
       'image_url': imageUrl,
+      'local_image_path': localImagePath,
+      'is_synced': isSynced ? 1 : 0,
     };
   }
 

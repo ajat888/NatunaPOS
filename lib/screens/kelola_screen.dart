@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/product.dart';
@@ -22,7 +23,7 @@ class _KelolaScreenState extends State<KelolaScreen>
 
   List<Product> _products = [];
   List<Category> _categories = [];
-  int? _filterCategoryId; // null = Semua Kategori
+  int? _filterCategoryId;
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -108,10 +109,7 @@ class _KelolaScreenState extends State<KelolaScreen>
         title: const Text('Hapus Produk'),
         content: Text('Yakin ingin menghapus "${product.name}"?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('BATAL'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('BATAL')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerColor),
             onPressed: () => Navigator.pop(context, true),
@@ -131,6 +129,7 @@ class _KelolaScreenState extends State<KelolaScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      await _loadAll();
     }
   }
 
@@ -146,10 +145,7 @@ class _KelolaScreenState extends State<KelolaScreen>
           '${affected > 0 ? '\n\n$affected produk akan menjadi Tanpa Kategori.' : ''}',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('BATAL'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('BATAL')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerColor),
             onPressed: () => Navigator.pop(context, true),
@@ -180,11 +176,7 @@ class _KelolaScreenState extends State<KelolaScreen>
         title: const Text('Kelola Data'),
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAll,
-            tooltip: 'Muat ulang',
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadAll, tooltip: 'Muat ulang'),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -192,10 +184,7 @@ class _KelolaScreenState extends State<KelolaScreen>
           unselectedLabelColor: AppTheme.textLightColor,
           indicatorColor: AppTheme.primaryColor,
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-          tabs: const [
-            Tab(text: 'PRODUK'),
-            Tab(text: 'KATEGORI'),
-          ],
+          tabs: const [Tab(text: 'PRODUK'), Tab(text: 'KATEGORI')],
         ),
       ),
       body: _isLoading
@@ -213,10 +202,7 @@ class _KelolaScreenState extends State<KelolaScreen>
                 )
               : TabBarView(
                   controller: _tabController,
-                  children: [
-                    _buildProductsTab(),
-                    _buildCategoriesTab(),
-                  ],
+                  children: [_buildProductsTab(), _buildCategoriesTab()],
                 ),
     );
   }
@@ -226,7 +212,6 @@ class _KelolaScreenState extends State<KelolaScreen>
       children: [
         Column(
           children: [
-            // Filter Kategori
             if (_categories.isNotEmpty)
               Container(
                 height: 50,
@@ -252,22 +237,16 @@ class _KelolaScreenState extends State<KelolaScreen>
                   ],
                 ),
               ),
-            // Grid Produk
             Expanded(
               child: _filteredProducts.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Tidak ada produk di kategori ini.',
-                        style: TextStyle(color: AppTheme.textLightColor),
-                      ),
-                    )
+                  ? const Center(child: Text('Tidak ada produk di kategori ini.', style: TextStyle(color: AppTheme.textLightColor)))
                   : GridView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 220,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        childAspectRatio: 0.75, // Proporsi kotak
+                        childAspectRatio: 0.75,
                       ),
                       itemCount: _filteredProducts.length,
                       itemBuilder: (context, index) {
@@ -281,42 +260,35 @@ class _KelolaScreenState extends State<KelolaScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Gambar
                               Expanded(
                                 child: ClipRRect(
                                   borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                  child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                                      ? Image.network(
-                                          product.imageUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                                        )
-                                      : _buildImagePlaceholder(),
+                                  child: _buildProductImage(product),
                                 ),
                               ),
-                              // Detail
                               Padding(
                                 padding: const EdgeInsets.all(12.0),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      product.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textColor,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            product.name,
+                                            style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (!product.isSynced)
+                                          const Icon(Icons.cloud_off, size: 14, color: AppTheme.dangerColor),
+                                      ],
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       'Rp ${NumberFormat.decimalPattern('id').format(product.price)}',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.primaryColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: const TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 8),
                                     Row(
@@ -360,12 +332,27 @@ class _KelolaScreenState extends State<KelolaScreen>
     );
   }
 
+  Widget _buildProductImage(Product product) {
+    // 1. Prioritas Utama: File Lokal (jika offline atau belum di-upload)
+    if (product.localImagePath != null && File(product.localImagePath!).existsSync()) {
+      return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
+    }
+    // 2. Jika sudah di-upload dan ada URL
+    if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
+      return Image.network(
+        product.imageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+      );
+    }
+    // 3. Placeholder
+    return _buildImagePlaceholder();
+  }
+
   Widget _buildImagePlaceholder() {
     return Container(
       color: const Color(0xFFF1F5F9),
-      child: const Center(
-        child: Icon(Icons.image_outlined, color: AppTheme.textLightColor, size: 40),
-      ),
+      child: const Center(child: Icon(Icons.image_outlined, color: AppTheme.textLightColor, size: 40)),
     );
   }
 
@@ -373,12 +360,7 @@ class _KelolaScreenState extends State<KelolaScreen>
     return Stack(
       children: [
         _categories.isEmpty
-            ? const Center(
-                child: Text(
-                  'Belum ada kategori. Tambahkan kategori pertama Anda.',
-                  style: TextStyle(color: AppTheme.textLightColor),
-                ),
-              )
+            ? const Center(child: Text('Belum ada kategori. Tambahkan kategori pertama Anda.', style: TextStyle(color: AppTheme.textLightColor)))
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 itemCount: _categories.length,
@@ -394,30 +376,16 @@ class _KelolaScreenState extends State<KelolaScreen>
                     ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      title: Text(
-                        category.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textColor),
-                      ),
+                      title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textColor)),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '$count produk',
-                          style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13),
-                        ),
+                        child: Text('$count produk', style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13)),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
-                            onPressed: () => _showCategoryDialog(existing: category),
-                            tooltip: 'Edit',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor),
-                            onPressed: () => _confirmDeleteCategory(category),
-                            tooltip: 'Hapus',
-                          ),
+                          IconButton(icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor), onPressed: () => _showCategoryDialog(existing: category), tooltip: 'Edit'),
+                          IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor), onPressed: () => _confirmDeleteCategory(category), tooltip: 'Hapus'),
                         ],
                       ),
                     ),
@@ -441,30 +409,17 @@ class _KelolaScreenState extends State<KelolaScreen>
   }
 }
 
-// ==========================================================
-// FORMATTER ANGKA RIBUAN
-// ==========================================================
 class _ThousandFormatter extends TextInputFormatter {
   final NumberFormat _formatter = NumberFormat.decimalPattern('id');
-
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     if (newValue.text.isEmpty) return newValue;
-    
-    // Hapus titik pemisah untuk mendapatkan angka murni
     String cleanText = newValue.text.replaceAll('.', '');
     if (cleanText.isEmpty) return newValue.copyWith(text: '');
-
     final int? value = int.tryParse(cleanText);
     if (value == null) return oldValue;
-
-    // Format kembali dengan titik
     final String formatted = _formatter.format(value);
-    
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
+    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
   }
 }
 
@@ -476,11 +431,7 @@ class _ProductDialog extends StatefulWidget {
   final List<Category> categories;
   final SupabaseService service;
 
-  const _ProductDialog({
-    this.existing,
-    required this.categories,
-    required this.service,
-  });
+  const _ProductDialog({this.existing, required this.categories, required this.service});
 
   @override
   State<_ProductDialog> createState() => _ProductDialogState();
@@ -495,6 +446,7 @@ class _ProductDialogState extends State<_ProductDialog> {
   int? _selectedCategoryId;
   File? _imageFile;
   String? _existingImageUrl;
+  String? _localImagePath;
   
   bool _isSaving = false;
   String? _errorMessage;
@@ -504,7 +456,6 @@ class _ProductDialogState extends State<_ProductDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.existing?.name ?? '');
     
-    // Setup Formatter Harga
     final formatCurrency = NumberFormat.decimalPattern('id');
     _priceController = TextEditingController(
       text: widget.existing != null ? formatCurrency.format(widget.existing!.price) : '',
@@ -515,6 +466,7 @@ class _ProductDialogState extends State<_ProductDialog> {
     
     _selectedCategoryId = widget.existing?.categoryId;
     _existingImageUrl = widget.existing?.imageUrl;
+    _localImagePath = widget.existing?.localImagePath;
   }
 
   @override
@@ -528,9 +480,16 @@ class _ProductDialogState extends State<_ProductDialog> {
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    
     if (pickedFile != null) {
+      // Simpan file ke folder dokumen permanen aplikasi (bukan cache)
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final localFile = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+      
       setState(() {
-        _imageFile = File(pickedFile.path);
+        _imageFile = localFile;
+        _localImagePath = localFile.path;
       });
     }
   }
@@ -543,16 +502,8 @@ class _ProductDialogState extends State<_ProductDialog> {
     });
     try {
       final name = _nameController.text.trim();
-      // Parse harga & HPP dengan menghapus titik
       final price = int.parse(_priceController.text.replaceAll('.', ''));
       final hpp = int.parse(_hppController.text.replaceAll('.', ''));
-      
-      String? finalImageUrl = _existingImageUrl;
-      
-      // Upload gambar baru jika ada
-      if (_imageFile != null) {
-        finalImageUrl = await widget.service.uploadProductImage(_imageFile!);
-      }
 
       if (widget.existing == null) {
         await widget.service.createProduct(
@@ -560,7 +511,8 @@ class _ProductDialogState extends State<_ProductDialog> {
           price: price,
           hpp: hpp,
           categoryId: _selectedCategoryId,
-          imageUrl: finalImageUrl,
+          localImageFile: _imageFile,
+          localImagePath: _localImagePath,
         );
       } else {
         await widget.service.updateProduct(
@@ -569,7 +521,9 @@ class _ProductDialogState extends State<_ProductDialog> {
           price: price,
           hpp: hpp,
           categoryId: _selectedCategoryId,
-          imageUrl: finalImageUrl,
+          localImageFile: _imageFile,
+          localImagePath: _localImagePath,
+          existingImageUrl: _existingImageUrl,
         );
       }
       if (!mounted) return;
@@ -585,6 +539,13 @@ class _ProductDialogState extends State<_ProductDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ImageProvider? imageProvider;
+    if (_localImagePath != null && File(_localImagePath!).existsSync()) {
+      imageProvider = FileImage(File(_localImagePath!));
+    } else if (_existingImageUrl != null && _existingImageUrl!.isNotEmpty) {
+      imageProvider = NetworkImage(_existingImageUrl!);
+    }
+
     return AlertDialog(
       scrollable: true,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
@@ -601,19 +562,11 @@ class _ProductDialogState extends State<_ProductDialog> {
               if (_errorMessage != null) ...[
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12),
-                  ),
+                  decoration: BoxDecoration(color: AppTheme.dangerColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12)),
                 ),
                 const SizedBox(height: 12),
               ],
-              
-              // Image Picker
               Center(
                 child: GestureDetector(
                   onTap: _pickImage,
@@ -624,36 +577,26 @@ class _ProductDialogState extends State<_ProductDialog> {
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
-                      image: _imageFile != null
-                          ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover)
-                          : _existingImageUrl != null
-                              ? DecorationImage(image: NetworkImage(_existingImageUrl!), fit: BoxFit.cover)
-                              : null,
+                      image: imageProvider != null ? DecorationImage(image: imageProvider, fit: BoxFit.cover) : null,
                     ),
-                    child: (_imageFile == null && _existingImageUrl == null)
+                    child: imageProvider == null
                         ? const Icon(Icons.add_a_photo_outlined, color: AppTheme.textLightColor, size: 32)
                         : null,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Nama Produk'),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Nama wajib diisi' : null,
               ),
               const SizedBox(height: 12),
-              
-              // HPP Input
               TextFormField(
                 controller: _hppController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [_ThousandFormatter()],
-                decoration: const InputDecoration(
-                  labelText: 'HPP (Harga Modal)',
-                  prefixText: 'Rp ',
-                ),
+                decoration: const InputDecoration(labelText: 'HPP (Harga Modal)', prefixText: 'Rp '),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'HPP wajib diisi';
                   final n = int.tryParse(v.trim().replaceAll('.', ''));
@@ -662,16 +605,11 @@ class _ProductDialogState extends State<_ProductDialog> {
                 },
               ),
               const SizedBox(height: 12),
-
-              // Harga Jual Input
               TextFormField(
                 controller: _priceController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [_ThousandFormatter()],
-                decoration: const InputDecoration(
-                  labelText: 'Harga Jual',
-                  prefixText: 'Rp ',
-                ),
+                decoration: const InputDecoration(labelText: 'Harga Jual', prefixText: 'Rp '),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Harga jual wajib diisi';
                   final n = int.tryParse(v.trim().replaceAll('.', ''));
@@ -680,7 +618,6 @@ class _ProductDialogState extends State<_ProductDialog> {
                 },
               ),
               const SizedBox(height: 12),
-
               DropdownButtonFormField<int?>(
                 value: _selectedCategoryId,
                 decoration: const InputDecoration(labelText: 'Kategori (opsional)'),
@@ -717,10 +654,7 @@ class _CategoryDialog extends StatefulWidget {
   final Category? existing;
   final SupabaseService service;
 
-  const _CategoryDialog({
-    this.existing,
-    required this.service,
-  });
+  const _CategoryDialog({this.existing, required this.service});
 
   @override
   State<_CategoryDialog> createState() => _CategoryDialogState();
@@ -786,14 +720,8 @@ class _CategoryDialogState extends State<_CategoryDialog> {
               if (_errorMessage != null) ...[
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12),
-                  ),
+                  decoration: BoxDecoration(color: AppTheme.dangerColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12)),
                 ),
                 const SizedBox(height: 12),
               ],

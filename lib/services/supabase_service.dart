@@ -12,28 +12,64 @@ class SupabaseService {
   Future<AuthResponse> login(String email, String password) async {
     return await _client.auth.signInWithPassword(email: email, password: password);
   }
-
   Future<void> logout() async => await _client.auth.signOut();
   bool get isLoggedIn => _client.auth.currentSession != null;
 
-  // === STORAGE ===
-  Future<String> uploadProductImage(File file) async {
+  // === SYNC LOGIC (OFFLINE TO ONLINE) ===
+  Future<void> syncLocalData() async {
     try {
-      final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      await _client.storage.from('product_images').upload(fileName, file);
-      return _client.storage.from('product_images').getPublicUrl(fileName);
+      // 1. Ambil data yang belum sinkron dari lokal
+      final unsynced = await _localDb.getUnsyncedProducts();
+      if (unsynced.isEmpty) return;
+
+      // 2. Loop dan upload satu per satu
+      for (final product in unsynced) {
+        String? finalImageUrl = product.imageUrl;
+
+        // Upload gambar lokal ke Supabase jika ada
+        if (product.localImagePath != null && File(product.localImagePath!).existsSync()) {
+          final file = File(product.localImagePath!);
+          finalImageUrl = await uploadProductImage(file);
+        }
+
+        // Insert ke Supabase (tanpa ID, biarkan Supabase generate)
+        final response = await _client.from('products').insert({
+          'name': product.name,
+          'price': product.price,
+          'hpp': product.hpp,
+          'category_id': product.categoryId,
+          'image_url': finalImageUrl,
+        }).select().single();
+
+        final syncedProduct = Product.fromJson(response);
+
+        // Hapus data lokal yang ID-nya negatif (sementara)
+        await _localDb.deleteProduct(product.id);
+        
+        // Simpan data baru yang sudah punya ID dari Supabase
+        await _localDb.upsertProduct(syncedProduct);
+      }
     } catch (e) {
-      throw Exception('Gagal mengunggah gambar: $e');
+      // Abaikan error, akan dicoba lagi di kesempatan berikutnya
     }
+  }
+
+  Future<String> uploadProductImage(File file) async {
+    final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    await _client.storage.from('product_images').upload(fileName, file);
+    return _client.storage.from('product_images').getPublicUrl(fileName);
   }
 
   // === PRODUCTS ===
   Future<List<Product>> fetchProducts() async {
     try {
+      // Panggil sinkronisasi dulu sebelum tarik data terbaru
+      await syncLocalData();
+
       final response = await _client.from('products').select().order('id', ascending: true);
       final products = (response as List).map((json) => Product.fromJson(json)).toList();
       await _localDb.replaceAllProducts(products);
-      return products;
+      return await _localDb.getProducts(); // Kembalikan gabungan server + lokal yang belum sync
     } catch (e) {
       final localProducts = await _localDb.getProducts();
       if (localProducts.isEmpty) throw Exception('Tidak ada koneksi internet dan data lokal kosong.');
@@ -41,69 +77,106 @@ class SupabaseService {
     }
   }
 
-  Future<Product> createProduct({
+  Future<void> createProduct({
     required String name,
     required int price,
     required int hpp,
     int? categoryId,
-    String? imageUrl,
+    File? localImageFile,
+    String? localImagePath,
   }) async {
     try {
+      // Coba Online
+      String? finalImageUrl;
+      if (localImageFile != null) {
+        finalImageUrl = await uploadProductImage(localImageFile);
+      }
       final response = await _client.from('products').insert({
         'name': name,
         'price': price,
         'hpp': hpp,
         'category_id': categoryId,
-        'image_url': imageUrl,
+        'image_url': finalImageUrl,
       }).select().single();
+      
       final created = Product.fromJson(response);
       await _localDb.upsertProduct(created);
-      return created;
-    } on PostgrestException catch (e) {
-      throw Exception('Gagal menambah produk: ${e.message}');
     } catch (e) {
-      throw Exception('Gagal menambah produk. Pastikan Anda terhubung ke internet.');
+      // Gagal (Offline): Simpan ke lokal dengan ID Negatif
+      final tempId = -DateTime.now().millisecondsSinceEpoch;
+      final offlineProduct = Product(
+        id: tempId,
+        name: name,
+        price: price,
+        hpp: hpp,
+        categoryId: categoryId,
+        imageUrl: null,
+        localImagePath: localImagePath,
+        isSynced: false,
+      );
+      await _localDb.upsertProduct(offlineProduct);
+      // Tidak throw error, biarkan UI merasa sukses (mode offline)
     }
   }
 
-  Future<Product> updateProduct({
+  Future<void> updateProduct({
     required int id,
     required String name,
     required int price,
     required int hpp,
     int? categoryId,
-    String? imageUrl,
+    File? localImageFile,
+    String? localImagePath,
+    String? existingImageUrl,
   }) async {
     try {
+      // Coba Online
+      String? finalImageUrl = existingImageUrl;
+      if (localImageFile != null) {
+        finalImageUrl = await uploadProductImage(localImageFile);
+      }
+      
       final response = await _client.from('products').update({
         'name': name,
         'price': price,
         'hpp': hpp,
         'category_id': categoryId,
-        'image_url': imageUrl,
+        'image_url': finalImageUrl,
       }).eq('id', id).select().single();
+      
       final updated = Product.fromJson(response);
       await _localDb.upsertProduct(updated);
-      return updated;
-    } on PostgrestException catch (e) {
-      throw Exception('Gagal memperbarui produk: ${e.message}');
     } catch (e) {
-      throw Exception('Gagal memperbarui produk. Pastikan Anda terhubung ke internet.');
+      // Gagal (Offline): Update lokal
+      final offlineProduct = Product(
+        id: id,
+        name: name,
+        price: price,
+        hpp: hpp,
+        categoryId: categoryId,
+        imageUrl: existingImageUrl,
+        localImagePath: localImagePath,
+        isSynced: false,
+      );
+      await _localDb.upsertProduct(offlineProduct);
     }
   }
 
   Future<void> deleteProduct(int id) async {
     try {
-      await _client.from('products').delete().eq('id', id);
+      if (id > 0) {
+        await _client.from('products').delete().eq('id', id);
+      }
       await _localDb.deleteProduct(id);
-    } on PostgrestException catch (e) {
-      throw Exception('Gagal menghapus produk: ${e.message}');
     } catch (e) {
-      throw Exception('Gagal menghapus produk. Pastikan Anda terhubung ke internet.');
+      // Jika offline, setidaknya hapus dari lokal
+      await _localDb.deleteProduct(id);
+      throw Exception('Produk dihapus lokal. Server akan disinkronkan nanti.');
     }
   }
 
   // === CATEGORIES ===
+  // (Sama seperti sebelumnya, kategori tidak butuh gambar)
   Future<List<Category>> fetchCategories() async {
     try {
       final response = await _client.from('categories').select().order('id', ascending: true);
@@ -115,29 +188,21 @@ class SupabaseService {
     }
   }
 
-  Future<Category> createCategory(String name) async {
+  Future<void> createCategory(String name) async {
     try {
       final response = await _client.from('categories').insert({'name': name}).select().single();
-      final created = Category.fromJson(response);
-      await _localDb.upsertCategory(created);
-      return created;
-    } on PostgrestException catch (e) {
-      throw Exception('Gagal menambah kategori: ${e.message}');
+      await _localDb.upsertCategory(Category.fromJson(response));
     } catch (e) {
-      throw Exception('Gagal menambah kategori. Pastikan Anda terhubung ke internet.');
+      throw Exception('Gagal menambah kategori. Diperlukan internet untuk fitur ini.');
     }
   }
 
-  Future<Category> updateCategory({required int id, required String name}) async {
+  Future<void> updateCategory({required int id, required String name}) async {
     try {
       final response = await _client.from('categories').update({'name': name}).eq('id', id).select().single();
-      final updated = Category.fromJson(response);
-      await _localDb.upsertCategory(updated);
-      return updated;
-    } on PostgrestException catch (e) {
-      throw Exception('Gagal memperbarui kategori: ${e.message}');
+      await _localDb.upsertCategory(Category.fromJson(response));
     } catch (e) {
-      throw Exception('Gagal memperbarui kategori. Pastikan Anda terhubung ke internet.');
+      throw Exception('Gagal memperbarui kategori. Diperlukan internet untuk fitur ini.');
     }
   }
 
@@ -145,10 +210,8 @@ class SupabaseService {
     try {
       await _client.from('categories').delete().eq('id', id);
       await _localDb.deleteCategory(id);
-    } on PostgrestException catch (e) {
-      throw Exception('Gagal menghapus kategori: ${e.message}');
     } catch (e) {
-      throw Exception('Gagal menghapus kategori. Pastikan Anda terhubung ke internet.');
+      throw Exception('Gagal menghapus kategori. Diperlukan internet untuk fitur ini.');
     }
   }
 }

@@ -20,19 +20,14 @@ class LocalDb {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE categories (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL
-      )
-    ''');
+    await db.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY,
@@ -40,34 +35,38 @@ class LocalDb {
         price INTEGER NOT NULL,
         hpp INTEGER DEFAULT 0,
         category_id INTEGER,
-        image_url TEXT
+        image_url TEXT,
+        local_image_path TEXT,
+        is_synced INTEGER DEFAULT 1
       )
     ''');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS categories (
-          id INTEGER PRIMARY KEY,
-          name TEXT NOT NULL
-        )
-      ''');
+      await db.execute('CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
       await db.execute('ALTER TABLE products ADD COLUMN category_id INTEGER');
     }
     if (oldVersion < 3) {
       await db.execute('ALTER TABLE products ADD COLUMN hpp INTEGER DEFAULT 0');
       await db.execute('ALTER TABLE products ADD COLUMN image_url TEXT');
     }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE products ADD COLUMN local_image_path TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN is_synced INTEGER DEFAULT 1');
+    }
   }
 
   // === PRODUCTS ===
-  Future<void> replaceAllProducts(List<Product> products) async {
+  Future<void> replaceAllProducts(List<Product> serverProducts) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.delete('products');
+      // Hapus hanya produk yang SUDAH sinkron (is_synced = 1)
+      // Jangan hapus produk lokal yang belum di-upload (is_synced = 0)
+      await txn.delete('products', where: 'is_synced = 1');
+      
       final batch = txn.batch();
-      for (final p in products) {
+      for (final p in serverProducts) {
         batch.insert('products', p.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
       }
       await batch.commit(noResult: true);
@@ -77,6 +76,12 @@ class LocalDb {
   Future<List<Product>> getProducts() async {
     final db = await database;
     final maps = await db.query('products');
+    return maps.map((m) => Product.fromDb(m)).toList();
+  }
+
+  Future<List<Product>> getUnsyncedProducts() async {
+    final db = await database;
+    final maps = await db.query('products', where: 'is_synced = 0');
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
