@@ -20,7 +20,7 @@ class LocalDb {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -38,7 +38,9 @@ class LocalDb {
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         price INTEGER NOT NULL,
-        category_id INTEGER
+        hpp INTEGER DEFAULT 0,
+        category_id INTEGER,
+        image_url TEXT
       )
     ''');
   }
@@ -53,18 +55,20 @@ class LocalDb {
       ''');
       await db.execute('ALTER TABLE products ADD COLUMN category_id INTEGER');
     }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE products ADD COLUMN hpp INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE products ADD COLUMN image_url TEXT');
+    }
   }
 
   // === PRODUCTS ===
-
   Future<void> replaceAllProducts(List<Product> products) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete('products');
       final batch = txn.batch();
       for (final p in products) {
-        batch.insert('products', p.toDb(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        batch.insert('products', p.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
       }
       await batch.commit(noResult: true);
     });
@@ -78,8 +82,7 @@ class LocalDb {
 
   Future<void> upsertProduct(Product product) async {
     final db = await database;
-    await db.insert('products', product.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('products', product.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> deleteProduct(int id) async {
@@ -88,15 +91,13 @@ class LocalDb {
   }
 
   // === CATEGORIES ===
-
   Future<void> replaceAllCategories(List<Category> categories) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete('categories');
       final batch = txn.batch();
       for (final c in categories) {
-        batch.insert('categories', c.toDb(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        batch.insert('categories', c.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
       }
       await batch.commit(noResult: true);
     });
@@ -110,19 +111,13 @@ class LocalDb {
 
   Future<void> upsertCategory(Category category) async {
     final db = await database;
-    await db.insert('categories', category.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('categories', category.toDb(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> deleteCategory(int id) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.update(
-        'products',
-        {'category_id': null},
-        where: 'category_id = ?',
-        whereArgs: [id],
-      );
+      await txn.update('products', {'category_id': null}, where: 'category_id = ?', whereArgs: [id]);
       await txn.delete('categories', where: 'id = ?', whereArgs: [id]);
     });
   }
