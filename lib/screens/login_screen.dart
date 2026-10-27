@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../core/theme.dart';
 import 'home_screen.dart';
+import 'main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,11 +28,10 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      setState(() => _errorMessage = 'Email dan Password tidak boleh kosong');
-      return;
-    }
+  Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(builder: (_) => const MainLayout()), // Ubah ke MainLayout
+);
 
     setState(() {
       _isLoading = true;

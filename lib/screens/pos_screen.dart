@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../models/product.dart';
 import '../core/theme.dart';
-import 'login_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class PosScreen extends StatefulWidget {
+  const PosScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<PosScreen> createState() => _PosScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _PosScreenState extends State<PosScreen> {
   final _service = SupabaseService();
   List<Product> _products = [];
   final Map<Product, int> _cart = {};
@@ -36,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Gagal memuat produk. Periksa koneksi internet.';
+        _errorMessage = 'Gagal memuat produk.';
       });
     }
   }
@@ -63,23 +62,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return total;
   }
 
-  Future<void> _handleLogout() async {
-    await _service.logout();
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
-
   void _showCheckoutDialog() {
     if (_cart.isEmpty) return;
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text('Konfirmasi Pembayaran'),
         content: Text('Total tagihan: Rp $_totalPrice\n\nLanjutkan proses pembayaran?'),
         actions: [
@@ -104,21 +93,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Deteksi lebar layar untuk menentukan jumlah kolom grid
     final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth > 1200 ? 4 : (screenWidth > 800 ? 3 : 2);
+    // Lebar layar dikurangi Navigation Rail (sekitar 80px)
+    final availableWidth = screenWidth - 80; 
+    final crossAxisCount = availableWidth > 1100 ? 4 : (availableWidth > 700 ? 3 : 2);
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('NatunaPOS'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: AppTheme.textLightColor),
-            onPressed: _handleLogout,
-            tooltip: 'Keluar',
-          ),
-          const SizedBox(width: 8),
-        ],
+        title: const Text('Kasir'),
+        automaticallyImplyLeading: false,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -141,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisCount: crossAxisCount,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        childAspectRatio: 2.5, // Menjaga kotak tetap proporsional
+                        childAspectRatio: 2.5,
                       ),
                       itemCount: _products.length,
                       itemBuilder: (context, index) {
@@ -149,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         return Container(
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceColor,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
                           child: Padding(
@@ -203,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBottomBar() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: AppTheme.surfaceColor,
         border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
@@ -234,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: _showCheckoutDialog,
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
               ),
               child: const Text('BAYAR'),
             ),

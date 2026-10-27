@@ -3,13 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_layout.dart'; // Import MainLayout
 import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Hanya kunci orientasi untuk Android/iOS. Web akan responsif.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -38,7 +37,8 @@ class MyApp extends StatelessWidget {
       title: 'NatunaPOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
+      // Jika sudah login, langsung ke MainLayout
+      home: isLoggedIn ? const MainLayout() : const LoginScreen(),
     );
   }
 }
