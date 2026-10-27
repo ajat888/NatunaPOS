@@ -12,10 +12,11 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   supabase_flutter: ^2.5.6
-  
-  sqflite: ^2.3.3+1
+
+  syncable: ^1.0.3
+  drift: ^2.26.0
+  path_provider: ^2.1.4
   path: ^1.9.0
-  syncable: ^5.0.1
 
 dev_dependencies:
   app_links: 6.3.0
