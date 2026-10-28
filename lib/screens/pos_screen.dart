@@ -1,4 +1,3 @@
-// lib/screens/pos_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +5,8 @@ import '../services/supabase_service.dart';
 import '../models/product.dart';
 import '../models/transaction.dart';
 import '../core/theme.dart';
+
+part 'pos/checkout_dialog.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -51,9 +52,7 @@ class _PosScreenState extends State<PosScreen> {
           if (!mounted) return;
           final beforeSync = _products;
           _remapCart(previousProducts: beforeSync, newProducts: updated);
-          setState(() {
-            _products = updated;
-          });
+          setState(() => _products = updated);
         } catch (e) {
           debugPrint('Reload after sync failed: $e');
         }
@@ -67,8 +66,6 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
-  /// Remap cart entries when product IDs change (e.g. temp ID → server ID after sync).
-  /// Matching is done by signature (name + price + hpp + categoryId).
   void _remapCart({
     required List<Product> previousProducts,
     required List<Product> newProducts,
@@ -151,9 +148,6 @@ class _PosScreenState extends State<PosScreen> {
   void _showCheckoutDialog() {
     if (_cart.isEmpty) return;
 
-    // Snapshot cart SEBELUM dialog dibuka. Ini mengunci daftar item & total
-    // agar perubahan produk (mis. sync background) tidak mengubah transaksi
-    // yang sedang dikonfirmasi user.
     final snapshot = <TransactionLine>[];
     int totalPrice = 0;
     _cart.forEach((id, qty) {
@@ -228,8 +222,8 @@ class _PosScreenState extends State<PosScreen> {
                           ? const Padding(
                               padding: EdgeInsets.all(24),
                               child: Text('Keranjang kosong',
-                                  style:
-                                      TextStyle(color: AppTheme.textLightColor)))
+                                  style: TextStyle(
+                                      color: AppTheme.textLightColor)))
                           : ListView(
                               shrinkWrap: true,
                               children: _cart.entries.map((entry) {
@@ -291,8 +285,8 @@ class _PosScreenState extends State<PosScreen> {
   Widget _buildImagePlaceholder() => Container(
       color: const Color(0xFFF1F5F9),
       child: const Center(
-          child:
-              Icon(Icons.image_outlined, color: AppTheme.textLightColor, size: 40)));
+          child: Icon(Icons.image_outlined,
+              color: AppTheme.textLightColor, size: 40)));
 
   @override
   Widget build(BuildContext context) {
@@ -315,14 +309,13 @@ class _PosScreenState extends State<PosScreen> {
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(_errorMessage!,
-                            style:
-                                const TextStyle(color: AppTheme.dangerColor)),
-                        const SizedBox(height: 16),
-                        TextButton(
-                            onPressed: _loadProducts,
-                            child: const Text('Coba Lagi'))
-                      ]))
+                      Text(_errorMessage!,
+                          style: const TextStyle(color: AppTheme.dangerColor)),
+                      const SizedBox(height: 16),
+                      TextButton(
+                          onPressed: _loadProducts,
+                          child: const Text('Coba Lagi'))
+                    ]))
               : _products.isEmpty
                   ? const Center(child: Text('Belum ada data produk.'))
                   : GridView.builder(
@@ -401,7 +394,8 @@ class _PosScreenState extends State<PosScreen> {
                         );
                       },
                     ),
-      bottomNavigationBar: _cart.isEmpty ? null : _buildBottomBar(formatCurrency),
+      bottomNavigationBar:
+          _cart.isEmpty ? null : _buildBottomBar(formatCurrency),
     );
   }
 
@@ -441,115 +435,6 @@ class _PosScreenState extends State<PosScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Dialog konfirmasi pembayaran. Menyimpan transaksi ke SQLite secara
-/// atomik sebelum menutup dialog. Jika gagal, dialog tetap terbuka agar
-/// user bisa retry tanpa kehilangan isi keranjang.
-class _CheckoutDialog extends StatefulWidget {
-  final List<TransactionLine> lines;
-  final int total;
-  final SupabaseService service;
-  final VoidCallback onSuccess;
-
-  const _CheckoutDialog({
-    required this.lines,
-    required this.total,
-    required this.service,
-    required this.onSuccess,
-  });
-
-  @override
-  State<_CheckoutDialog> createState() => _CheckoutDialogState();
-}
-
-class _CheckoutDialogState extends State<_CheckoutDialog> {
-  bool _isSaving = false;
-  String? _errorMessage;
-
-  Future<void> _save() async {
-    if (_isSaving) return;
-    setState(() {
-      _isSaving = true;
-      _errorMessage = null;
-    });
-    try {
-      await widget.service.saveTransaction(
-        lines: widget.lines,
-        total: widget.total,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      widget.onSuccess();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isSaving = false;
-        _errorMessage =
-            'Gagal menyimpan transaksi: ${e.toString().replaceAll('Exception: ', '')}';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final formatCurrency = NumberFormat.decimalPattern('id');
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      title: const Text('Konfirmasi Pembayaran'),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Total tagihan: Rp ${formatCurrency.format(widget.total)}',
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor),
-            ),
-            const SizedBox(height: 8),
-            Text('${widget.lines.length} jenis produk',
-                style: const TextStyle(color: AppTheme.textLightColor)),
-            const SizedBox(height: 16),
-            const Text('Lanjutkan proses pembayaran?',
-                style: TextStyle(color: AppTheme.textColor)),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: AppTheme.dangerColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8)),
-                child: Text(_errorMessage!,
-                    style: const TextStyle(
-                        color: AppTheme.dangerColor, fontSize: 12)),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('BATAL',
-              style: TextStyle(color: AppTheme.textLightColor)),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _save,
-          child: _isSaving
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2))
-              : const Text('BAYAR'),
-        ),
-      ],
     );
   }
 }
