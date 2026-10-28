@@ -47,6 +47,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  String _displayTable(Transaction tx) {
+    final t = tx.tableNumber;
+    if (t == null || t.isEmpty) return '-';
+    if (tx.orderType == 'dine_in' && t.startsWith('M-')) {
+      final n = int.tryParse(t.substring(2));
+      if (n != null) return 'Meja $n';
+    }
+    return t;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,35 +133,55 @@ class _HistoryScreenState extends State<HistoryScreen> {
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '${dateFormat.format(tx.createdAt)} • ${tx.itemCount} item',
+                  '${_displayTable(tx)} • ${dateFormat.format(tx.createdAt)} • ${tx.itemCount} item',
                   style: const TextStyle(
                       fontSize: 12, color: AppTheme.textLightColor),
                 ),
               ),
-              children: tx.items.map((item) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${item.productName}  ×${item.qty}',
-                          style: const TextStyle(
-                              fontSize: 13, color: AppTheme.textColor),
-                          overflow: TextOverflow.ellipsis,
+              children: [
+                ...tx.items.map((item) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${item.productName}  ×${item.qty}',
+                            style: const TextStyle(
+                                fontSize: 13, color: AppTheme.textColor),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Rp ${formatCurrency.format(item.subtotal)}',
-                        style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textLightColor,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ],
+                        Text(
+                          'Rp ${formatCurrency.format(item.subtotal)}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textLightColor,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                if (tx.cashReceived > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Tunai / Kembali',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textLightColor)),
+                        Text(
+                          'Rp ${formatCurrency.format(tx.cashReceived)} / Rp ${formatCurrency.format(tx.changeAmount)}',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.textLightColor),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }).toList(),
+              ],
             ),
           ),
         );

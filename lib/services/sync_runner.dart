@@ -208,54 +208,77 @@ class SyncRunner {
     }
 
     // STEP 7: Push transaksi lokal yang belum tersinkron
-    final unsyncedTransactions = await _localDb.getUnsyncedTransactions();
-    for (final tx in unsyncedTransactions) {
+final unsyncedTransactions = await _localDb.getUnsyncedTransactions();
+for (final tx in unsyncedTransactions) {
+  try {
+    if (tx.id < 0) {
+      Map<String, dynamic> txResponse;
       try {
-        if (tx.id < 0) {
-          final txResponse = await _client
+        txResponse = await _client
+            .from('transactions')
+            .insert({
+              'total': tx.total,
+              'created_at_local': tx.createdAt.millisecondsSinceEpoch,
+              'cash_received': tx.cashReceived,
+              'change_amount': tx.changeAmount,
+              'table_number': tx.tableNumber,
+              'order_type': tx.orderType,
+            })
+            .select()
+            .single();
+      } on PostgrestException catch (e) {
+        // Fallback: kolom baru belum ada di server (kode 42703 = undefined_column).
+        if (e.code == '42703' ||
+            e.message.toLowerCase().contains('column')) {
+          txResponse = await _client
               .from('transactions')
               .insert({
                 'total': tx.total,
-                'created_at_local': tx.createdAt.millisecondsSinceEpoch,
+                'created_at_local':
+                    tx.createdAt.millisecondsSinceEpoch,
               })
               .select()
               .single();
-          final serverTxId = txResponse['id'] as int;
+        } else {
+          rethrow;
+        }
+      }
+      final serverTxId = txResponse['id'] as int;
 
-          try {
-            for (final item in tx.items) {
-              final pushProductId =
-                  (item.productId != null && item.productId! > 0)
-                      ? item.productId
-                      : null;
-              await _client.from('transaction_items').insert({
-                'transaction_id': serverTxId,
-                'product_id': pushProductId,
-                'product_name': item.productName,
-                'price': item.price,
-                'hpp': item.hpp,
-                'qty': item.qty,
-              });
-            }
-          } catch (e) {
-            try {
-              await _client.from('transactions').delete().eq('id', serverTxId);
-            } catch (rollbackErr) {
-              debugPrint('Rollback tx $serverTxId failed: $rollbackErr');
-            }
-            rethrow;
-          }
-
-          await _localDb.replaceTransactionId(
-            oldId: tx.id,
-            newId: serverTxId,
-          );
+      try {
+        for (final item in tx.items) {
+          final pushProductId =
+              (item.productId != null && item.productId! > 0)
+                  ? item.productId
+                  : null;
+          await _client.from('transaction_items').insert({
+            'transaction_id': serverTxId,
+            'product_id': pushProductId,
+            'product_name': item.productName,
+            'price': item.price,
+            'hpp': item.hpp,
+            'qty': item.qty,
+          });
         }
       } catch (e) {
-        debugPrint('Sync transaction ${tx.id} failed: $e');
-        failures++;
+        try {
+          await _client.from('transactions').delete().eq('id', serverTxId);
+        } catch (rollbackErr) {
+          debugPrint('Rollback tx $serverTxId failed: $rollbackErr');
+        }
+        rethrow;
       }
+
+      await _localDb.replaceTransactionId(
+        oldId: tx.id,
+        newId: serverTxId,
+      );
     }
+  } catch (e) {
+    debugPrint('Sync transaction ${tx.id} failed: $e');
+    failures++;
+  }
+}
 
     // STEP 8: Pull transaksi dari server (yang belum ada di lokal)
     try {

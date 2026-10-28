@@ -1,21 +1,5 @@
+// lib/screens/kelola/product_dialog.dart
 part of '../kelola_screen.dart';
-
-class _ThousandFormatter extends TextInputFormatter {
-  final NumberFormat _formatter = NumberFormat.decimalPattern('id');
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.isEmpty) return newValue;
-    String cleanText = newValue.text.replaceAll('.', '');
-    if (cleanText.isEmpty) return newValue.copyWith(text: '');
-    final int? value = int.tryParse(cleanText);
-    if (value == null) return oldValue;
-    final String formatted = _formatter.format(value);
-    return TextEditingValue(
-        text: formatted,
-        selection: TextSelection.collapsed(offset: formatted.length));
-  }
-}
 
 class _ProductDialog extends StatefulWidget {
   final Product? existing;
@@ -198,7 +182,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               TextFormField(
                   controller: _hppController,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [_ThousandFormatter()],
+                  inputFormatters: [ThousandFormatter()],
                   decoration: const InputDecoration(
                       labelText: 'HPP (Harga Modal)', prefixText: 'Rp '),
                   validator: (v) {
@@ -211,7 +195,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               TextFormField(
                   controller: _priceController,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [_ThousandFormatter()],
+                  inputFormatters: [ThousandFormatter()],
                   decoration: const InputDecoration(
                       labelText: 'Harga Jual', prefixText: 'Rp '),
                   validator: (v) {

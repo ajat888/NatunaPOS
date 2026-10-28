@@ -1,12 +1,23 @@
+// lib/screens/pos_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/supabase_service.dart';
 import '../models/product.dart';
+import '../models/category.dart';
 import '../models/transaction.dart';
+import '../models/open_order.dart';
+import '../core/local_db.dart';
 import '../core/theme.dart';
+import '../widgets/common/thousand_formatter.dart';
 
-part 'pos/checkout_dialog.dart';
+part 'pos/pos_table_view.dart';
+part 'pos/pos_menu_picker.dart';
+part 'pos/pos_order_detail.dart';
+part 'pos/pos_payment_dialog.dart';
+
+enum PosView { tables, menu, orderDetail }
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -17,18 +28,29 @@ class PosScreen extends StatefulWidget {
 
 class _PosScreenState extends State<PosScreen> {
   final _service = SupabaseService();
+  final _localDb = LocalDb.instance;
+
+  PosView _view = PosView.tables;
+  PosView _afterMenuView = PosView.tables;
+  String? _activeOrderKey;
+  String? _activeOrderType;
+  int? _activeTableNumber;
+
   List<Product> _products = [];
+  List<Category> _categories = [];
+  List<OpenOrder> _openOrders = [];
   final Map<int, int> _cart = {};
+  int? _filterCategoryId;
   bool _isLoading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _loadData();
   }
 
-  Future<void> _loadProducts() async {
+  Future<void> _loadData() async {
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -36,23 +58,28 @@ class _PosScreenState extends State<PosScreen> {
       });
     }
     try {
-      final products = await _service.getLocalProducts();
+      final products = await _localDb.getProducts();
+      final categories = await _localDb.getCategories();
+      final openOrders = await _localDb.getOpenOrders();
       if (!mounted) return;
-      final previous = _products;
-      _remapCart(previousProducts: previous, newProducts: products);
       setState(() {
         _products = products;
+        _categories = categories;
+        _openOrders = openOrders;
         _isLoading = false;
       });
-
       _service.syncData().then((_) async {
         if (!mounted) return;
         try {
-          final updated = await _service.getLocalProducts();
+          final p = await _localDb.getProducts();
+          final c = await _localDb.getCategories();
+          final o = await _localDb.getOpenOrders();
           if (!mounted) return;
-          final beforeSync = _products;
-          _remapCart(previousProducts: beforeSync, newProducts: updated);
-          setState(() => _products = updated);
+          setState(() {
+            _products = p;
+            _categories = c;
+            _openOrders = o;
+          });
         } catch (e) {
           debugPrint('Reload after sync failed: $e');
         }
@@ -66,45 +93,17 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
-  void _remapCart({
-    required List<Product> previousProducts,
-    required List<Product> newProducts,
-  }) {
-    if (_cart.isEmpty) return;
-    final newIds = newProducts.map((p) => p.id).toSet();
-    final newCart = <int, int>{};
+  Future<void> _reloadOpenOrders() async {
+    final o = await _localDb.getOpenOrders();
+    if (!mounted) return;
+    setState(() => _openOrders = o);
+  }
 
-    _cart.forEach((oldId, qty) {
-      if (newIds.contains(oldId)) {
-        newCart[oldId] = (newCart[oldId] ?? 0) + qty;
-        return;
-      }
-      Product? oldProduct;
-      for (final p in previousProducts) {
-        if (p.id == oldId) {
-          oldProduct = p;
-          break;
-        }
-      }
-      if (oldProduct == null) return;
-      Product? replacement;
-      for (final p in newProducts) {
-        if (p.name == oldProduct.name &&
-            p.price == oldProduct.price &&
-            p.hpp == oldProduct.hpp &&
-            p.categoryId == oldProduct.categoryId) {
-          replacement = p;
-          break;
-        }
-      }
-      if (replacement != null) {
-        newCart[replacement.id] = (newCart[replacement.id] ?? 0) + qty;
-      }
-    });
-
-    _cart
-      ..clear()
-      ..addAll(newCart);
+  OpenOrder? _findOrder(String key) {
+    for (final o in _openOrders) {
+      if (o.orderKey == key) return o;
+    }
+    return null;
   }
 
   Product? _findProduct(int id) {
@@ -114,8 +113,63 @@ class _PosScreenState extends State<PosScreen> {
     return null;
   }
 
-  void _addToCart(Product product) =>
-      setState(() => _cart[product.id] = (_cart[product.id] ?? 0) + 1);
+  void _openEmptyTable(int tableNumber) {
+    setState(() {
+      _afterMenuView = PosView.tables;
+      _view = PosView.menu;
+      _activeOrderKey = 'M-${tableNumber.toString().padLeft(2, '0')}';
+      _activeOrderType = 'dine_in';
+      _activeTableNumber = tableNumber;
+      _cart.clear();
+      _filterCategoryId = null;
+    });
+  }
+
+  Future<void> _openTakeAway() async {
+    final key = await _localDb.nextTakeAwayKey();
+    if (!mounted) return;
+    setState(() {
+      _afterMenuView = PosView.tables;
+      _view = PosView.menu;
+      _activeOrderKey = key;
+      _activeOrderType = 'take_away';
+      _activeTableNumber = null;
+      _cart.clear();
+      _filterCategoryId = null;
+    });
+  }
+
+  void _openOrderDetail(OpenOrder order) {
+    setState(() {
+      _view = PosView.orderDetail;
+      _activeOrderKey = order.orderKey;
+      _activeOrderType = order.orderType;
+      _activeTableNumber = order.tableNumber;
+    });
+  }
+
+  void _startAddToExisting() {
+    setState(() {
+      _afterMenuView = PosView.orderDetail;
+      _cart.clear();
+      _filterCategoryId = null;
+      _view = PosView.menu;
+    });
+  }
+
+  void _backToTables() {
+    setState(() {
+      _view = PosView.tables;
+      _activeOrderKey = null;
+      _activeOrderType = null;
+      _activeTableNumber = null;
+      _cart.clear();
+    });
+  }
+
+  void _addToCart(Product product) {
+    setState(() => _cart[product.id] = (_cart[product.id] ?? 0) + 1);
+  }
 
   void _removeFromCart(Product product) {
     setState(() {
@@ -128,313 +182,228 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
-  int get _totalPrice {
-    int total = 0;
+  int get _cartTotal {
+    int t = 0;
     _cart.forEach((id, qty) {
       final p = _findProduct(id);
-      if (p != null) total += p.price * qty;
+      if (p != null) t += p.price * qty;
     });
-    return total;
+    return t;
   }
 
-  int get _totalItems {
-    int total = 0;
+  int get _cartItemCount {
+    int t = 0;
     _cart.forEach((id, qty) {
-      if (_findProduct(id) != null) total += qty;
+      if (_findProduct(id) != null) t += qty;
     });
-    return total;
+    return t;
   }
 
-  void _showCheckoutDialog() {
+  Future<void> _promptSaveOrder() async {
     if (_cart.isEmpty) return;
+    final target = _activeOrderType == 'take_away'
+        ? '$_activeOrderKey'
+        : 'Meja $_activeTableNumber';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Simpan Pesanan?'),
+        content: Text('Simpan $_cartItemCount item ke $target?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('EDIT')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('YA')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _saveOrder();
+  }
 
-    final snapshot = <TransactionLine>[];
-    int totalPrice = 0;
+  Future<void> _saveOrder() async {
+    if (_cart.isEmpty || _activeOrderKey == null) return;
+    final lines = <OpenOrderLine>[];
     _cart.forEach((id, qty) {
       final p = _findProduct(id);
       if (p == null) return;
-      snapshot.add(TransactionLine(
+      lines.add(OpenOrderLine(
         productId: p.id,
         productName: p.name,
         price: p.price,
         hpp: p.hpp,
         qty: qty,
       ));
-      totalPrice += p.price * qty;
     });
-
-    if (snapshot.isEmpty) {
-      setState(() => _cart.clear());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Produk di keranjang sudah tidak tersedia.'),
-          backgroundColor: AppTheme.dangerColor,
-        ),
+    if (lines.isEmpty) return;
+    final existing = _findOrder(_activeOrderKey!);
+    if (existing == null) {
+      await _localDb.createOpenOrder(
+        orderKey: _activeOrderKey!,
+        orderType: _activeOrderType!,
+        tableNumber: _activeTableNumber,
+        lines: lines,
       );
-      return;
+    } else {
+      await _localDb.appendToOpenOrder(
+        orderKey: _activeOrderKey!,
+        lines: lines,
+      );
     }
+    await _reloadOpenOrders();
+    if (!mounted) return;
+    if (_afterMenuView == PosView.orderDetail) {
+      final o = _findOrder(_activeOrderKey!);
+      if (o != null) {
+        _openOrderDetail(o);
+        return;
+      }
+    }
+    _backToTables();
+  }
 
+  void _showPaymentFor(OpenOrder order) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _CheckoutDialog(
-        lines: snapshot,
-        total: totalPrice,
+      builder: (_) => _PaymentDialog(
+        order: order,
         service: _service,
-        onSuccess: () {
+        onSuccess: () async {
+          await _reloadOpenOrders();
           if (!mounted) return;
-          setState(() => _cart.clear());
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Transaksi Berhasil!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Pembayaran berhasil'),
+            backgroundColor: Colors.green,
+          ));
+          _backToTables();
         },
       ),
     );
   }
 
-  void _showCartSheet() {
-    final formatCurrency = NumberFormat.decimalPattern('id');
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surfaceColor,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8))),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SafeArea(
-              child: SizedBox(
-                width: double.infinity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('Keranjang Belanja',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16))),
-                    const Divider(height: 1),
-                    Flexible(
-                      child: _cart.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text('Keranjang kosong',
-                                  style: TextStyle(
-                                      color: AppTheme.textLightColor)))
-                          : ListView(
-                              shrinkWrap: true,
-                              children: _cart.entries.map((entry) {
-                                final product = _findProduct(entry.key);
-                                if (product == null) {
-                                  return const SizedBox.shrink();
-                                }
-                                return ListTile(
-                                  title: Text(product.name),
-                                  subtitle: Text(
-                                      'Rp ${formatCurrency.format(product.price)} x ${entry.value}'),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                          icon: const Icon(
-                                              Icons.remove_circle_outline),
-                                          onPressed: () {
-                                            _removeFromCart(product);
-                                            setSheetState(() {});
-                                          }),
-                                      Text('${entry.value}'),
-                                      IconButton(
-                                          icon: const Icon(
-                                              Icons.add_circle_outline),
-                                          onPressed: () {
-                                            _addToCart(product);
-                                            setSheetState(() {});
-                                          }),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildProductImage(Product product) {
-    if (product.localImagePath != null &&
-        File(product.localImagePath!).existsSync()) {
-      return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
+  Future<void> _adjustOpenOrderItemQty(
+      OpenOrder order, OpenOrderItem item, int delta) async {
+    final newQty = item.qty + delta;
+    await _localDb.updateOpenOrderItemQty(item.id, newQty);
+    final updated = await _localDb.getOpenOrder(order.orderKey);
+    if (updated != null && updated.items.isEmpty) {
+      await _localDb.deleteOpenOrder(order.orderKey);
+      await _reloadOpenOrders();
+      if (!mounted) return;
+      _backToTables();
+      return;
     }
-    if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
-      return Image.network(product.imageUrl!,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildImagePlaceholder());
-    }
-    return _buildImagePlaceholder();
+    await _reloadOpenOrders();
+    if (!mounted) return;
+    final refreshed = _findOrder(order.orderKey);
+    if (refreshed != null) _openOrderDetail(refreshed);
   }
-
-  Widget _buildImagePlaceholder() => Container(
-      color: const Color(0xFFF1F5F9),
-      child: const Center(
-          child: Icon(Icons.image_outlined,
-              color: AppTheme.textLightColor, size: 40)));
 
   @override
   Widget build(BuildContext context) {
-    final formatCurrency = NumberFormat.decimalPattern('id');
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-          title: const Text('Kasir'),
-          automaticallyImplyLeading: false,
-          actions: [
-            IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _loadProducts,
-                tooltip: 'Muat ulang produk')
-          ]),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                      Text(_errorMessage!,
-                          style: const TextStyle(color: AppTheme.dangerColor)),
-                      const SizedBox(height: 16),
-                      TextButton(
-                          onPressed: _loadProducts,
-                          child: const Text('Coba Lagi'))
-                    ]))
-              : _products.isEmpty
-                  ? const Center(child: Text('Belum ada data produk.'))
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 220,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.75),
-                      itemCount: _products.length,
-                      itemBuilder: (context, index) {
-                        final product = _products[index];
-                        final qty = _cart[product.id] ?? 0;
-                        return Container(
-                          decoration: BoxDecoration(
-                              color: AppTheme.surfaceColor,
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: const Color(0xFFE2E8F0))),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () => _addToCart(product),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(8)),
-                                    child: Stack(fit: StackFit.expand, children: [
-                                      _buildProductImage(product),
-                                      if (qty > 0)
-                                        Positioned(
-                                            top: 8,
-                                            right: 8,
-                                            child: Container(
-                                                padding:
-                                                    const EdgeInsets.all(6),
-                                                decoration: const BoxDecoration(
-                                                    color: AppTheme.primaryColor,
-                                                    shape: BoxShape.circle),
-                                                child: Text('$qty',
-                                                    style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.bold)))),
-                                    ]),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(product.name,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: AppTheme.textColor),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                            'Rp ${formatCurrency.format(product.price)}',
-                                            style: const TextStyle(
-                                                fontSize: 13,
-                                                color: AppTheme.primaryColor,
-                                                fontWeight: FontWeight.bold)),
-                                      ]),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-      bottomNavigationBar:
-          _cart.isEmpty ? null : _buildBottomBar(formatCurrency),
-    );
-  }
-
-  Widget _buildBottomBar(NumberFormat formatCurrency) {
-    return GestureDetector(
-      onTap: _showCartSheet,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        decoration: const BoxDecoration(
-            color: AppTheme.surfaceColor,
-            border: Border(top: BorderSide(color: Color(0xFFE2E8F0)))),
-        child: SafeArea(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('$_totalItems Barang (ketuk untuk detail)',
-                        style: const TextStyle(
-                            color: AppTheme.textLightColor, fontSize: 13)),
-                    const SizedBox(height: 4),
-                    Text('Rp ${formatCurrency.format(_totalPrice)}',
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textColor)),
-                  ]),
-              ElevatedButton(
-                  onPressed: _showCheckoutDialog,
-                  style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 40, vertical: 16)),
-                  child: const Text('BAYAR')),
+              Text(_errorMessage!,
+                  style: const TextStyle(color: AppTheme.dangerColor)),
+              const SizedBox(height: 16),
+              TextButton(onPressed: _loadData, child: const Text('Coba Lagi')),
             ],
           ),
         ),
+      );
+    }
+    switch (_view) {
+      case PosView.tables:
+        return _buildTablesView();
+      case PosView.menu:
+        return _buildMenuView();
+      case PosView.orderDetail:
+        return _buildOrderDetailView();
+    }
+  }
+
+  Widget _buildTablesView() {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Kasir'),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadData,
+              tooltip: 'Muat ulang'),
+        ],
       ),
+      body: _PosTablesView(
+        openOrders: _openOrders,
+        onTapEmptyTable: _openEmptyTable,
+        onTapOpenOrder: _openOrderDetail,
+        onTapTakeAway: _openTakeAway,
+        onTapPay: _showPaymentFor,
+      ),
+    );
+  }
+
+  Widget _buildMenuView() {
+    return _PosMenuPicker(
+      products: _products,
+      categories: _categories,
+      cart: _cart,
+      filterCategoryId: _filterCategoryId,
+      onFilterChanged: (id) => setState(() => _filterCategoryId = id),
+      onAdd: _addToCart,
+      onRemove: _removeFromCart,
+      cartTotal: _cartTotal,
+      cartItemCount: _cartItemCount,
+      onSave: _promptSaveOrder,
+      onBack: () {
+        if (_afterMenuView == PosView.orderDetail) {
+          final o = _findOrder(_activeOrderKey ?? '');
+          if (o != null) {
+            _openOrderDetail(o);
+            return;
+          }
+        }
+        _backToTables();
+      },
+      title: _activeOrderType == 'take_away'
+          ? 'Pesan $_activeOrderKey'
+          : 'Pesan Meja $_activeTableNumber',
+    );
+  }
+
+  Widget _buildOrderDetailView() {
+    final order =
+        _activeOrderKey != null ? _findOrder(_activeOrderKey!) : null;
+    if (order == null) return _buildTablesView();
+    return _PosOrderDetailView(
+      order: order,
+      onBack: _backToTables,
+      onAddMore: _startAddToExisting,
+      onPay: () => _showPaymentFor(order),
+      onAdjustQty: (item, delta) => _adjustOpenOrderItemQty(order, item, delta),
+      onVoid: () async {
+        await _localDb.deleteOpenOrder(order.orderKey);
+        await _reloadOpenOrders();
+        if (!mounted) return;
+        _backToTables();
+      },
     );
   }
 }

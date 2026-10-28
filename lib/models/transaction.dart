@@ -1,6 +1,5 @@
 // lib/models/transaction.dart
 
-/// Input model untuk menyimpan transaksi baru (belum punya ID).
 class TransactionLine {
   final int? productId;
   final String productName;
@@ -17,7 +16,6 @@ class TransactionLine {
   });
 }
 
-/// Model baris item transaksi yang dibaca dari SQLite.
 class TransactionItem {
   final int id;
   final int transactionId;
@@ -52,13 +50,16 @@ class TransactionItem {
   int get subtotal => price * qty;
 }
 
-/// Model transaksi lengkap (dengan items).
 class Transaction {
   final int id;
   final int total;
   final DateTime createdAt;
   final bool isSynced;
   final List<TransactionItem> items;
+  final int cashReceived;
+  final int changeAmount;
+  final String? tableNumber;
+  final String? orderType;
 
   Transaction({
     required this.id,
@@ -66,6 +67,10 @@ class Transaction {
     required this.createdAt,
     required this.isSynced,
     required this.items,
+    this.cashReceived = 0,
+    this.changeAmount = 0,
+    this.tableNumber,
+    this.orderType,
   });
 
   factory Transaction.fromDb(
@@ -81,6 +86,10 @@ class Transaction {
       ).toLocal(),
       isSynced: (m['is_synced'] as int? ?? 0) == 1,
       items: items,
+      cashReceived: (m['cash_received'] as num?)?.toInt() ?? 0,
+      changeAmount: (m['change_amount'] as num?)?.toInt() ?? 0,
+      tableNumber: m['table_number'] as String?,
+      orderType: m['order_type'] as String?,
     );
   }
 
