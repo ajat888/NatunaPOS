@@ -428,10 +428,6 @@ class LocalDb {
     });
   }
 
-  // ---- Pull helpers (untuk STEP 8) ----
-
-  /// Cek id transaksi mana yang sudah ada lokal. Dipakai untuk skip duplikat
-  /// saat pull.
   Future<Set<int>> existingTransactionIds(List<int> ids) async {
     if (ids.isEmpty) return {};
     final db = await database;
@@ -445,9 +441,6 @@ class LocalDb {
     return maps.map((m) => m['id'] as int).toSet();
   }
 
-  /// Insert transaksi yang di-pull dari server. Item baru pakai AUTOINCREMENT
-  /// lokal (tidak diberi id dari server) untuk mencegah tabrakan dengan row
-  /// lokal lain. Transaksi di-set is_synced=1 karena berasal dari server.
   Future<void> insertPulledTransaction({
     required int id,
     required int total,
@@ -478,6 +471,24 @@ class LocalDb {
         });
       }
     });
+  }
+
+  /// Hitung total antrian sync di semua tabel (products + categories +
+  /// transactions yang is_synced = 0). Termasuk yang soft-deleted — karena
+  /// sync delete juga perlu diproses.
+  Future<int> countPendingSync() async {
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT
+        (SELECT COUNT(*) FROM products      WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM categories    WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM transactions  WHERE is_synced = 0)
+      AS total
+    ''');
+    final v = result.first['total'];
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return 0;
   }
 
   // ============ AUTH CACHE ============

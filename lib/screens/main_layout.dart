@@ -9,6 +9,7 @@ import 'kelola_screen.dart';
 import 'history_screen.dart';
 import 'login_screen.dart';
 import '../services/supabase_service.dart';
+import '../services/sync_status_service.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -30,11 +31,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Refresh pending count segera agar badge akurat saat app dibuka.
+    SyncStatusService.instance.refreshPendingCount();
+    // Listen perubahan state untuk SnackBar saat gagal.
+    SyncStatusService.instance.state.addListener(_onSyncStateChanged);
+
     _initConnectivity();
   }
 
   @override
   void dispose() {
+    SyncStatusService.instance.state.removeListener(_onSyncStateChanged);
     _connSub?.cancel();
     _debounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -43,7 +51,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Saat user kembali ke aplikasi, coba sync (jika ada antrian).
     if (state == AppLifecycleState.resumed) {
       _scheduleSync(delaySeconds: 1);
     }
@@ -51,14 +58,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   Future<void> _initConnectivity() async {
     try {
-      // Cek koneksi awal — jika online, sync pertama setelah 1 detik.
       final initial = await _connectivity.checkConnectivity();
       if (_hasConnection(initial)) {
         _scheduleSync(delaySeconds: 1);
       }
-
-      // Dengarkan perubahan koneksi. Debounce 3 detik agar tidak spam
-      // saat sinyal goyang (Wi-Fi ↔ Data).
       _connSub = _connectivity.onConnectivityChanged.listen((results) {
         if (_hasConnection(results)) {
           _scheduleSync(delaySeconds: 3);
@@ -81,12 +84,33 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (!_service.isLoggedIn) return;
     try {
       await _service.syncData();
-      // Refresh Beranda jika sedang tampil & widget masih mounted.
       if (mounted) {
         _dashboardKey.currentState?.refresh();
       }
     } catch (e) {
       debugPrint('Auto-sync failed: $e');
+    }
+  }
+
+  void _onSyncStateChanged() {
+    if (!mounted) return;
+    final state = SyncStatusService.instance.state.value;
+    if (state == SyncState.failed &&
+        SyncStatusService.instance.shouldNotifyFailure()) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          SyncStatusService.instance.lastErrorMessage ??
+              'Sinkronisasi gagal. Akan dicoba lagi otomatis.',
+        ),
+        backgroundColor: AppTheme.dangerColor,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'COBA',
+          textColor: Colors.white,
+          onPressed: _trySync,
+        ),
+      ));
     }
   }
 
@@ -97,6 +121,74 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
+    );
+  }
+
+  Widget _buildSyncBadge() {
+    return ValueListenableBuilder<SyncState>(
+      valueListenable: SyncStatusService.instance.state,
+      builder: (context, state, _) {
+        IconData icon;
+        Color color;
+        String label;
+        String tooltip;
+        switch (state) {
+          case SyncState.syncing:
+            icon = Icons.sync;
+            color = AppTheme.primaryColor;
+            label = 'SYNC';
+            tooltip = 'Menyinkronkan...';
+            break;
+          case SyncState.pending:
+            icon = Icons.cloud_upload_outlined;
+            color = Colors.orange.shade800;
+            label = '${SyncStatusService.instance.pendingCount.value}';
+            tooltip =
+                '${SyncStatusService.instance.pendingCount.value} perubahan menunggu. Ketuk untuk sync.';
+            break;
+          case SyncState.failed:
+            icon = Icons.cloud_off;
+            color = AppTheme.dangerColor;
+            label = 'GAGAL';
+            tooltip = 'Sinkronisasi gagal. Ketuk untuk coba lagi.';
+            break;
+          case SyncState.idle:
+            icon = Icons.cloud_done_outlined;
+            color = Colors.green.shade700;
+            label = 'OK';
+            tooltip = 'Semua data tersinkron. Ketuk untuk sync manual.';
+            break;
+        }
+        return Tooltip(
+          message: tooltip,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(4),
+            onTap: _trySync,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 11, color: color),
+                  const SizedBox(width: 3),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -169,7 +261,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 color: AppTheme.primaryColor.withOpacity(0.8),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 10),
+                            _buildSyncBadge(),
+                            const SizedBox(height: 10),
                             const Divider(height: 1),
                           ],
                         ),
@@ -181,6 +275,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           children: [
                             const Divider(height: 1),
                             const SizedBox(height: 8),
+                            IconButton(
+                              icon: const Icon(Icons.sync,
+                                  color: AppTheme.primaryColor),
+                              onPressed: _trySync,
+                              tooltip: 'Sync sekarang',
+                            ),
                             IconButton(
                               icon: const Icon(Icons.logout,
                                   color: AppTheme.dangerColor),
