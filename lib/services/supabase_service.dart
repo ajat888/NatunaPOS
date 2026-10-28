@@ -1,12 +1,20 @@
 // lib/services/supabase_service.dart
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
+import '../models/auth_cache.dart';
 import '../core/local_db.dart';
+
+/// Hasil login — memberi tahu UI apakah sesi terhubung ke server (online)
+/// atau hasil verifikasi lokal (offline).
+enum LoginMode { online, offline }
 
 class SupabaseService {
   SupabaseService._();
@@ -18,17 +26,60 @@ class SupabaseService {
   static bool _isSyncing = false;
   static final Random _rng = Random();
 
-  Future<AuthResponse> login(String email, String password) async {
-    return await _client.auth
-        .signInWithPassword(email: email, password: password);
+  // ---- Offline session state ----
+  static const String _kOfflineEmailKey = 'offline_session_email';
+  String? _cachedOfflineEmail;
+
+  /// Panggil SEKALI di `main()` sebelum `runApp()`. Memuat flag offline
+  /// session dari SharedPreferences & membersihkan jika sudah stale
+  /// (Supabase session valid).
+  Future<void> initSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedOfflineEmail = prefs.getString(_kOfflineEmailKey);
+    if (_client.auth.currentSession != null && _cachedOfflineEmail != null) {
+      // Ada sesi online valid — flag offline basi.
+      _cachedOfflineEmail = null;
+      await prefs.remove(_kOfflineEmailKey);
+    }
   }
 
-  /// Logout offline-safe:
-  /// 1. Coba signOut global (invalidate token di server + clear lokal).
-  /// 2. Jika gagal (offline / network error), fallback ke signOut lokal
-  ///    (clear sesi dari SharedPreferences tanpa network call).
-  /// 3. Jika keduanya gagal, tetap lanjut ke login screen — user tidak stuck.
+  // ---- Auth ----
+
+  /// Login: coba online, fallback ke cache lokal jika network error.
+  Future<LoginMode> login(String email, String password) async {
+    try {
+      await _client.auth.signInWithPassword(email: email, password: password);
+      // Sukses online → simpan cache & clear offline flag.
+      await _saveAuthCache(email, password);
+      await _setOfflineSession(null);
+      return LoginMode.online;
+    } catch (onlineErr) {
+      // Cek cache lokal
+      final cache = await _localDb.getAuthCache(email);
+      if (cache == null) {
+        // Belum pernah login online di device ini → tidak bisa offline
+        if (onlineErr is AuthException) rethrow;
+        throw AuthException(
+            'Login gagal. Login pertama kali memerlukan internet.');
+      }
+      if (!_hashMatches(password, cache.salt, cache.passwordHash)) {
+        throw AuthException('Email atau password salah.');
+      }
+      // Cache cocok. Tapi jika server reachable & menolak (is AuthException),
+      // berarti password sudah berubah di server → jangan izinkan offline.
+      if (onlineErr is AuthException) {
+        throw AuthException(
+            'Password Anda telah berubah di server. Login online untuk memperbarui.');
+      }
+      // Network error + cache cocok → masuk offline mode.
+      await _setOfflineSession(email);
+      return LoginMode.offline;
+    }
+  }
+
+  /// Offline-safe logout. Clear offline flag + hapus sesi Supabase.
   Future<void> logout() async {
+    await _setOfflineSession(null);
     try {
       await _client.auth.signOut();
     } catch (e) {
@@ -41,12 +92,65 @@ class SupabaseService {
     }
   }
 
-  bool get isLoggedIn => _client.auth.currentSession != null;
+  bool get isLoggedIn =>
+      _client.auth.currentSession != null || _cachedOfflineEmail != null;
+
+  bool get isOfflineSession =>
+      _client.auth.currentSession == null && _cachedOfflineEmail != null;
+
+  // ---- Auth cache helpers ----
+
+  Future<void> _setOfflineSession(String? email) async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedOfflineEmail = email;
+    if (email == null) {
+      await prefs.remove(_kOfflineEmailKey);
+    } else {
+      await prefs.setString(_kOfflineEmailKey, email);
+    }
+  }
+
+  Future<void> _saveAuthCache(String email, String password) async {
+    final salt = _generateSalt();
+    final hash = _hashPassword(password, salt);
+    await _localDb.upsertAuthCache(AuthCacheEntry(
+      email: email,
+      passwordHash: hash,
+      salt: salt,
+      lastOnlineLoginMs: DateTime.now().millisecondsSinceEpoch,
+    ));
+  }
+
+  String _generateSalt() {
+    final rng = Random.secure();
+    return base64Encode(List.generate(16, (_) => rng.nextInt(256)));
+  }
+
+  String _hashPassword(String password, String salt) {
+    final initial = utf8.encode('$salt$password$salt');
+    var digest = sha256.convert(initial);
+    for (var i = 0; i < 10000; i++) {
+      digest = sha256.convert([...digest.bytes, ...utf8.encode(salt)]);
+    }
+    return digest.toString();
+  }
+
+  bool _hashMatches(String password, String salt, String expectedHash) {
+    return _hashPassword(password, salt) == expectedHash;
+  }
+
+  // ---- Local read ----
 
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();
   Future<List<Category>> getLocalCategories() => _localDb.getCategories();
 
+  // ---- Sync ----
+
   Future<void> syncData() async {
+    // SYNC HANYA JALAN DENGAN SESI SUPABASE VALID.
+    // Di offline mode, lewati — antrian akan di-push saat user login online.
+    if (_client.auth.currentSession == null) return;
+
     if (_isSyncing) return;
     _isSyncing = true;
 
@@ -103,7 +207,7 @@ class SupabaseService {
         }
       }
 
-      // STEP 3.5: Remap product.category_id temp ids to real ids
+      // STEP 3.5: Remap product.category_id temp ids
       for (final entry in categoryIdMap.entries) {
         try {
           await _localDb.remapProductCategory(entry.key, entry.value);
@@ -183,7 +287,7 @@ class SupabaseService {
         }
       }
 
-      // STEP 5: Pull server categories (paginated)
+      // STEP 5: Pull server categories
       try {
         final allCategories = <Category>[];
         int offset = 0;
@@ -205,7 +309,7 @@ class SupabaseService {
         debugPrint('Pull categories failed: $e');
       }
 
-      // STEP 6: Pull server products (paginated)
+      // STEP 6: Pull server products
       try {
         final allProducts = <Product>[];
         int offset = 0;
@@ -258,7 +362,6 @@ class SupabaseService {
                 });
               }
             } catch (e) {
-              // Rollback: hapus tx induk yang sudah terlanjur masuk
               try {
                 await _client
                     .from('transactions')
@@ -279,10 +382,70 @@ class SupabaseService {
           debugPrint('Sync transaction ${tx.id} failed: $e');
         }
       }
+
+      // STEP 8: Pull transactions from server
+      //
+      // Iterasi paginated. Untuk setiap tx yang belum ada lokal, insert induk
+      // + items (items pakai AUTOINCREMENT lokal → tidak bentrok dengan
+      // id server yang biasanya besar). Idempotent: pada sync berikutnya,
+      // existence check akan skip karena id sudah ada.
+      try {
+        int offset = 0;
+        const pageSize = 500;
+        while (true) {
+          final response = await _client
+              .from('transactions')
+              .select(
+                  'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)')
+              .order('id', ascending: true)
+              .range(offset, offset + pageSize - 1);
+
+          final list = response as List;
+          if (list.isEmpty) break;
+
+          final ids = list
+              .map((e) => ((e as Map)['id'] as num).toInt())
+              .toList();
+          final existing = await _localDb.existingTransactionIds(ids);
+
+          for (final raw in list) {
+            final m = raw as Map<String, dynamic>;
+            final id = (m['id'] as num).toInt();
+            if (existing.contains(id)) continue;
+
+            final rawItems =
+                (m['transaction_items'] as List?) ?? const <dynamic>[];
+            final items = rawItems.map((i) {
+              final im = i as Map<String, dynamic>;
+              return TransactionLine(
+                productId: (im['product_id'] as num?)?.toInt(),
+                productName: im['product_name'] as String? ?? '',
+                price: (im['price'] as num?)?.toInt() ?? 0,
+                hpp: (im['hpp'] as num?)?.toInt() ?? 0,
+                qty: (im['qty'] as num?)?.toInt() ?? 0,
+              );
+            }).toList();
+
+            await _localDb.insertPulledTransaction(
+              id: id,
+              total: (m['total'] as num?)?.toInt() ?? 0,
+              createdAtLocalMs: (m['created_at_local'] as num?)?.toInt() ?? 0,
+              items: items,
+            );
+          }
+
+          if (list.length < pageSize) break;
+          offset += pageSize;
+        }
+      } catch (e) {
+        debugPrint('Pull transactions failed: $e');
+      }
     } finally {
       _isSyncing = false;
     }
   }
+
+  // ---- Product / category CRUD (tidak berubah) ----
 
   Future<void> createProduct({
     required String name,
@@ -341,8 +504,6 @@ class SupabaseService {
   Future<void> deleteCategory(int id) async {
     await _localDb.markCategoryDeleted(id);
   }
-
-  // ============ TRANSACTIONS ============
 
   Future<void> saveTransaction({
     required List<TransactionLine> lines,

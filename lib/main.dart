@@ -1,28 +1,33 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme.dart';
 import 'screens/login_screen.dart';
-import 'screens/main_layout.dart'; // Memanggil MainLayout
+import 'screens/main_layout.dart';
 import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  
+
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-  
+
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
-  
+
+  // Muat flag offline session dari storage SEBELUM runApp agar isLoggedIn
+  // sudah akurat saat MyApp.build() dievaluasi.
+  await SupabaseService().initSession();
+
   runApp(const MyApp());
 }
 
@@ -37,7 +42,6 @@ class MyApp extends StatelessWidget {
       title: 'NatunaPOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      // Jika sudah login, langsung ke MainLayout
       home: isLoggedIn ? const MainLayout() : const LoginScreen(),
     );
   }

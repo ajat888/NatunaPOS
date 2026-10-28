@@ -1,3 +1,4 @@
+// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
@@ -39,15 +40,26 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _service.login(
+      final mode = await _service.login(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainLayout()),
       );
+      if (mode == LoginMode.offline) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Login offline berhasil. Data akan disinkronkan saat online.'),
+            backgroundColor: AppTheme.primaryColor,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = e.message);
@@ -162,7 +174,9 @@ class _LoginScreenState extends State<LoginScreen> {
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 color: AppTheme.textLightColor,
               ),
               onPressed: () {
@@ -180,7 +194,8 @@ class _LoginScreenState extends State<LoginScreen> {
               ? const SizedBox(
                   height: 20,
                   width: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2))
               : const Text('MASUK'),
         ),
       ],

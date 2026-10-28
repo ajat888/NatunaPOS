@@ -1,12 +1,11 @@
 // lib/core/local_db.dart
 import 'package:flutter/foundation.dart' show debugPrint;
-// FIX: sembunyikan 'Transaction' milik sqflite agar tidak bentrok dengan
-// model domain kita (models/transaction.dart).
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
+import '../models/auth_cache.dart';
 
 class LocalDb {
   static final LocalDb instance = LocalDb._init();
@@ -24,7 +23,7 @@ class LocalDb {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -76,6 +75,14 @@ class LocalDb {
         'CREATE INDEX idx_tx_items_tx ON transaction_items(transaction_id)');
     await db.execute(
         'CREATE INDEX idx_tx_created ON transactions(created_at)');
+    await db.execute('''
+      CREATE TABLE auth_cache (
+        email TEXT PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        last_online_login_ms INTEGER NOT NULL
+      )
+    ''');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -138,6 +145,16 @@ class LocalDb {
           'CREATE INDEX IF NOT EXISTS idx_tx_items_tx ON transaction_items(transaction_id)');
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_tx_created ON transactions(created_at)');
+    }
+    if (oldVersion < 7) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS auth_cache (
+          email TEXT PRIMARY KEY,
+          password_hash TEXT NOT NULL,
+          salt TEXT NOT NULL,
+          last_online_login_ms INTEGER NOT NULL
+        )
+      ''');
     }
   }
 
@@ -280,7 +297,6 @@ class LocalDb {
 
   // ============ TRANSACTIONS ============
 
-  /// Simpan transaksi baru + items secara atomik.
   Future<void> insertTransaction({
     required int transactionId,
     required int total,
@@ -309,7 +325,6 @@ class LocalDb {
     });
   }
 
-  /// Ambil transaksi terbaru (default 100) lengkap dengan items.
   Future<List<Transaction>> getTransactions({int limit = 100}) async {
     final db = await database;
     final txMaps = await db.query(
@@ -340,7 +355,6 @@ class LocalDb {
     }).toList();
   }
 
-  /// Ringkasan hari ini (local timezone): jumlah transaksi & total penjualan.
   Future<Map<String, int>> getTodaySummary() async {
     final db = await database;
     final now = DateTime.now();
@@ -364,8 +378,6 @@ class LocalDb {
 
   // ============ SYNC HELPERS ============
 
-  /// Ambil transaksi yang belum ter-push ke Supabase (is_synced = 0).
-  /// Diurutkan FIFO (paling lama dahulu) agar urutan push = urutan asli.
   Future<List<Transaction>> getUnsyncedTransactions() async {
     final db = await database;
     final txMaps = await db.query(
@@ -395,8 +407,6 @@ class LocalDb {
     }).toList();
   }
 
-  /// Ganti id transaksi lokal (negatif) dengan id server (positif),
-  /// lalu tandai is_synced = 1. Update FK di transaction_items juga.
   Future<void> replaceTransactionId({
     required int oldId,
     required int newId,
@@ -416,5 +426,78 @@ class LocalDb {
         whereArgs: [oldId],
       );
     });
+  }
+
+  // ---- Pull helpers (untuk STEP 8) ----
+
+  /// Cek id transaksi mana yang sudah ada lokal. Dipakai untuk skip duplikat
+  /// saat pull.
+  Future<Set<int>> existingTransactionIds(List<int> ids) async {
+    if (ids.isEmpty) return {};
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final maps = await db.query(
+      'transactions',
+      columns: ['id'],
+      where: 'id IN ($placeholders)',
+      whereArgs: ids,
+    );
+    return maps.map((m) => m['id'] as int).toSet();
+  }
+
+  /// Insert transaksi yang di-pull dari server. Item baru pakai AUTOINCREMENT
+  /// lokal (tidak diberi id dari server) untuk mencegah tabrakan dengan row
+  /// lokal lain. Transaksi di-set is_synced=1 karena berasal dari server.
+  Future<void> insertPulledTransaction({
+    required int id,
+    required int total,
+    required int createdAtLocalMs,
+    required List<TransactionLine> items,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.insert(
+        'transactions',
+        {
+          'id': id,
+          'total': total,
+          'created_at': createdAtLocalMs,
+          'is_synced': 1,
+          'is_deleted': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      for (final line in items) {
+        await txn.insert('transaction_items', {
+          'transaction_id': id,
+          'product_id': line.productId,
+          'product_name': line.productName,
+          'price': line.price,
+          'hpp': line.hpp,
+          'qty': line.qty,
+        });
+      }
+    });
+  }
+
+  // ============ AUTH CACHE ============
+
+  Future<void> upsertAuthCache(AuthCacheEntry entry) async {
+    final db = await database;
+    await db.insert('auth_cache', entry.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<AuthCacheEntry?> getAuthCache(String email) async {
+    final db = await database;
+    final maps = await db.query('auth_cache',
+        where: 'email = ?', whereArgs: [email], limit: 1);
+    if (maps.isEmpty) return null;
+    return AuthCacheEntry.fromDb(maps.first);
+  }
+
+  Future<void> deleteAuthCache(String email) async {
+    final db = await database;
+    await db.delete('auth_cache', where: 'email = ?', whereArgs: [email]);
   }
 }
