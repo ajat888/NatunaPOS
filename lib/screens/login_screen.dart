@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../core/theme.dart';
-import 'main_layout.dart'; // PENTING: Memanggil MainLayout, bukan home_screen
+import 'main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _service = SupabaseService();
-  
+
   bool _isLoading = false;
   String? _errorMessage;
   bool _obscurePassword = true;
@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       setState(() => _errorMessage = 'Email dan Password tidak boleh kosong');
       return;
     }
@@ -44,8 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
       if (!mounted) return;
-      
-      // Navigasi ke MainLayout setelah sukses login
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainLayout()),
@@ -101,9 +99,9 @@ class _LoginScreenState extends State<LoginScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Icon(
-          Icons.account_balance_wallet_outlined, 
-          size: 80, 
-          color: AppTheme.primaryColor
+          Icons.account_balance_wallet_outlined,
+          size: 80,
+          color: AppTheme.primaryColor,
         ),
         const SizedBox(height: 32),
         const Text(
@@ -164,9 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword 
-                    ? Icons.visibility_off_outlined 
-                    : Icons.visibility_outlined,
+                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                 color: AppTheme.textLightColor,
               ),
               onPressed: () {
@@ -182,10 +178,9 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: _isLoading ? null : _handleLogin,
           child: _isLoading
               ? const SizedBox(
-                  height: 20, 
-                  width: 20, 
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                )
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : const Text('MASUK'),
         ),
       ],

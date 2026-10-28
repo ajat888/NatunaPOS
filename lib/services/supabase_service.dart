@@ -1,17 +1,25 @@
 import 'dart:io';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../core/local_db.dart';
 
 class SupabaseService {
-  final SupabaseClient _client = Supabase.instance.client;
+  SupabaseService._();
+  static final SupabaseService _instance = SupabaseService._();
+  factory SupabaseService() => _instance;
+
+  SupabaseClient get _client => Supabase.instance.client;
   final LocalDb _localDb = LocalDb.instance;
-  bool _isSyncing = false;
+  static bool _isSyncing = false;
+  static final Random _rng = Random();
 
   Future<AuthResponse> login(String email, String password) async {
     return await _client.auth.signInWithPassword(email: email, password: password);
   }
+
   Future<void> logout() async => await _client.auth.signOut();
   bool get isLoggedIn => _client.auth.currentSession != null;
 
@@ -21,64 +29,180 @@ class SupabaseService {
   Future<void> syncData() async {
     if (_isSyncing) return;
     _isSyncing = true;
-    
+
     try {
-      final localCategories = await _localDb.getCategories();
-      final unsyncedCategories = localCategories.where((c) => c.id < 0).toList();
-      for (final c in unsyncedCategories) {
+      // STEP 1: Flush deleted categories
+      final deletedCategories = await _localDb.getDeletedCategories();
+      for (final c in deletedCategories) {
         try {
-          final response = await _client.from('categories').insert({'name': c.name}).select().single();
-          await _localDb.deleteCategory(c.id); 
-          await _localDb.upsertCategory(Category.fromJson(response)); 
-        } catch (_) {}
+          if (c.id > 0) {
+            await _client.from('categories').delete().eq('id', c.id);
+          }
+          await _localDb.deleteCategory(c.id);
+        } catch (e) {
+          debugPrint('Sync delete category ${c.id} failed: $e');
+        }
       }
 
-      try {
-        final response = await _client.from('categories').select().order('id', ascending: true);
-        final serverCategories = (response as List).map((json) => Category.fromJson(json)).toList();
-        await _localDb.replaceAllCategories(serverCategories);
-      } catch (_) {}
+      // STEP 2: Flush deleted products
+      final deletedProducts = await _localDb.getDeletedProducts();
+      for (final p in deletedProducts) {
+        try {
+          if (p.id > 0) {
+            await _client.from('products').delete().eq('id', p.id);
+          }
+          await _localDb.deleteProduct(p.id);
+        } catch (e) {
+          debugPrint('Sync delete product ${p.id} failed: $e');
+        }
+      }
 
+      // STEP 3: Push unsynced categories
+      final Map<int, int> categoryIdMap = {};
+      final unsyncedCategories = await _localDb.getUnsyncedCategories();
+      for (final c in unsyncedCategories) {
+        try {
+          if (c.id < 0) {
+            final response = await _client
+                .from('categories')
+                .insert({'name': c.name})
+                .select()
+                .single();
+            final newId = response['id'] as int;
+            categoryIdMap[c.id] = newId;
+            await _localDb.deleteCategory(c.id);
+            await _localDb.upsertCategory(Category.fromJson(response));
+          } else {
+            await _client.from('categories').update({'name': c.name}).eq('id', c.id);
+            await _localDb.upsertCategory(c.copyWith(isSynced: true));
+          }
+        } catch (e) {
+          debugPrint('Sync category ${c.id} failed: $e');
+        }
+      }
+
+      // STEP 3.5: Remap product.category_id temp ids to real ids
+      for (final entry in categoryIdMap.entries) {
+        try {
+          await _localDb.remapProductCategory(entry.key, entry.value);
+        } catch (e) {
+          debugPrint('Remap category ${entry.key} -> ${entry.value} failed: $e');
+        }
+      }
+
+      // STEP 4: Push unsynced products
       final unsyncedProducts = await _localDb.getUnsyncedProducts();
       for (final p in unsyncedProducts) {
         try {
           String? finalImageUrl = p.imageUrl;
+          String? remainingLocalImagePath = p.localImagePath;
+
           if (p.localImagePath != null && File(p.localImagePath!).existsSync()) {
-            final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
-            await _client.storage.from('product_images').upload(fileName, File(p.localImagePath!));
-            finalImageUrl = _client.storage.from('product_images').getPublicUrl(fileName);
+            final fileName =
+                'product_${DateTime.now().microsecondsSinceEpoch}_${_rng.nextInt(999999)}.jpg';
+            await _client
+                .storage
+                .from('product_images')
+                .upload(fileName, File(p.localImagePath!));
+            finalImageUrl =
+                _client.storage.from('product_images').getPublicUrl(fileName);
+            try {
+              await File(p.localImagePath!).delete();
+            } catch (e) {
+              debugPrint('Failed to remove local image: $e');
+            }
+            remainingLocalImagePath = null;
+          }
+
+          int? finalCategoryId = p.categoryId;
+          if (finalCategoryId != null && categoryIdMap.containsKey(finalCategoryId)) {
+            finalCategoryId = categoryIdMap[finalCategoryId];
           }
 
           if (p.id < 0) {
-            final response = await _client.from('products').insert({
-              'name': p.name,
-              'price': p.price,
-              'hpp': p.hpp,
-              'category_id': p.categoryId,
-              'image_url': finalImageUrl,
-            }).select().single();
-            
-            await _localDb.deleteProduct(p.id); 
-            await _localDb.upsertProduct(Product.fromJson(response)); 
+            final response = await _client
+                .from('products')
+                .insert({
+                  'name': p.name,
+                  'price': p.price,
+                  'hpp': p.hpp,
+                  'category_id': finalCategoryId,
+                  'image_url': finalImageUrl,
+                })
+                .select()
+                .single();
+            await _localDb.deleteProduct(p.id);
+            await _localDb.upsertProduct(Product.fromJson(response));
           } else {
-            await _client.from('products').update({
-              'name': p.name,
-              'price': p.price,
-              'hpp': p.hpp,
-              'category_id': p.categoryId,
-              'image_url': finalImageUrl,
-            }).eq('id', p.id);
-            
-            await _localDb.upsertProduct(p.copyWith(isSynced: true));
+            await _client
+                .from('products')
+                .update({
+                  'name': p.name,
+                  'price': p.price,
+                  'hpp': p.hpp,
+                  'category_id': finalCategoryId,
+                  'image_url': finalImageUrl,
+                })
+                .eq('id', p.id);
+            await _localDb.upsertProduct(Product(
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              hpp: p.hpp,
+              categoryId: finalCategoryId,
+              imageUrl: finalImageUrl,
+              localImagePath: remainingLocalImagePath,
+              isSynced: true,
+            ));
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Sync product ${p.id} failed: $e');
+        }
       }
 
+      // STEP 5: Pull server categories (paginated)
       try {
-        final response = await _client.from('products').select().order('id', ascending: true);
-        final serverProducts = (response as List).map((json) => Product.fromJson(json)).toList();
-        await _localDb.replaceAllProducts(serverProducts);
-      } catch (_) {}
+        final allCategories = <Category>[];
+        int offset = 0;
+        const pageSize = 1000;
+        while (true) {
+          final response = await _client
+              .from('categories')
+              .select()
+              .order('id', ascending: true)
+              .range(offset, offset + pageSize - 1);
+          final list =
+              (response as List).map((json) => Category.fromJson(json)).toList();
+          allCategories.addAll(list);
+          if (list.length < pageSize) break;
+          offset += pageSize;
+        }
+        await _localDb.replaceAllCategories(allCategories);
+      } catch (e) {
+        debugPrint('Pull categories failed: $e');
+      }
+
+      // STEP 6: Pull server products (paginated)
+      try {
+        final allProducts = <Product>[];
+        int offset = 0;
+        const pageSize = 1000;
+        while (true) {
+          final response = await _client
+              .from('products')
+              .select()
+              .order('id', ascending: true)
+              .range(offset, offset + pageSize - 1);
+          final list =
+              (response as List).map((json) => Product.fromJson(json)).toList();
+          allProducts.addAll(list);
+          if (list.length < pageSize) break;
+          offset += pageSize;
+        }
+        await _localDb.replaceAllProducts(allProducts);
+      } catch (e) {
+        debugPrint('Pull products failed: $e');
+      }
     } finally {
       _isSyncing = false;
     }
@@ -89,15 +213,18 @@ class SupabaseService {
     required int price,
     required int hpp,
     int? categoryId,
-    File? localImageFile,
     String? localImagePath,
   }) async {
     final tempId = -DateTime.now().millisecondsSinceEpoch;
-    final p = Product(
-      id: tempId, name: name, price: price, hpp: hpp,
-      categoryId: categoryId, localImagePath: localImagePath, isSynced: false,
-    );
-    await _localDb.upsertProduct(p);
+    await _localDb.upsertProduct(Product(
+      id: tempId,
+      name: name,
+      price: price,
+      hpp: hpp,
+      categoryId: categoryId,
+      localImagePath: localImagePath,
+      isSynced: false,
+    ));
   }
 
   Future<void> updateProduct({
@@ -106,54 +233,35 @@ class SupabaseService {
     required int price,
     required int hpp,
     int? categoryId,
-    File? localImageFile,
     String? localImagePath,
     String? existingImageUrl,
   }) async {
-    final p = Product(
-      id: id, name: name, price: price, hpp: hpp,
-      categoryId: categoryId, imageUrl: existingImageUrl,
-      localImagePath: localImagePath, isSynced: false,
-    );
-    await _localDb.upsertProduct(p);
+    await _localDb.upsertProduct(Product(
+      id: id,
+      name: name,
+      price: price,
+      hpp: hpp,
+      categoryId: categoryId,
+      imageUrl: existingImageUrl,
+      localImagePath: localImagePath,
+      isSynced: false,
+    ));
   }
 
   Future<void> deleteProduct(int id) async {
-    await _localDb.deleteProduct(id);
-    if (id > 0) {
-      Future(() async {
-        try { await _client.from('products').delete().eq('id', id); } catch (_) {}
-      });
-    }
+    await _localDb.markProductDeleted(id);
   }
 
   Future<void> createCategory(String name) async {
     final tempId = -DateTime.now().millisecondsSinceEpoch;
-    await _localDb.upsertCategory(Category(id: tempId, name: name));
-    Future(() async {
-      try {
-        final response = await _client.from('categories').insert({'name': name}).select().single();
-        await _localDb.deleteCategory(tempId);
-        await _localDb.upsertCategory(Category.fromJson(response));
-      } catch (_) {}
-    });
+    await _localDb.upsertCategory(Category(id: tempId, name: name, isSynced: false));
   }
 
   Future<void> updateCategory({required int id, required String name}) async {
-    await _localDb.upsertCategory(Category(id: id, name: name));
-    if (id > 0) {
-      Future(() async {
-        try { await _client.from('categories').update({'name': name}).eq('id', id); } catch (_) {}
-      });
-    }
+    await _localDb.upsertCategory(Category(id: id, name: name, isSynced: false));
   }
 
   Future<void> deleteCategory(int id) async {
-    await _localDb.deleteCategory(id);
-    if (id > 0) {
-      Future(() async {
-        try { await _client.from('categories').delete().eq('id', id); } catch (_) {}
-      });
-    }
+    await _localDb.markCategoryDeleted(id);
   }
 }

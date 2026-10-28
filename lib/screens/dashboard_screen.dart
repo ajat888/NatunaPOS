@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  final VoidCallback? onStartTransaction;
+  const DashboardScreen({super.key, this.onStartTransaction});
 
   @override
   Widget build(BuildContext context) {
@@ -10,7 +11,7 @@ class DashboardScreen extends StatelessWidget {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Beranda'),
-        automaticallyImplyLeading: false, // Menghilangkan tombol back
+        automaticallyImplyLeading: false,
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -26,7 +27,6 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            // Baris Kartu Ringkasan
             Row(
               children: [
                 _buildSummaryCard(
@@ -43,7 +43,6 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            // Banner Ajakan Bertindak (Call to Action)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -78,15 +77,13 @@ class DashboardScreen extends StatelessWidget {
                       foregroundColor: AppTheme.primaryColor,
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
                     ),
-                    onPressed: () {
-                      // Logika untuk pindah ke tab Kasir bisa ditambahkan di sini nanti
-                    },
+                    onPressed: onStartTransaction,
                     child: const Text('MULAI TRANSAKSI'),
                   ),
                 ],
               ),
             ),
-            const Spacer(flex: 2), // Ruang kosong agar layout tidak sesak di bawah
+            const Spacer(flex: 2),
           ],
         ),
       ),

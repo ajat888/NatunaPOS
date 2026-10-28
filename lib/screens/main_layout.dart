@@ -18,13 +18,6 @@ class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   final _service = SupabaseService();
 
-  static const List<Widget> _pages = [
-    DashboardScreen(),
-    PosScreen(),
-    KelolaScreen(),
-    HistoryScreen(),
-  ];
-
   Future<void> _handleLogout() async {
     await _service.logout();
     if (!mounted) return;
@@ -37,14 +30,22 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      DashboardScreen(
+        onStartTransaction: () => setState(() => _selectedIndex = 1),
+      ),
+      const PosScreen(),
+      const KelolaScreen(),
+      const HistoryScreen(),
+    ];
+
     return Scaffold(
       body: Row(
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
               return Container(
-                // PERBAIKAN UTAMA: Lebar ditambah menjadi 105 agar teks tidak terpotong
-                width: 105, 
+                width: 105,
                 decoration: const BoxDecoration(
                   color: AppTheme.surfaceColor,
                   border: Border(
@@ -54,7 +55,6 @@ class _MainLayoutState extends State<MainLayout> {
                 child: SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    // Tanpa IntrinsicHeight agar tidak terjadi bug render ganda
                     child: NavigationRail(
                       backgroundColor: Colors.transparent,
                       selectedIndex: _selectedIndex,
@@ -63,12 +63,12 @@ class _MainLayoutState extends State<MainLayout> {
                           _selectedIndex = index;
                         });
                       },
-                      labelType: NavigationRailLabelType.all, // Wajib 'all' agar teks selalu muncul
+                      labelType: NavigationRailLabelType.all,
                       selectedIconTheme: const IconThemeData(color: AppTheme.primaryColor),
                       selectedLabelTextStyle: const TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12, 
+                        fontSize: 12,
                       ),
                       unselectedIconTheme: const IconThemeData(color: AppTheme.textLightColor),
                       unselectedLabelTextStyle: const TextStyle(
@@ -113,8 +113,7 @@ class _MainLayoutState extends State<MainLayout> {
                         NavigationRailDestination(
                           icon: Icon(Icons.dashboard_outlined),
                           selectedIcon: Icon(Icons.dashboard),
-                          // Teks dibiarkan natural tanpa maxLines agar menyesuaikan lebar
-                          label: Text('Beranda'), 
+                          label: Text('Beranda'),
                         ),
                         NavigationRailDestination(
                           icon: Icon(Icons.point_of_sale_outlined),
@@ -138,11 +137,10 @@ class _MainLayoutState extends State<MainLayout> {
               );
             },
           ),
-          
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
-              children: _pages,
+              children: pages,
             ),
           ),
         ],
