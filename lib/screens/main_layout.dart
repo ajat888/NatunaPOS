@@ -1,4 +1,7 @@
+// lib/screens/main_layout.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../core/theme.dart';
 import 'dashboard_screen.dart';
 import 'pos_screen.dart';
@@ -14,9 +17,78 @@ class MainLayout extends StatefulWidget {
   State<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
+class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final _service = SupabaseService();
+  final _dashboardKey = GlobalKey<DashboardScreenState>();
+  final _connectivity = Connectivity();
+
+  StreamSubscription<List<ConnectivityResult>>? _connSub;
+  Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initConnectivity();
+  }
+
+  @override
+  void dispose() {
+    _connSub?.cancel();
+    _debounceTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Saat user kembali ke aplikasi, coba sync (jika ada antrian).
+    if (state == AppLifecycleState.resumed) {
+      _scheduleSync(delaySeconds: 1);
+    }
+  }
+
+  Future<void> _initConnectivity() async {
+    try {
+      // Cek koneksi awal — jika online, sync pertama setelah 1 detik.
+      final initial = await _connectivity.checkConnectivity();
+      if (_hasConnection(initial)) {
+        _scheduleSync(delaySeconds: 1);
+      }
+
+      // Dengarkan perubahan koneksi. Debounce 3 detik agar tidak spam
+      // saat sinyal goyang (Wi-Fi ↔ Data).
+      _connSub = _connectivity.onConnectivityChanged.listen((results) {
+        if (_hasConnection(results)) {
+          _scheduleSync(delaySeconds: 3);
+        }
+      });
+    } catch (e) {
+      debugPrint('Connectivity init failed: $e');
+    }
+  }
+
+  bool _hasConnection(List<ConnectivityResult> results) =>
+      results.any((r) => r != ConnectivityResult.none);
+
+  void _scheduleSync({int delaySeconds = 3}) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(Duration(seconds: delaySeconds), _trySync);
+  }
+
+  Future<void> _trySync() async {
+    if (!_service.isLoggedIn) return;
+    try {
+      await _service.syncData();
+      // Refresh Beranda jika sedang tampil & widget masih mounted.
+      if (mounted) {
+        _dashboardKey.currentState?.refresh();
+      }
+    } catch (e) {
+      debugPrint('Auto-sync failed: $e');
+    }
+  }
 
   Future<void> _handleLogout() async {
     await _service.logout();
@@ -32,11 +104,12 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     final pages = [
       DashboardScreen(
+        key: _dashboardKey,
         onStartTransaction: () => setState(() => _selectedIndex = 1),
       ),
       const PosScreen(),
       const KelolaScreen(),
-      const HistoryScreen(),
+      const HistoryScreen(key: null),
     ];
 
     return Scaffold(
@@ -54,7 +127,8 @@ class _MainLayoutState extends State<MainLayout> {
                 ),
                 child: SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
                     child: NavigationRail(
                       backgroundColor: Colors.transparent,
                       selectedIndex: _selectedIndex,
@@ -62,15 +136,20 @@ class _MainLayoutState extends State<MainLayout> {
                         setState(() {
                           _selectedIndex = index;
                         });
+                        if (index == 0) {
+                          _dashboardKey.currentState?.refresh();
+                        }
                       },
                       labelType: NavigationRailLabelType.all,
-                      selectedIconTheme: const IconThemeData(color: AppTheme.primaryColor),
+                      selectedIconTheme:
+                          const IconThemeData(color: AppTheme.primaryColor),
                       selectedLabelTextStyle: const TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
-                      unselectedIconTheme: const IconThemeData(color: AppTheme.textLightColor),
+                      unselectedIconTheme:
+                          const IconThemeData(color: AppTheme.textLightColor),
                       unselectedLabelTextStyle: const TextStyle(
                         color: AppTheme.textLightColor,
                         fontSize: 12,
@@ -79,7 +158,8 @@ class _MainLayoutState extends State<MainLayout> {
                         padding: const EdgeInsets.only(top: 16, bottom: 8),
                         child: Column(
                           children: [
-                            const Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
+                            const Icon(Icons.storefront,
+                                color: AppTheme.primaryColor, size: 32),
                             const SizedBox(height: 4),
                             Text(
                               'NatunaPOS',
@@ -102,7 +182,8 @@ class _MainLayoutState extends State<MainLayout> {
                             const Divider(height: 1),
                             const SizedBox(height: 8),
                             IconButton(
-                              icon: const Icon(Icons.logout, color: AppTheme.dangerColor),
+                              icon: const Icon(Icons.logout,
+                                  color: AppTheme.dangerColor),
                               onPressed: _handleLogout,
                               tooltip: 'Keluar',
                             ),

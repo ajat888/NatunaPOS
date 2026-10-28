@@ -23,7 +23,24 @@ class SupabaseService {
         .signInWithPassword(email: email, password: password);
   }
 
-  Future<void> logout() async => await _client.auth.signOut();
+  /// Logout offline-safe:
+  /// 1. Coba signOut global (invalidate token di server + clear lokal).
+  /// 2. Jika gagal (offline / network error), fallback ke signOut lokal
+  ///    (clear sesi dari SharedPreferences tanpa network call).
+  /// 3. Jika keduanya gagal, tetap lanjut ke login screen — user tidak stuck.
+  Future<void> logout() async {
+    try {
+      await _client.auth.signOut();
+    } catch (e) {
+      debugPrint('Logout global failed (likely offline): $e');
+      try {
+        await _client.auth.signOut(scope: SignOutScope.local);
+      } catch (e2) {
+        debugPrint('Local signout also failed: $e2');
+      }
+    }
+  }
+
   bool get isLoggedIn => _client.auth.currentSession != null;
 
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();
@@ -211,15 +228,6 @@ class SupabaseService {
       }
 
       // STEP 7: Push unsynced transactions
-      //
-      // Dilakukan SETELAH product push agar product_id di items sudah
-      // positif (jika produk berhasil di-push). Jika produk belum/tidak
-      // pernah tersinkron, kita kirim product_id = null — product_name
-      // tetap menjadi snapshot akurat untuk laporan historis.
-      //
-      // Jika insert items gagal setelah tx induk berhasil masuk server,
-      // kita rollback (hapus tx induk) agar tidak ada orphan, lalu
-      // rethrow agar iterasi berikutnya mencoba lagi dari nol.
       final unsyncedTransactions = await _localDb.getUnsyncedTransactions();
       for (final tx in unsyncedTransactions) {
         try {
@@ -257,8 +265,7 @@ class SupabaseService {
                     .delete()
                     .eq('id', serverTxId);
               } catch (rollbackErr) {
-                debugPrint(
-                    'Rollback tx $serverTxId failed: $rollbackErr');
+                debugPrint('Rollback tx $serverTxId failed: $rollbackErr');
               }
               rethrow;
             }
@@ -337,7 +344,6 @@ class SupabaseService {
 
   // ============ TRANSACTIONS ============
 
-  /// Simpan transaksi ke SQLite lokal (offline-first).
   Future<void> saveTransaction({
     required List<TransactionLine> lines,
     required int total,
