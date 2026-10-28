@@ -10,6 +10,7 @@ import '../models/transaction.dart';
 import '../models/open_order.dart';
 import '../core/local_db.dart';
 import '../core/theme.dart';
+import '../widgets/common/main_menu_scope.dart';
 import '../widgets/common/thousand_formatter.dart';
 
 part 'pos/pos_table_view.dart';
@@ -341,8 +342,12 @@ class _PosScreenState extends State<PosScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          tooltip: 'Menu',
+          onPressed: () => MainMenuScope.of(context)?.openMenu(),
+        ),
         title: const Text('Kasir'),
-        automaticallyImplyLeading: false,
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),

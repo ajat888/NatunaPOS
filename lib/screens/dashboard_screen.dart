@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../services/supabase_service.dart';
+import '../widgets/common/main_menu_scope.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onStartTransaction;
@@ -39,7 +40,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  /// Dipanggil dari MainLayout saat tab Beranda dipilih.
   Future<void> refresh() async {
     await _load();
   }
@@ -50,8 +50,12 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          tooltip: 'Menu',
+          onPressed: () => MainMenuScope.of(context)?.openMenu(),
+        ),
         title: const Text('Beranda'),
-        automaticallyImplyLeading: false,
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/transaction.dart';
 import '../services/supabase_service.dart';
+import '../widgets/common/main_menu_scope.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -62,8 +63,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          tooltip: 'Menu',
+          onPressed: () => MainMenuScope.of(context)?.openMenu(),
+        ),
         title: const Text('Riwayat Transaksi'),
-        automaticallyImplyLeading: false,
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),

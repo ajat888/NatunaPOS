@@ -10,6 +10,7 @@ import 'history_screen.dart';
 import 'login_screen.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
+import '../widgets/common/main_menu_scope.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -22,6 +23,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final _service = SupabaseService();
   final _dashboardKey = GlobalKey<DashboardScreenState>();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _connectivity = Connectivity();
 
   StreamSubscription<List<ConnectivityResult>>? _connSub;
@@ -31,12 +33,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    // Refresh pending count segera agar badge akurat saat app dibuka.
     SyncStatusService.instance.refreshPendingCount();
-    // Listen perubahan state untuk SnackBar saat gagal.
     SyncStatusService.instance.state.addListener(_onSyncStateChanged);
-
     _initConnectivity();
   }
 
@@ -115,6 +113,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   Future<void> _handleLogout() async {
+    _scaffoldKey.currentState?.closeDrawer();
     await _service.logout();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
@@ -122,6 +121,23 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
+  }
+
+  void _openMenu() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  /// Pindah destinasi. Menutup drawer bila sedang terbuka (no-op jika tidak).
+  void _selectDestination(int index) {
+    _scaffoldKey.currentState?.closeDrawer();
+    if (_selectedIndex == index) {
+      if (index == 0) _dashboardKey.currentState?.refresh();
+      return;
+    }
+    setState(() => _selectedIndex = index);
+    if (index == 0) {
+      _dashboardKey.currentState?.refresh();
+    }
   }
 
   Widget _buildSyncBadge() {
@@ -165,7 +181,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(4),
             onTap: _trySync,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(4),
@@ -173,12 +189,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 11, color: color),
-                  const SizedBox(width: 3),
+                  Icon(icon, size: 13, color: color),
+                  const SizedBox(width: 4),
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: color,
                     ),
@@ -192,12 +208,126 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildDrawerItem(int index, IconData icon, String label) {
+    final isSelected = _selectedIndex == index;
+    return ListTile(
+      selected: isSelected,
+      selectedTileColor: AppTheme.primaryColor.withOpacity(0.08),
+      leading: Icon(
+        icon,
+        color: isSelected ? AppTheme.primaryColor : AppTheme.textLightColor,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,
+        ),
+      ),
+      onTap: () => _selectDestination(index),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      width: 280,
+      backgroundColor: AppTheme.surfaceColor,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.storefront,
+                      color: AppTheme.primaryColor, size: 32),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'NatunaPOS',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textColor,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Point of Sale',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textLightColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: [
+                  const Text(
+                    'STATUS SYNC',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textLightColor,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  _buildSyncBadge(),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  _buildDrawerItem(0, Icons.dashboard_outlined, 'Beranda'),
+                  _buildDrawerItem(1, Icons.point_of_sale_outlined, 'Kasir'),
+                  _buildDrawerItem(2, Icons.inventory_2_outlined, 'Kelola'),
+                  _buildDrawerItem(3, Icons.receipt_long_outlined, 'Riwayat'),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.sync, color: AppTheme.primaryColor),
+              title: const Text('Sync Sekarang'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                _trySync();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: AppTheme.dangerColor),
+              title: const Text(
+                'Keluar',
+                style: TextStyle(color: AppTheme.dangerColor),
+              ),
+              onTap: _handleLogout,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
       DashboardScreen(
         key: _dashboardKey,
-        onStartTransaction: () => setState(() => _selectedIndex = 1),
+        onStartTransaction: () => _selectDestination(1),
       ),
       const PosScreen(),
       const KelolaScreen(),
@@ -205,126 +335,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ];
 
     return Scaffold(
-      body: Row(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Container(
-                width: 105,
-                decoration: const BoxDecoration(
-                  color: AppTheme.surfaceColor,
-                  border: Border(
-                    right: BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                ),
-                child: SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints:
-                        BoxConstraints(minHeight: constraints.maxHeight),
-                    child: NavigationRail(
-                      backgroundColor: Colors.transparent,
-                      selectedIndex: _selectedIndex,
-                      onDestinationSelected: (int index) {
-                        setState(() {
-                          _selectedIndex = index;
-                        });
-                        if (index == 0) {
-                          _dashboardKey.currentState?.refresh();
-                        }
-                      },
-                      labelType: NavigationRailLabelType.all,
-                      selectedIconTheme:
-                          const IconThemeData(color: AppTheme.primaryColor),
-                      selectedLabelTextStyle: const TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                      unselectedIconTheme:
-                          const IconThemeData(color: AppTheme.textLightColor),
-                      unselectedLabelTextStyle: const TextStyle(
-                        color: AppTheme.textLightColor,
-                        fontSize: 12,
-                      ),
-                      leading: Padding(
-                        padding: const EdgeInsets.only(top: 16, bottom: 8),
-                        child: Column(
-                          children: [
-                            const Icon(Icons.storefront,
-                                color: AppTheme.primaryColor, size: 32),
-                            const SizedBox(height: 4),
-                            Text(
-                              'NatunaPOS',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryColor.withOpacity(0.8),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            _buildSyncBadge(),
-                            const SizedBox(height: 10),
-                            const Divider(height: 1),
-                          ],
-                        ),
-                      ),
-                      trailing: Padding(
-                        padding: const EdgeInsets.only(top: 16, bottom: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Divider(height: 1),
-                            const SizedBox(height: 8),
-                            IconButton(
-                              icon: const Icon(Icons.sync,
-                                  color: AppTheme.primaryColor),
-                              onPressed: _trySync,
-                              tooltip: 'Sync sekarang',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.logout,
-                                  color: AppTheme.dangerColor),
-                              onPressed: _handleLogout,
-                              tooltip: 'Keluar',
-                            ),
-                          ],
-                        ),
-                      ),
-                      destinations: const [
-                        NavigationRailDestination(
-                          icon: Icon(Icons.dashboard_outlined),
-                          selectedIcon: Icon(Icons.dashboard),
-                          label: Text('Beranda'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.point_of_sale_outlined),
-                          selectedIcon: Icon(Icons.point_of_sale),
-                          label: Text('Kasir'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.inventory_2_outlined),
-                          selectedIcon: Icon(Icons.inventory_2),
-                          label: Text('Kelola'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.receipt_long_outlined),
-                          selectedIcon: Icon(Icons.receipt_long),
-                          label: Text('Riwayat'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          Expanded(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: pages,
-            ),
-          ),
-        ],
+      key: _scaffoldKey,
+      drawer: _buildDrawer(),
+      body: MainMenuScope(
+        openMenu: _openMenu,
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: pages,
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../core/theme.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../services/supabase_service.dart';
+import '../widgets/common/main_menu_scope.dart';
 import '../widgets/common/thousand_formatter.dart';
 
 part 'kelola/product_dialog.dart';
@@ -171,8 +172,12 @@ class _KelolaScreenState extends State<KelolaScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          tooltip: 'Menu',
+          onPressed: () => MainMenuScope.of(context)?.openMenu(),
+        ),
         title: const Text('Kelola Data'),
-        automaticallyImplyLeading: false,
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),
