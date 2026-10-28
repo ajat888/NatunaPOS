@@ -1,5 +1,5 @@
 // lib/core/local_db/local_db_transactions.dart
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite/sqflite.dart' hide Transaction;
 import '../../models/transaction.dart';
 
 mixin LocalDbTransactions {

@@ -1,3 +1,4 @@
+// lib/screens/kelola_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import '../core/theme.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../services/supabase_service.dart';
+import '../widgets/common/thousand_formatter.dart';
 
 part 'kelola/product_dialog.dart';
 part 'kelola/category_dialog.dart';

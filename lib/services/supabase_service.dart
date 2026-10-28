@@ -1,13 +1,14 @@
+// lib/services/supabase_service.dart
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/open_order.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
+import '../models/open_order.dart';
 import '../models/auth_cache.dart';
 import '../core/local_db.dart';
 import 'sync_runner.dart';
@@ -137,7 +138,7 @@ class SupabaseService {
       return;
     }
 
-    if (_isSyncing) return;)
+    if (_isSyncing) return;
     _isSyncing = true;
     SyncStatusService.instance.markSyncing();
 
@@ -244,40 +245,40 @@ class SupabaseService {
     );
     await SyncStatusService.instance.refreshPendingCount();
   }
-  
+
   Future<void> payOpenOrder({
-  required String orderKey,
-  required int cashReceived,
-  required int changeAmount,
-}) async {
-  final order = await _localDb.getOpenOrder(orderKey);
-  if (order == null) throw Exception('Pesanan tidak ditemukan');
+    required String orderKey,
+    required int cashReceived,
+    required int changeAmount,
+  }) async {
+    final order = await _localDb.getOpenOrder(orderKey);
+    if (order == null) throw Exception('Pesanan tidak ditemukan');
 
-  final now = DateTime.now();
-  final transactionId = -now.toUtc().microsecondsSinceEpoch;
-  final lines = order.items
-      .map((e) => TransactionLine(
-            productId: e.productId,
-            productName: e.productName,
-            price: e.price,
-            hpp: e.hpp,
-            qty: e.qty,
-          ))
-      .toList();
+    final now = DateTime.now();
+    final transactionId = -now.toUtc().microsecondsSinceEpoch;
+    final lines = order.items
+        .map((e) => TransactionLine(
+              productId: e.productId,
+              productName: e.productName,
+              price: e.price,
+              hpp: e.hpp,
+              qty: e.qty,
+            ))
+        .toList();
 
-  await _localDb.insertTransaction(
-    transactionId: transactionId,
-    total: order.total,
-    createdAt: now,
-    lines: lines,
-    cashReceived: cashReceived,
-    changeAmount: changeAmount,
-    tableNumber: order.orderKey,
-    orderType: order.orderType,
-  );
-  await _localDb.deleteOpenOrder(orderKey);
-  await SyncStatusService.instance.refreshPendingCount();
-}
+    await _localDb.insertTransaction(
+      transactionId: transactionId,
+      total: order.total,
+      createdAt: now,
+      lines: lines,
+      cashReceived: cashReceived,
+      changeAmount: changeAmount,
+      tableNumber: order.orderKey,
+      orderType: order.orderType,
+    );
+    await _localDb.deleteOpenOrder(orderKey);
+    await SyncStatusService.instance.refreshPendingCount();
+  }
 
   Future<List<Transaction>> getLocalTransactions({int limit = 100}) async {
     return _localDb.getTransactions(limit: limit);
