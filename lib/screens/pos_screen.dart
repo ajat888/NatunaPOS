@@ -1,8 +1,10 @@
+// lib/screens/pos_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/supabase_service.dart';
 import '../models/product.dart';
+import '../models/transaction.dart';
 import '../core/theme.dart';
 
 class PosScreen extends StatefulWidget {
@@ -148,28 +150,53 @@ class _PosScreenState extends State<PosScreen> {
 
   void _showCheckoutDialog() {
     if (_cart.isEmpty) return;
-    final formatCurrency = NumberFormat.decimalPattern('id');
+
+    // Snapshot cart SEBELUM dialog dibuka. Ini mengunci daftar item & total
+    // agar perubahan produk (mis. sync background) tidak mengubah transaksi
+    // yang sedang dikonfirmasi user.
+    final snapshot = <TransactionLine>[];
+    int totalPrice = 0;
+    _cart.forEach((id, qty) {
+      final p = _findProduct(id);
+      if (p == null) return;
+      snapshot.add(TransactionLine(
+        productId: p.id,
+        productName: p.name,
+        price: p.price,
+        hpp: p.hpp,
+        qty: qty,
+      ));
+      totalPrice += p.price * qty;
+    });
+
+    if (snapshot.isEmpty) {
+      setState(() => _cart.clear());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Produk di keranjang sudah tidak tersedia.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Konfirmasi Pembayaran'),
-        content: Text(
-            'Total tagihan: Rp ${formatCurrency.format(_totalPrice)}\n\nLanjutkan proses pembayaran?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('BATAL', style: TextStyle(color: AppTheme.textLightColor))),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _cart.clear());
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Transaksi Berhasil!'), backgroundColor: Colors.green));
-            },
-            child: const Text('BAYAR'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (_) => _CheckoutDialog(
+        lines: snapshot,
+        total: totalPrice,
+        service: _service,
+        onSuccess: () {
+          if (!mounted) return;
+          setState(() => _cart.clear());
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Transaksi Berhasil!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
       ),
     );
   }
@@ -193,19 +220,23 @@ class _PosScreenState extends State<PosScreen> {
                     const Padding(
                         padding: EdgeInsets.all(16),
                         child: Text('Keranjang Belanja',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16))),
                     const Divider(height: 1),
                     Flexible(
                       child: _cart.isEmpty
                           ? const Padding(
                               padding: EdgeInsets.all(24),
                               child: Text('Keranjang kosong',
-                                  style: TextStyle(color: AppTheme.textLightColor)))
+                                  style:
+                                      TextStyle(color: AppTheme.textLightColor)))
                           : ListView(
                               shrinkWrap: true,
                               children: _cart.entries.map((entry) {
                                 final product = _findProduct(entry.key);
-                                if (product == null) return const SizedBox.shrink();
+                                if (product == null) {
+                                  return const SizedBox.shrink();
+                                }
                                 return ListTile(
                                   title: Text(product.name),
                                   subtitle: Text(
@@ -214,14 +245,16 @@ class _PosScreenState extends State<PosScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                          icon: const Icon(Icons.remove_circle_outline),
+                                          icon: const Icon(
+                                              Icons.remove_circle_outline),
                                           onPressed: () {
                                             _removeFromCart(product);
                                             setSheetState(() {});
                                           }),
                                       Text('${entry.value}'),
                                       IconButton(
-                                          icon: const Icon(Icons.add_circle_outline),
+                                          icon: const Icon(
+                                              Icons.add_circle_outline),
                                           onPressed: () {
                                             _addToCart(product);
                                             setSheetState(() {});
@@ -243,12 +276,14 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Widget _buildProductImage(Product product) {
-    if (product.localImagePath != null && File(product.localImagePath!).existsSync()) {
+    if (product.localImagePath != null &&
+        File(product.localImagePath!).existsSync()) {
       return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
     }
     if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
       return Image.network(product.imageUrl!,
-          fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildImagePlaceholder());
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildImagePlaceholder());
     }
     return _buildImagePlaceholder();
   }
@@ -256,7 +291,8 @@ class _PosScreenState extends State<PosScreen> {
   Widget _buildImagePlaceholder() => Container(
       color: const Color(0xFFF1F5F9),
       child: const Center(
-          child: Icon(Icons.image_outlined, color: AppTheme.textLightColor, size: 40)));
+          child:
+              Icon(Icons.image_outlined, color: AppTheme.textLightColor, size: 40)));
 
   @override
   Widget build(BuildContext context) {
@@ -280,19 +316,23 @@ class _PosScreenState extends State<PosScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(_errorMessage!,
-                            style: const TextStyle(color: AppTheme.dangerColor)),
+                            style:
+                                const TextStyle(color: AppTheme.dangerColor)),
                         const SizedBox(height: 16),
-                        TextButton(onPressed: _loadProducts, child: const Text('Coba Lagi'))
+                        TextButton(
+                            onPressed: _loadProducts,
+                            child: const Text('Coba Lagi'))
                       ]))
               : _products.isEmpty
                   ? const Center(child: Text('Belum ada data produk.'))
                   : GridView.builder(
                       padding: const EdgeInsets.all(16),
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 220,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.75),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 220,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.75),
                       itemCount: _products.length,
                       itemBuilder: (context, index) {
                         final product = _products[index];
@@ -301,7 +341,8 @@ class _PosScreenState extends State<PosScreen> {
                           decoration: BoxDecoration(
                               color: AppTheme.surfaceColor,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE2E8F0))),
+                              border:
+                                  Border.all(color: const Color(0xFFE2E8F0))),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(8),
                             onTap: () => _addToCart(product),
@@ -310,8 +351,8 @@ class _PosScreenState extends State<PosScreen> {
                               children: [
                                 Expanded(
                                   child: ClipRRect(
-                                    borderRadius:
-                                        const BorderRadius.vertical(top: Radius.circular(8)),
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(8)),
                                     child: Stack(fit: StackFit.expand, children: [
                                       _buildProductImage(product),
                                       if (qty > 0)
@@ -319,7 +360,8 @@ class _PosScreenState extends State<PosScreen> {
                                             top: 8,
                                             right: 8,
                                             child: Container(
-                                                padding: const EdgeInsets.all(6),
+                                                padding:
+                                                    const EdgeInsets.all(6),
                                                 decoration: const BoxDecoration(
                                                     color: AppTheme.primaryColor,
                                                     shape: BoxShape.circle),
@@ -327,14 +369,16 @@ class _PosScreenState extends State<PosScreen> {
                                                     style: const TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 12,
-                                                        fontWeight: FontWeight.bold)))),
+                                                        fontWeight:
+                                                            FontWeight.bold)))),
                                     ]),
                                   ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(product.name,
                                             style: const TextStyle(
@@ -343,7 +387,8 @@ class _PosScreenState extends State<PosScreen> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis),
                                         const SizedBox(height: 4),
-                                        Text('Rp ${formatCurrency.format(product.price)}',
+                                        Text(
+                                            'Rp ${formatCurrency.format(product.price)}',
                                             style: const TextStyle(
                                                 fontSize: 13,
                                                 color: AppTheme.primaryColor,
@@ -377,7 +422,8 @@ class _PosScreenState extends State<PosScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('$_totalItems Barang (ketuk untuk detail)',
-                        style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13)),
+                        style: const TextStyle(
+                            color: AppTheme.textLightColor, fontSize: 13)),
                     const SizedBox(height: 4),
                     Text('Rp ${formatCurrency.format(_totalPrice)}',
                         style: const TextStyle(
@@ -388,12 +434,122 @@ class _PosScreenState extends State<PosScreen> {
               ElevatedButton(
                   onPressed: _showCheckoutDialog,
                   style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 40, vertical: 16)),
                   child: const Text('BAYAR')),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Dialog konfirmasi pembayaran. Menyimpan transaksi ke SQLite secara
+/// atomik sebelum menutup dialog. Jika gagal, dialog tetap terbuka agar
+/// user bisa retry tanpa kehilangan isi keranjang.
+class _CheckoutDialog extends StatefulWidget {
+  final List<TransactionLine> lines;
+  final int total;
+  final SupabaseService service;
+  final VoidCallback onSuccess;
+
+  const _CheckoutDialog({
+    required this.lines,
+    required this.total,
+    required this.service,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_CheckoutDialog> createState() => _CheckoutDialogState();
+}
+
+class _CheckoutDialogState extends State<_CheckoutDialog> {
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  Future<void> _save() async {
+    if (_isSaving) return;
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.service.saveTransaction(
+        lines: widget.lines,
+        total: widget.total,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onSuccess();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorMessage =
+            'Gagal menyimpan transaksi: ${e.toString().replaceAll('Exception: ', '')}';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatCurrency = NumberFormat.decimalPattern('id');
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      title: const Text('Konfirmasi Pembayaran'),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Total tagihan: Rp ${formatCurrency.format(widget.total)}',
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor),
+            ),
+            const SizedBox(height: 8),
+            Text('${widget.lines.length} jenis produk',
+                style: const TextStyle(color: AppTheme.textLightColor)),
+            const SizedBox(height: 16),
+            const Text('Lanjutkan proses pembayaran?',
+                style: TextStyle(color: AppTheme.textColor)),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: AppTheme.dangerColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(_errorMessage!,
+                    style: const TextStyle(
+                        color: AppTheme.dangerColor, fontSize: 12)),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('BATAL',
+              style: TextStyle(color: AppTheme.textLightColor)),
+        ),
+        ElevatedButton(
+          onPressed: _isSaving ? null : _save,
+          child: _isSaving
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2))
+              : const Text('BAYAR'),
+        ),
+      ],
     );
   }
 }

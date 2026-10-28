@@ -1,9 +1,11 @@
+// lib/services/supabase_service.dart
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
 import '../models/category.dart';
+import '../models/transaction.dart';
 import '../core/local_db.dart';
 
 class SupabaseService {
@@ -17,7 +19,8 @@ class SupabaseService {
   static final Random _rng = Random();
 
   Future<AuthResponse> login(String email, String password) async {
-    return await _client.auth.signInWithPassword(email: email, password: password);
+    return await _client.auth
+        .signInWithPassword(email: email, password: password);
   }
 
   Future<void> logout() async => await _client.auth.signOut();
@@ -73,7 +76,9 @@ class SupabaseService {
             await _localDb.deleteCategory(c.id);
             await _localDb.upsertCategory(Category.fromJson(response));
           } else {
-            await _client.from('categories').update({'name': c.name}).eq('id', c.id);
+            await _client
+                .from('categories')
+                .update({'name': c.name}).eq('id', c.id);
             await _localDb.upsertCategory(c.copyWith(isSynced: true));
           }
         } catch (e) {
@@ -115,7 +120,8 @@ class SupabaseService {
           }
 
           int? finalCategoryId = p.categoryId;
-          if (finalCategoryId != null && categoryIdMap.containsKey(finalCategoryId)) {
+          if (finalCategoryId != null &&
+              categoryIdMap.containsKey(finalCategoryId)) {
             finalCategoryId = categoryIdMap[finalCategoryId];
           }
 
@@ -254,7 +260,8 @@ class SupabaseService {
 
   Future<void> createCategory(String name) async {
     final tempId = -DateTime.now().millisecondsSinceEpoch;
-    await _localDb.upsertCategory(Category(id: tempId, name: name, isSynced: false));
+    await _localDb
+        .upsertCategory(Category(id: tempId, name: name, isSynced: false));
   }
 
   Future<void> updateCategory({required int id, required String name}) async {
@@ -263,5 +270,31 @@ class SupabaseService {
 
   Future<void> deleteCategory(int id) async {
     await _localDb.markCategoryDeleted(id);
+  }
+
+  // ============ TRANSACTIONS ============
+
+  /// Simpan transaksi ke SQLite lokal (offline-first).
+  /// Sync ke Supabase akan dilakukan pada iterasi berikutnya.
+  Future<void> saveTransaction({
+    required List<TransactionLine> lines,
+    required int total,
+  }) async {
+    final now = DateTime.now();
+    final transactionId = -now.toUtc().microsecondsSinceEpoch;
+    await _localDb.insertTransaction(
+      transactionId: transactionId,
+      total: total,
+      createdAt: now,
+      lines: lines,
+    );
+  }
+
+  Future<List<Transaction>> getLocalTransactions({int limit = 100}) async {
+    return _localDb.getTransactions(limit: limit);
+  }
+
+  Future<Map<String, int>> getTodaySummary() async {
+    return _localDb.getTodaySummary();
   }
 }
