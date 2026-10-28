@@ -18,7 +18,6 @@ class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   final _service = SupabaseService();
 
-  // IndexedStack menjaga state semua halaman tetap hidup
   static const List<Widget> _pages = [
     DashboardScreen(),
     PosScreen(),
@@ -44,8 +43,8 @@ class _MainLayoutState extends State<MainLayout> {
           LayoutBuilder(
             builder: (context, constraints) {
               return Container(
-                // PERBAIKAN: Lebar ditambah dari 80 menjadi 90 agar teks tidak terpotong
-                width: 90, 
+                // PERBAIKAN UTAMA: Lebar ditambah menjadi 105 agar teks tidak terpotong
+                width: 105, 
                 decoration: const BoxDecoration(
                   color: AppTheme.surfaceColor,
                   border: Border(
@@ -55,7 +54,7 @@ class _MainLayoutState extends State<MainLayout> {
                 child: SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    // PERBAIKAN: Menghapus IntrinsicHeight untuk mencegah bug menu ganda
+                    // Tanpa IntrinsicHeight agar tidak terjadi bug render ganda
                     child: NavigationRail(
                       backgroundColor: Colors.transparent,
                       selectedIndex: _selectedIndex,
@@ -64,12 +63,12 @@ class _MainLayoutState extends State<MainLayout> {
                           _selectedIndex = index;
                         });
                       },
-                      labelType: NavigationRailLabelType.all,
+                      labelType: NavigationRailLabelType.all, // Wajib 'all' agar teks selalu muncul
                       selectedIconTheme: const IconThemeData(color: AppTheme.primaryColor),
                       selectedLabelTextStyle: const TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12, // Ukuran font disesuaikan agar pas
+                        fontSize: 12, 
                       ),
                       unselectedIconTheme: const IconThemeData(color: AppTheme.textLightColor),
                       unselectedLabelTextStyle: const TextStyle(
@@ -114,23 +113,23 @@ class _MainLayoutState extends State<MainLayout> {
                         NavigationRailDestination(
                           icon: Icon(Icons.dashboard_outlined),
                           selectedIcon: Icon(Icons.dashboard),
-                          // PERBAIKAN: maxLines: 1 memastikan teks tetap satu baris
-                          label: Text('Beranda', maxLines: 1, softWrap: false),
+                          // Teks dibiarkan natural tanpa maxLines agar menyesuaikan lebar
+                          label: Text('Beranda'), 
                         ),
                         NavigationRailDestination(
                           icon: Icon(Icons.point_of_sale_outlined),
                           selectedIcon: Icon(Icons.point_of_sale),
-                          label: Text('Kasir', maxLines: 1, softWrap: false),
+                          label: Text('Kasir'),
                         ),
                         NavigationRailDestination(
                           icon: Icon(Icons.inventory_2_outlined),
                           selectedIcon: Icon(Icons.inventory_2),
-                          label: Text('Kelola', maxLines: 1, softWrap: false),
+                          label: Text('Kelola'),
                         ),
                         NavigationRailDestination(
                           icon: Icon(Icons.receipt_long_outlined),
                           selectedIcon: Icon(Icons.receipt_long),
-                          label: Text('Riwayat', maxLines: 1, softWrap: false),
+                          label: Text('Riwayat'),
                         ),
                       ],
                     ),
@@ -140,7 +139,6 @@ class _MainLayoutState extends State<MainLayout> {
             },
           ),
           
-          // Area Konten Utama
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
