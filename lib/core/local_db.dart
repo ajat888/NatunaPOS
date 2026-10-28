@@ -1,9 +1,7 @@
 // lib/core/local_db.dart
 import 'package:flutter/foundation.dart' show debugPrint;
 // FIX: sembunyikan 'Transaction' milik sqflite agar tidak bentrok dengan
-// model domain kita (models/transaction.dart). Kita tidak pernah merujuk
-// tipe Transaction milik sqflite secara eksplisit — closure `(txn)` cukup
-// memakai type inference dari signature db.transaction().
+// model domain kita (models/transaction.dart).
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import '../models/product.dart';
@@ -362,5 +360,61 @@ class LocalDb {
       'count': (row['c'] as num?)?.toInt() ?? 0,
       'total': (row['t'] as num?)?.toInt() ?? 0,
     };
+  }
+
+  // ============ SYNC HELPERS ============
+
+  /// Ambil transaksi yang belum ter-push ke Supabase (is_synced = 0).
+  /// Diurutkan FIFO (paling lama dahulu) agar urutan push = urutan asli.
+  Future<List<Transaction>> getUnsyncedTransactions() async {
+    final db = await database;
+    final txMaps = await db.query(
+      'transactions',
+      where: 'is_synced = 0 AND is_deleted = 0',
+      orderBy: 'created_at ASC',
+    );
+    if (txMaps.isEmpty) return [];
+
+    final txIds = txMaps.map((m) => m['id'] as int).toList();
+    final placeholders = List.filled(txIds.length, '?').join(',');
+    final itemMaps = await db.query(
+      'transaction_items',
+      where: 'transaction_id IN ($placeholders)',
+      whereArgs: txIds,
+    );
+
+    final itemsByTx = <int, List<TransactionItem>>{};
+    for (final m in itemMaps) {
+      final item = TransactionItem.fromDb(m);
+      itemsByTx.putIfAbsent(item.transactionId, () => []).add(item);
+    }
+
+    return txMaps.map((m) {
+      final id = m['id'] as int;
+      return Transaction.fromDb(m, itemsByTx[id] ?? []);
+    }).toList();
+  }
+
+  /// Ganti id transaksi lokal (negatif) dengan id server (positif),
+  /// lalu tandai is_synced = 1. Update FK di transaction_items juga.
+  Future<void> replaceTransactionId({
+    required int oldId,
+    required int newId,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'transactions',
+        {'id': newId, 'is_synced': 1},
+        where: 'id = ?',
+        whereArgs: [oldId],
+      );
+      await txn.update(
+        'transaction_items',
+        {'transaction_id': newId},
+        where: 'transaction_id = ?',
+        whereArgs: [oldId],
+      );
+    });
   }
 }

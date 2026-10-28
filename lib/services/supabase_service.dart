@@ -209,6 +209,69 @@ class SupabaseService {
       } catch (e) {
         debugPrint('Pull products failed: $e');
       }
+
+      // STEP 7: Push unsynced transactions
+      //
+      // Dilakukan SETELAH product push agar product_id di items sudah
+      // positif (jika produk berhasil di-push). Jika produk belum/tidak
+      // pernah tersinkron, kita kirim product_id = null — product_name
+      // tetap menjadi snapshot akurat untuk laporan historis.
+      //
+      // Jika insert items gagal setelah tx induk berhasil masuk server,
+      // kita rollback (hapus tx induk) agar tidak ada orphan, lalu
+      // rethrow agar iterasi berikutnya mencoba lagi dari nol.
+      final unsyncedTransactions = await _localDb.getUnsyncedTransactions();
+      for (final tx in unsyncedTransactions) {
+        try {
+          if (tx.id < 0) {
+            final txResponse = await _client
+                .from('transactions')
+                .insert({
+                  'total': tx.total,
+                  'created_at_local': tx.createdAt.millisecondsSinceEpoch,
+                })
+                .select()
+                .single();
+            final serverTxId = txResponse['id'] as int;
+
+            try {
+              for (final item in tx.items) {
+                final pushProductId =
+                    (item.productId != null && item.productId! > 0)
+                        ? item.productId
+                        : null;
+                await _client.from('transaction_items').insert({
+                  'transaction_id': serverTxId,
+                  'product_id': pushProductId,
+                  'product_name': item.productName,
+                  'price': item.price,
+                  'hpp': item.hpp,
+                  'qty': item.qty,
+                });
+              }
+            } catch (e) {
+              // Rollback: hapus tx induk yang sudah terlanjur masuk
+              try {
+                await _client
+                    .from('transactions')
+                    .delete()
+                    .eq('id', serverTxId);
+              } catch (rollbackErr) {
+                debugPrint(
+                    'Rollback tx $serverTxId failed: $rollbackErr');
+              }
+              rethrow;
+            }
+
+            await _localDb.replaceTransactionId(
+              oldId: tx.id,
+              newId: serverTxId,
+            );
+          }
+        } catch (e) {
+          debugPrint('Sync transaction ${tx.id} failed: $e');
+        }
+      }
     } finally {
       _isSyncing = false;
     }
@@ -275,7 +338,6 @@ class SupabaseService {
   // ============ TRANSACTIONS ============
 
   /// Simpan transaksi ke SQLite lokal (offline-first).
-  /// Sync ke Supabase akan dilakukan pada iterasi berikutnya.
   Future<void> saveTransaction({
     required List<TransactionLine> lines,
     required int total,
