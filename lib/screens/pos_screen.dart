@@ -10,6 +10,7 @@ import '../models/transaction.dart';
 import '../models/open_order.dart';
 import '../core/local_db.dart';
 import '../core/theme.dart';
+import '../core/breakpoints.dart';
 import '../widgets/common/main_menu_scope.dart';
 import '../widgets/common/thousand_formatter.dart';
 

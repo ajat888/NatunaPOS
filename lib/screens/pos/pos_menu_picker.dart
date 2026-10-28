@@ -38,10 +38,15 @@ class _PosMenuPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formatCurrency = NumberFormat.decimalPattern('id');
+    final size = Breakpoints.of(context);
+    final double maxExtent =
+        size.isCompact ? 140.0 : (size.isMedium ? 170.0 : 200.0);
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack),
+        leading:
+            IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack),
         title: Text(title),
         automaticallyImplyLeading: false,
         actions: [
@@ -90,9 +95,8 @@ class _PosMenuPicker extends StatelessWidget {
                         style: TextStyle(color: AppTheme.textLightColor)))
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 200,
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: maxExtent,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                       childAspectRatio: 0.75,
@@ -146,8 +150,8 @@ class _PosMenuPicker extends StatelessWidget {
             ElevatedButton(
               onPressed: onSave,
               style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 14)),
               child: const Text('SIMPAN'),
             ),
           ],

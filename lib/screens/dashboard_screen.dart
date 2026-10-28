@@ -1,6 +1,7 @@
 // lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../core/breakpoints.dart';
 import '../core/theme.dart';
 import '../services/supabase_service.dart';
 import '../widgets/common/main_menu_scope.dart';
@@ -47,6 +48,9 @@ class DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final formatCurrency = NumberFormat.decimalPattern('id');
+    final size = Breakpoints.of(context);
+    final isCompact = size.isCompact;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -63,7 +67,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               tooltip: 'Muat ulang'),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,111 +81,177 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              children: [
-                _buildSummaryCard(
-                  title: 'Total Penjualan',
-                  value: _isLoading
-                      ? '—'
-                      : 'Rp ${formatCurrency.format(_totalSales)}',
-                  icon: Icons.account_balance_wallet_outlined,
-                ),
-                const SizedBox(width: 16),
-                _buildSummaryCard(
-                  title: 'Jumlah Transaksi',
-                  value: _isLoading ? '—' : '$_transactionCount',
-                  icon: Icons.receipt_outlined,
-                ),
-              ],
-            ),
-            const Spacer(),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
-                borderRadius: BorderRadius.circular(8),
+            if (isCompact) ...[
+              _buildSummaryCard(
+                title: 'Total Penjualan',
+                value: _isLoading
+                    ? '—'
+                    : 'Rp ${formatCurrency.format(_totalSales)}',
+                icon: Icons.account_balance_wallet_outlined,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(height: 16),
+              _buildSummaryCard(
+                title: 'Jumlah Transaksi',
+                value: _isLoading ? '—' : '$_transactionCount',
+                icon: Icons.receipt_outlined,
+              ),
+            ] else
+              Row(
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Siap melayani pelanggan?',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Buka menu Kasir untuk mulai membuat pesanan baru.',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
+                  _buildSummaryCard(
+                    title: 'Total Penjualan',
+                    value: _isLoading
+                        ? '—'
+                        : 'Rp ${formatCurrency.format(_totalSales)}',
+                    icon: Icons.account_balance_wallet_outlined,
+                    expanded: true,
                   ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 20),
-                    ),
-                    onPressed: widget.onStartTransaction,
-                    child: const Text('MULAI TRANSAKSI'),
+                  const SizedBox(width: 16),
+                  _buildSummaryCard(
+                    title: 'Jumlah Transaksi',
+                    value: _isLoading ? '—' : '$_transactionCount',
+                    icon: Icons.receipt_outlined,
+                    expanded: true,
                   ),
                 ],
               ),
-            ),
-            const Spacer(flex: 2),
+            const SizedBox(height: 24),
+            _buildCallToAction(isCompact: isCompact),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSummaryCard(
-      {required String title, required String value, required IconData icon}) {
-    return Expanded(
-      child: Container(
+  Widget _buildCallToAction({required bool isCompact}) {
+    if (isCompact) {
+      return Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
+          color: AppTheme.primaryColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: AppTheme.textLightColor, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textLightColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            const Text(
+              'Siap melayani pelanggan?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Buka menu Kasir untuk mulai membuat pesanan baru.',
+              style: TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 16),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppTheme.primaryColor,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
               ),
+              onPressed: widget.onStartTransaction,
+              child: const Text('MULAI TRANSAKSI'),
             ),
           ],
         ),
+      );
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Siap melayani pelanggan?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Buka menu Kasir untuk mulai membuat pesanan baru.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 32, vertical: 20),
+            ),
+            onPressed: widget.onStartTransaction,
+            child: const Text('MULAI TRANSAKSI'),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildSummaryCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    bool expanded = false,
+  }) {
+    final card = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppTheme.textLightColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textLightColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+    return expanded ? Expanded(child: card) : card;
   }
 }

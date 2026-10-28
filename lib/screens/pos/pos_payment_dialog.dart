@@ -68,11 +68,15 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Clamp lebar dialog agar muat di layar kecil (portrait HP).
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final contentWidth = screenWidth < 528 ? screenWidth - 88 : 440.0;
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: const Text('Pembayaran'),
       content: SizedBox(
-        width: 440,
+        width: contentWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
