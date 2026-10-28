@@ -1,6 +1,10 @@
 // lib/core/local_db.dart
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:sqflite/sqflite.dart';
+// FIX: sembunyikan 'Transaction' milik sqflite agar tidak bentrok dengan
+// model domain kita (models/transaction.dart). Kita tidak pernah merujuk
+// tipe Transaction milik sqflite secara eksplisit — closure `(txn)` cukup
+// memakai type inference dari signature db.transaction().
+import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import '../models/product.dart';
 import '../models/category.dart';
@@ -279,8 +283,6 @@ class LocalDb {
   // ============ TRANSACTIONS ============
 
   /// Simpan transaksi baru + items secara atomik.
-  /// [transactionId] negatif (unsynced). [createdAt] akan disimpan sebagai
-  /// epoch milliseconds UTC (integer) untuk perbandingan numerik yang andal.
   Future<void> insertTransaction({
     required int transactionId,
     required int total,
@@ -344,8 +346,6 @@ class LocalDb {
   Future<Map<String, int>> getTodaySummary() async {
     final db = await database;
     final now = DateTime.now();
-    // Gunakan konstruktor DateTime lokal dengan (day + 1) agar otomatis
-    // menangani rollover bulan/tahun dan DST dengan benar.
     final startLocal = DateTime(now.year, now.month, now.day);
     final endLocal = DateTime(now.year, now.month, now.day + 1);
     final startMs = startLocal.millisecondsSinceEpoch;
