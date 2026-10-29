@@ -25,10 +25,10 @@ class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
 
   @override
-  State<PosScreen> createState() => _PosScreenState();
+  State<PosScreen> createState() => PosScreenState(); // Ubah jadi public
 }
 
-class _PosScreenState extends State<PosScreen> {
+class PosScreenState extends State<PosScreen> { // Ubah jadi public
   final _service = SupabaseService();
   final _localDb = LocalDb.instance;
 
@@ -49,10 +49,10 @@ class _PosScreenState extends State<PosScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    reloadData(); // Ganti nama
   }
 
-  Future<void> _loadData() async {
+  Future<void> reloadData() async { // Ganti nama jadi public
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -323,7 +323,7 @@ class _PosScreenState extends State<PosScreen> {
               Text(_errorMessage!,
                   style: const TextStyle(color: AppTheme.dangerColor)),
               const SizedBox(height: 16),
-              TextButton(onPressed: _loadData, child: const Text('Coba Lagi')),
+              TextButton(onPressed: reloadData, child: const Text('Coba Lagi')), // Ganti nama
             ],
           ),
         ),
@@ -352,7 +352,7 @@ class _PosScreenState extends State<PosScreen> {
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: _loadData,
+              onPressed: reloadData, // Ganti nama
               tooltip: 'Muat ulang'),
         ],
       ),

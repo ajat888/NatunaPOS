@@ -22,7 +22,13 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final _service = SupabaseService();
+  
+  // Tambahkan GlobalKey untuk semua tab
   final _dashboardKey = GlobalKey<DashboardScreenState>();
+  final _posKey = GlobalKey<PosScreenState>();
+  final _kelolaKey = GlobalKey<KelolaScreenState>();
+  final _historyKey = GlobalKey<HistoryScreenState>();
+  
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _connectivity = Connectivity();
 
@@ -83,7 +89,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     try {
       await _service.syncData();
       if (mounted) {
+        // Refresh dashboard dan halaman lain setelah sync berhasil
         _dashboardKey.currentState?.refresh();
+        _posKey.currentState?.reloadData();
+        _kelolaKey.currentState?.reloadData();
+        _historyKey.currentState?.reloadData();
       }
     } catch (e) {
       debugPrint('Auto-sync failed: $e');
@@ -127,16 +137,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _scaffoldKey.currentState?.openDrawer();
   }
 
-  /// Pindah destinasi. Menutup drawer bila sedang terbuka (no-op jika tidak).
   void _selectDestination(int index) {
     _scaffoldKey.currentState?.closeDrawer();
     if (_selectedIndex == index) {
-      if (index == 0) _dashboardKey.currentState?.refresh();
+      _refreshTab(index);
       return;
     }
     setState(() => _selectedIndex = index);
+    _refreshTab(index);
+  }
+
+  // Fungsi baru untuk me-refresh tab saat diklik
+  void _refreshTab(int index) {
     if (index == 0) {
       _dashboardKey.currentState?.refresh();
+    } else if (index == 1) {
+      _posKey.currentState?.reloadData();
+    } else if (index == 2) {
+      _kelolaKey.currentState?.reloadData();
+    } else if (index == 3) {
+      _historyKey.currentState?.reloadData();
     }
   }
 
@@ -329,9 +349,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         key: _dashboardKey,
         onStartTransaction: () => _selectDestination(1),
       ),
-      const PosScreen(),
-      const KelolaScreen(),
-      const HistoryScreen(key: null),
+      PosScreen(key: _posKey), // Pasang key
+      KelolaScreen(key: _kelolaKey), // Pasang key
+      HistoryScreen(key: _historyKey), // Pasang key
     ];
 
     return Scaffold(

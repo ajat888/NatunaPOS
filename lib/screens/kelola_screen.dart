@@ -19,10 +19,10 @@ class KelolaScreen extends StatefulWidget {
   const KelolaScreen({super.key});
 
   @override
-  State<KelolaScreen> createState() => _KelolaScreenState();
+  State<KelolaScreen> createState() => KelolaScreenState(); // Ubah jadi public
 }
 
-class _KelolaScreenState extends State<KelolaScreen>
+class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
     with SingleTickerProviderStateMixin {
   final _service = SupabaseService();
   late final TabController _tabController;
@@ -37,7 +37,7 @@ class _KelolaScreenState extends State<KelolaScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadAll();
+    reloadData(); // Ganti nama
   }
 
   @override
@@ -46,7 +46,7 @@ class _KelolaScreenState extends State<KelolaScreen>
     super.dispose();
   }
 
-  Future<void> _loadAll() async {
+  Future<void> reloadData() async { // Ganti nama jadi public
     if (mounted) setState(() { _isLoading = true; _errorMessage = null; });
 
     try {
@@ -101,7 +101,7 @@ class _KelolaScreenState extends State<KelolaScreen>
         service: _service,
       ),
     );
-    if (result == true) await _loadAll();
+    if (result == true) await reloadData(); // Ganti nama
   }
 
   Future<void> _showCategoryDialog({Category? existing}) async {
@@ -110,7 +110,7 @@ class _KelolaScreenState extends State<KelolaScreen>
       barrierDismissible: false,
       builder: (_) => _CategoryDialog(existing: existing, service: _service),
     );
-    if (result == true) await _loadAll();
+    if (result == true) await reloadData(); // Ganti nama
   }
 
   Future<void> _confirmDeleteProduct(Product product) async {
@@ -137,7 +137,7 @@ class _KelolaScreenState extends State<KelolaScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Produk dihapus'), backgroundColor: Colors.green));
-    await _loadAll();
+    await reloadData(); // Ganti nama
   }
 
   Future<void> _confirmDeleteCategory(Category category) async {
@@ -164,7 +164,7 @@ class _KelolaScreenState extends State<KelolaScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kategori dihapus'), backgroundColor: Colors.green));
-    await _loadAll();
+    await reloadData(); // Ganti nama
   }
 
   @override
@@ -181,7 +181,7 @@ class _KelolaScreenState extends State<KelolaScreen>
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: _loadAll,
+              onPressed: reloadData, // Ganti nama
               tooltip: 'Muat ulang')
         ],
         bottom: TabBar(
@@ -205,7 +205,7 @@ class _KelolaScreenState extends State<KelolaScreen>
                           style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
                       TextButton(
-                          onPressed: _loadAll,
+                          onPressed: reloadData, // Ganti nama
                           child: const Text('Coba Lagi'))
                     ]))
               : TabBarView(controller: _tabController, children: [

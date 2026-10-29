@@ -10,10 +10,10 @@ class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
+  State<HistoryScreen> createState() => HistoryScreenState(); // Ubah jadi public
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
+class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
   final _service = SupabaseService();
   List<Transaction> _transactions = [];
   bool _isLoading = true;
@@ -22,10 +22,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    reloadData(); // Ganti nama
   }
 
-  Future<void> _load() async {
+  Future<void> reloadData() async { // Ganti nama jadi public
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -72,7 +72,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: _load,
+              onPressed: reloadData, // Ganti nama
               tooltip: 'Muat ulang'),
         ],
       ),
@@ -87,7 +87,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
                       TextButton(
-                          onPressed: _load, child: const Text('Coba Lagi')),
+                          onPressed: reloadData, // Ganti nama
+                          child: const Text('Coba Lagi')),
                     ],
                   ),
                 )
