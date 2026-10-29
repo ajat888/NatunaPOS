@@ -48,18 +48,24 @@ class SupabaseService {
       return LoginMode.online;
     } catch (onlineErr) {
       final cache = await _localDb.getAuthCache(email);
+
+      // Tidak ada cache → tidak bisa offline login.
       if (cache == null) {
         if (onlineErr is AuthException) rethrow;
         throw AuthException(
             'Login gagal. Login pertama kali memerlukan internet.');
       }
+
+      // Password tidak cocok dengan cache lokal → memang salah.
       if (!_hashMatches(password, cache.salt, cache.passwordHash)) {
         throw AuthException('Email atau password salah.');
       }
-      if (onlineErr is AuthException) {
+      if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
         throw AuthException(
             'Password Anda telah berubah di server. Login online untuk memperbarui.');
       }
+
+      // Network error / server error sementara + cache cocok → login offline.
       await _setOfflineSession(email);
       return LoginMode.offline;
     }
