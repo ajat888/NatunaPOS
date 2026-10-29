@@ -131,8 +131,23 @@ class SyncRunner {
               })
               .select()
               .single();
+          final newProductId = (response['id'] as num).toInt();
           await _localDb.deleteProduct(p.id);
           await _localDb.upsertProduct(Product.fromJson(response));
+          // Isu A: remap semua referensi product_id negatif ke ID server
+          // di transaction_items & open_order_items.
+          try {
+            await _localDb.remapTransactionItemProductId(p.id, newProductId);
+          } catch (e) {
+            debugPrint('Remap tx item product ${p.id}->$newProductId failed: $e');
+            failures++;
+          }
+          try {
+            await _localDb.remapOpenOrderItemProductId(p.id, newProductId);
+          } catch (e) {
+            debugPrint('Remap open item product ${p.id}->$newProductId failed: $e');
+            failures++;
+          }
         } else {
           await _client
               .from('products')
@@ -208,91 +223,108 @@ class SyncRunner {
     }
 
     // STEP 7: Push transaksi lokal yang belum tersinkron
-final unsyncedTransactions = await _localDb.getUnsyncedTransactions();
-for (final tx in unsyncedTransactions) {
-  try {
-    if (tx.id < 0) {
-      Map<String, dynamic> txResponse;
+    final unsyncedTransactions = await _localDb.getUnsyncedTransactions();
+    for (final tx in unsyncedTransactions) {
       try {
-        txResponse = await _client
-            .from('transactions')
-            .insert({
-              'total': tx.total,
-              'created_at_local': tx.createdAt.millisecondsSinceEpoch,
-              'cash_received': tx.cashReceived,
-              'change_amount': tx.changeAmount,
-              'table_number': tx.tableNumber,
-              'order_type': tx.orderType,
-            })
-            .select()
-            .single();
-      } on PostgrestException catch (e) {
-        // Fallback: kolom baru belum ada di server (kode 42703 = undefined_column).
-        if (e.code == '42703' ||
-            e.message.toLowerCase().contains('column')) {
-          txResponse = await _client
-              .from('transactions')
-              .insert({
-                'total': tx.total,
-                'created_at_local':
-                    tx.createdAt.millisecondsSinceEpoch,
-              })
-              .select()
-              .single();
-        } else {
-          rethrow;
-        }
-      }
-      final serverTxId = txResponse['id'] as int;
+        if (tx.id < 0) {
+          Map<String, dynamic> txResponse;
+          try {
+            txResponse = await _client
+                .from('transactions')
+                .insert({
+                  'total': tx.total,
+                  'created_at_local': tx.createdAt.millisecondsSinceEpoch,
+                  'cash_received': tx.cashReceived,
+                  'change_amount': tx.changeAmount,
+                  'table_number': tx.tableNumber,
+                  'order_type': tx.orderType,
+                })
+                .select()
+                .single();
+          } on PostgrestException catch (e) {
+            // Fallback: kolom baru belum ada di server (kode 42703 = undefined_column).
+            if (e.code == '42703' ||
+                e.message.toLowerCase().contains('column')) {
+              txResponse = await _client
+                  .from('transactions')
+                  .insert({
+                    'total': tx.total,
+                    'created_at_local':
+                        tx.createdAt.millisecondsSinceEpoch,
+                  })
+                  .select()
+                  .single();
+            } else {
+              rethrow;
+            }
+          }
+          final serverTxId = txResponse['id'] as int;
 
-      try {
-        for (final item in tx.items) {
-          final pushProductId =
-              (item.productId != null && item.productId! > 0)
-                  ? item.productId
-                  : null;
-          await _client.from('transaction_items').insert({
-            'transaction_id': serverTxId,
-            'product_id': pushProductId,
-            'product_name': item.productName,
-            'price': item.price,
-            'hpp': item.hpp,
-            'qty': item.qty,
-          });
+          try {
+            for (final item in tx.items) {
+              final pushProductId =
+                  (item.productId != null && item.productId! > 0)
+                      ? item.productId
+                      : null;
+              await _client.from('transaction_items').insert({
+                'transaction_id': serverTxId,
+                'product_id': pushProductId,
+                'product_name': item.productName,
+                'price': item.price,
+                'hpp': item.hpp,
+                'qty': item.qty,
+              });
+            }
+          } catch (e) {
+            try {
+              await _client.from('transactions').delete().eq('id', serverTxId);
+            } catch (rollbackErr) {
+              debugPrint('Rollback tx $serverTxId failed: $rollbackErr');
+            }
+            rethrow;
+          }
+
+          await _localDb.replaceTransactionId(
+            oldId: tx.id,
+            newId: serverTxId,
+          );
         }
       } catch (e) {
-        try {
-          await _client.from('transactions').delete().eq('id', serverTxId);
-        } catch (rollbackErr) {
-          debugPrint('Rollback tx $serverTxId failed: $rollbackErr');
-        }
-        rethrow;
+        debugPrint('Sync transaction ${tx.id} failed: $e');
+        failures++;
       }
-
-      await _localDb.replaceTransactionId(
-        oldId: tx.id,
-        newId: serverTxId,
-      );
     }
-  } catch (e) {
-    debugPrint('Sync transaction ${tx.id} failed: $e');
-    failures++;
-  }
-}
 
     // STEP 8: Pull transaksi dari server (yang belum ada di lokal)
     try {
       int offset = 0;
       const pageSize = 500;
       while (true) {
-        final response = await _client
-            .from('transactions')
-            .select(
-                'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)')
-            .order('id', ascending: true)
-            .range(offset, offset + pageSize - 1);
+        List<dynamic> list = const [];
+        try {
+          final response = await _client
+              .from('transactions')
+              .select(
+                  'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)')
+              .order('id', ascending: true)
+              .range(offset, offset + pageSize - 1);
+          list = response as List;
+        } on PostgrestException catch (e) {
+          // Fallback: kolom baru belum ada di server → pull versi minimal.
+          if (e.code == '42703' ||
+              e.message.toLowerCase().contains('column')) {
+            final response = await _client
+                .from('transactions')
+                .select(
+                    'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)')
+                .order('id', ascending: true)
+                .range(offset, offset + pageSize - 1);
+            list = response as List;
+          } else {
+            rethrow;
+          }
+        }
 
-        final list = response as List;
         if (list.isEmpty) break;
 
         final ids = list.map((e) => ((e as Map)['id'] as num).toInt()).toList();
@@ -321,6 +353,10 @@ for (final tx in unsyncedTransactions) {
             total: (m['total'] as num?)?.toInt() ?? 0,
             createdAtLocalMs: (m['created_at_local'] as num?)?.toInt() ?? 0,
             items: items,
+            cashReceived: (m['cash_received'] as num?)?.toInt() ?? 0,
+            changeAmount: (m['change_amount'] as num?)?.toInt() ?? 0,
+            tableNumber: m['table_number'] as String?,
+            orderType: m['order_type'] as String?,
           );
         }
 

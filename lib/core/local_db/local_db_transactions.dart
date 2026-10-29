@@ -201,6 +201,20 @@ mixin LocalDbTransactions {
     return maps.map((m) => m['id'] as int).toSet();
   }
 
+  /// Isu A: setelah produk lokal (id negatif) berhasil di-push ke server dan
+  /// mendapat ID positif, semua referensi di transaction_items harus di-remap
+  /// agar transaksi yang belum tersinkron tetap punya link ke produk server
+  /// saat di-push pada STEP 7.
+  Future<void> remapTransactionItemProductId(int oldId, int newId) async {
+    final db = await database;
+    await db.update(
+      'transaction_items',
+      {'product_id': newId},
+      where: 'product_id = ?',
+      whereArgs: [oldId],
+    );
+  }
+
   Future<void> insertPulledTransaction({
     required int id,
     required int total,

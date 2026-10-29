@@ -157,6 +157,20 @@ mixin LocalDbOpenOrders {
     });
   }
 
+  /// Isu A: setelah produk lokal (id negatif) berhasil di-push ke server dan
+  /// mendapat ID positif, semua referensi di open_order_items harus di-remap
+  /// agar pesanan yang masih terbuka tetap punya link ke produk server ketika
+  /// akhirnya di-pay (menjadi transaction_items).
+  Future<void> remapOpenOrderItemProductId(int oldId, int newId) async {
+    final db = await database;
+    await db.update(
+      'open_order_items',
+      {'product_id': newId},
+      where: 'product_id = ?',
+      whereArgs: [oldId],
+    );
+  }
+
   Future<String> nextTakeAwayKey() async {
     final db = await database;
     final fromOpen = await db.rawQuery(
