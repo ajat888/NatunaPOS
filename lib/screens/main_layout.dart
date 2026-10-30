@@ -23,7 +23,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final _service = SupabaseService();
   
-  // Tambahkan GlobalKey untuk semua tab
   final _dashboardKey = GlobalKey<DashboardScreenState>();
   final _posKey = GlobalKey<PosScreenState>();
   final _kelolaKey = GlobalKey<KelolaScreenState>();
@@ -86,18 +85,32 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   Future<void> _trySync() async {
     if (!_service.isLoggedIn) return;
+
+    // Jika sedang login offline, coba auto-login pakai secure storage
+    if (_service.isOfflineSession) {
+      final success = await _service.tryAutoLoginAndSync();
+      if (success && mounted) {
+        _refreshAllScreens();
+      }
+      return; // Hentikan proses di sini, karena tryAutoLoginAndSync sudah memanggil syncData
+    }
+
+    // Sync normal (jika sudah login online)
     try {
       await _service.syncData();
       if (mounted) {
-        // Refresh dashboard dan halaman lain setelah sync berhasil
-        _dashboardKey.currentState?.refresh();
-        _posKey.currentState?.reloadData();
-        _kelolaKey.currentState?.reloadData();
-        _historyKey.currentState?.reloadData();
+        _refreshAllScreens();
       }
     } catch (e) {
       debugPrint('Auto-sync failed: $e');
     }
+  }
+
+  void _refreshAllScreens() {
+    _dashboardKey.currentState?.refresh();
+    _posKey.currentState?.reloadData();
+    _kelolaKey.currentState?.reloadData();
+    _historyKey.currentState?.reloadData();
   }
 
   void _onSyncStateChanged() {
@@ -147,7 +160,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _refreshTab(index);
   }
 
-  // Fungsi baru untuk me-refresh tab saat diklik
   void _refreshTab(int index) {
     if (index == 0) {
       _dashboardKey.currentState?.refresh();
@@ -349,9 +361,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         key: _dashboardKey,
         onStartTransaction: () => _selectDestination(1),
       ),
-      PosScreen(key: _posKey), // Pasang key
-      KelolaScreen(key: _kelolaKey), // Pasang key
-      HistoryScreen(key: _historyKey), // Pasang key
+      PosScreen(key: _posKey),
+      KelolaScreen(key: _kelolaKey),
+      HistoryScreen(key: _historyKey),
     ];
 
     return Scaffold(

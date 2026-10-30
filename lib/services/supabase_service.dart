@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
@@ -26,6 +27,9 @@ class SupabaseService {
   static bool _isSyncing = false;
   static final Random _rng = Random();
 
+  final _secureStorage = const FlutterSecureStorage();
+  static const String _kSecurePasswordKey = 'natunapos_secure_password';
+
   static const String _kOfflineEmailKey = 'offline_session_email';
   String? _cachedOfflineEmail;
 
@@ -44,19 +48,18 @@ class SupabaseService {
     try {
       await _client.auth.signInWithPassword(email: email, password: password);
       await _saveAuthCache(email, password);
+      await _saveSecurePassword(password); // Simpan password aman
       await _setOfflineSession(null);
       return LoginMode.online;
     } catch (onlineErr) {
       final cache = await _localDb.getAuthCache(email);
 
-      // Tidak ada cache → tidak bisa offline login.
       if (cache == null) {
         if (onlineErr is AuthException) rethrow;
         throw AuthException(
             'Login gagal. Login pertama kali memerlukan internet.');
       }
 
-      // Password tidak cocok dengan cache lokal → memang salah.
       if (!_hashMatches(password, cache.salt, cache.passwordHash)) {
         throw AuthException('Email atau password salah.');
       }
@@ -65,7 +68,8 @@ class SupabaseService {
             'Password Anda telah berubah di server. Login online untuk memperbarui.');
       }
 
-      // Network error / server error sementara + cache cocok → login offline.
+      // Login offline berhasil, simpan password agar bisa auto-sync nanti
+      await _saveSecurePassword(password);
       await _setOfflineSession(email);
       return LoginMode.offline;
     }
@@ -73,6 +77,7 @@ class SupabaseService {
 
   Future<void> logout() async {
     await _setOfflineSession(null);
+    await _deleteSecurePassword(); // Hapus password aman
     SyncStatusService.instance.reset();
     try {
       await _client.auth.signOut();
@@ -102,33 +107,48 @@ class SupabaseService {
     }
   }
 
-  Future<void> _saveAuthCache(String email, String password) async {
-    final salt = _generateSalt();
-    final hash = _hashPassword(password, salt);
-    await _localDb.upsertAuthCache(AuthCacheEntry(
-      email: email,
-      passwordHash: hash,
-      salt: salt,
-      lastOnlineLoginMs: DateTime.now().millisecondsSinceEpoch,
-    ));
-  }
+  // ---- Secure Storage & Auto Login ----
 
-  String _generateSalt() {
-    final rng = Random.secure();
-    return base64Encode(List.generate(16, (_) => rng.nextInt(256)));
-  }
-
-  String _hashPassword(String password, String salt) {
-    final initial = utf8.encode('$salt$password$salt');
-    var digest = sha256.convert(initial);
-    for (var i = 0; i < 10000; i++) {
-      digest = sha256.convert([...digest.bytes, ...utf8.encode(salt)]);
+  Future<void> _saveSecurePassword(String password) async {
+    try {
+      await _secureStorage.write(key: _kSecurePasswordKey, value: password);
+    } catch (e) {
+      debugPrint('Failed to save secure password: $e');
     }
-    return digest.toString();
   }
 
-  bool _hashMatches(String password, String salt, String expectedHash) {
-    return _hashPassword(password, salt) == expectedHash;
+  Future<void> _deleteSecurePassword() async {
+    try {
+      await _secureStorage.delete(key: _kSecurePasswordKey);
+    } catch (e) {
+      debugPrint('Failed to delete secure password: $e');
+    }
+  }
+
+  /// Dipanggil oleh MainLayout saat internet terdeteksi.
+  /// Akan melakukan login ulang secara diam-diam jika sedang offline session.
+  Future<bool> tryAutoLoginAndSync() async {
+    if (!isOfflineSession) return false;
+    final email = _cachedOfflineEmail;
+    if (email == null) return false;
+
+    try {
+      final password = await _secureStorage.read(key: _kSecurePasswordKey);
+      if (password == null) return false;
+
+      // Coba login diam-diam ke Supabase
+      await _client.auth.signInWithPassword(email: email, password: password);
+      
+      // Jika berhasil, hapus status offline session
+      await _setOfflineSession(null);
+      
+      // Langsung jalankan sinkronisasi
+      await syncData();
+      return true;
+    } catch (e) {
+      debugPrint('Auto-login failed (mungkin password berubah di server): $e');
+      return false;
+    }
   }
 
   // ---- Local read ----
@@ -168,6 +188,35 @@ class SupabaseService {
     } finally {
       _isSyncing = false;
     }
+  }
+
+  Future<void> _saveAuthCache(String email, String password) async {
+    final salt = _generateSalt();
+    final hash = _hashPassword(password, salt);
+    await _localDb.upsertAuthCache(AuthCacheEntry(
+      email: email,
+      passwordHash: hash,
+      salt: salt,
+      lastOnlineLoginMs: DateTime.now().millisecondsSinceEpoch,
+    ));
+  }
+
+  String _generateSalt() {
+    final rng = Random.secure();
+    return base64Encode(List.generate(16, (_) => rng.nextInt(256)));
+  }
+
+  String _hashPassword(String password, String salt) {
+    final initial = utf8.encode('$salt$password$salt');
+    var digest = sha256.convert(initial);
+    for (var i = 0; i < 10000; i++) {
+      digest = sha256.convert([...digest.bytes, ...utf8.encode(salt)]);
+    }
+    return digest.toString();
+  }
+
+  bool _hashMatches(String password, String salt, String expectedHash) {
+    return _hashPassword(password, salt) == expectedHash;
   }
 
   // ---- CRUD ----
