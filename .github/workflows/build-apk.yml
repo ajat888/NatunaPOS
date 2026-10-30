@@ -26,6 +26,17 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Clean corrupted NDK cache
+        run: |
+          SDK_ROOT="$ANDROID_SDK_ROOT"
+          if [ -z "$SDK_ROOT" ]; then
+            SDK_ROOT="/usr/local/lib/android/sdk"
+          fi
+          echo "Membersihkan cache NDK di $SDK_ROOT"
+          rm -rf "$SDK_ROOT/ndk/28.2.13676358" || true
+          rm -rf "$SDK_ROOT/.downloadIntermediates" || true
+          rm -rf "$SDK_ROOT/.temp" || true
+
       - name: Decode keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
@@ -34,7 +45,6 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=key.jks" >> android/key.properties
 
-      # PERBAIKAN TOTAL: Menggunakan env untuk mencegah error sintaks Bash
       - name: Build release APK
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
