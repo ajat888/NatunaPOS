@@ -34,12 +34,13 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=key.jks" >> android/key.properties
 
+      # PERBAIKAN TOTAL: Menggunakan env untuk mencegah error sintaks Bash
       - name: Build release APK
-        run: |
-          flutter build apk --release --target-platform android-arm64 \
-          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
-          --dart-define=UPDATE_MANIFEST_URL=${{ secrets.UPDATE_MANIFEST_URL }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          UPDATE_MANIFEST_URL: ${{ secrets.UPDATE_MANIFEST_URL }}
+        run: flutter build apk --release --target-platform android-arm64 --dart-define=SUPABASE_URL="$SUPABASE_URL" --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" --dart-define=UPDATE_MANIFEST_URL="$UPDATE_MANIFEST_URL"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
