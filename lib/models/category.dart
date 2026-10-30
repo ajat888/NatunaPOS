@@ -1,3 +1,4 @@
+// lib/models/category.dart
 class Category {
   final int id;
   final String name;
@@ -40,11 +41,17 @@ class Category {
     };
   }
 
-  Category copyWith({int? id, String? name, bool? isSynced}) {
+  static const Object _sentinel = Object();
+
+  Category copyWith({
+    Object? id = _sentinel,
+    Object? name = _sentinel,
+    Object? isSynced = _sentinel,
+  }) {
     return Category(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      isSynced: isSynced ?? this.isSynced,
+      id: identical(id, _sentinel) ? this.id : id as int,
+      name: identical(name, _sentinel) ? this.name : name as String,
+      isSynced: identical(isSynced, _sentinel) ? this.isSynced : isSynced as bool,
     );
   }
 

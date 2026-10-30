@@ -1,3 +1,4 @@
+// lib/models/product.dart
 class Product {
   final int id;
   final String name;
@@ -68,14 +69,16 @@ class Product {
     };
   }
 
+  static const Object _sentinel = Object();
+
   Product copyWith({
     int? id,
     String? name,
     int? price,
     int? hpp,
-    int? categoryId,
-    String? imageUrl,
-    String? localImagePath,
+    Object? categoryId = _sentinel,
+    Object? imageUrl = _sentinel,
+    Object? localImagePath = _sentinel,
     bool? isSynced,
   }) {
     return Product(
@@ -83,9 +86,15 @@ class Product {
       name: name ?? this.name,
       price: price ?? this.price,
       hpp: hpp ?? this.hpp,
-      categoryId: categoryId ?? this.categoryId,
-      imageUrl: imageUrl ?? this.imageUrl,
-      localImagePath: localImagePath ?? this.localImagePath,
+      categoryId: identical(categoryId, _sentinel) 
+          ? this.categoryId 
+          : categoryId as int?,
+      imageUrl: identical(imageUrl, _sentinel) 
+          ? this.imageUrl 
+          : imageUrl as String?,
+      localImagePath: identical(localImagePath, _sentinel) 
+          ? this.localImagePath 
+          : localImagePath as String?,
       isSynced: isSynced ?? this.isSynced,
     );
   }

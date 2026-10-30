@@ -321,8 +321,10 @@ class SupabaseService {
             ))
         .toList();
 
-    await _localDb.insertTransaction(
+    // Gunakan method atomik untuk mencegah duplikasi transaksi jika app crash
+    await _localDb.payOpenOrderAtomic(
       transactionId: transactionId,
+      orderKey: orderKey,
       total: order.total,
       createdAt: now,
       lines: lines,
@@ -331,7 +333,7 @@ class SupabaseService {
       tableNumber: order.orderKey,
       orderType: order.orderType,
     );
-    await _localDb.deleteOpenOrder(orderKey);
+    
     await SyncStatusService.instance.refreshPendingCount();
   }
 

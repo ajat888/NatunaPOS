@@ -107,6 +107,56 @@ mixin LocalDbTransactions {
     });
   }
 
+  /// Membungkus insert transaksi dan hapus open order dalam satu DB transaction.
+  /// Mencegah duplikasi transaksi jika salah satu operasi gagal di tengah jalan.
+  Future<void> payOpenOrderAtomic({
+    required int transactionId,
+    required String orderKey,
+    required int total,
+    required DateTime createdAt,
+    required List<TransactionLine> lines,
+    required int cashReceived,
+    required int changeAmount,
+    required String? tableNumber,
+    required String? orderType,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      // 1. Insert transaksi baru
+      await txn.insert('transactions', {
+        'id': transactionId,
+        'total': total,
+        'created_at': createdAt.toUtc().millisecondsSinceEpoch,
+        'is_synced': 0,
+        'is_deleted': 0,
+        'cash_received': cashReceived,
+        'change_amount': changeAmount,
+        'table_number': tableNumber,
+        'order_type': orderType,
+      });
+
+      // 2. Insert item transaksi
+      for (final line in lines) {
+        await txn.insert('transaction_items', {
+          'transaction_id': transactionId,
+          'product_id': line.productId,
+          'product_name': line.productName,
+          'price': line.price,
+          'hpp': line.hpp,
+          'qty': line.qty,
+        });
+      }
+
+      // 3. Hapus item dari open order
+      await txn.delete('open_order_items',
+          where: 'order_key = ?', whereArgs: [orderKey]);
+
+      // 4. Hapus open order utama
+      await txn.delete('open_orders',
+          where: 'order_key = ?', whereArgs: [orderKey]);
+    });
+  }
+
   Future<List<Transaction>> getTransactions({int limit = 100}) async {
     final db = await database;
     final txMaps = await db.query('transactions',

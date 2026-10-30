@@ -176,65 +176,73 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return ValueListenableBuilder<SyncState>(
       valueListenable: SyncStatusService.instance.state,
       builder: (context, state, _) {
-        IconData icon;
-        Color color;
-        String label;
-        String tooltip;
-        switch (state) {
-          case SyncState.syncing:
-            icon = Icons.sync;
-            color = AppTheme.primaryColor;
-            label = 'SYNC';
-            tooltip = 'Menyinkronkan...';
-            break;
-          case SyncState.pending:
-            icon = Icons.cloud_upload_outlined;
-            color = Colors.orange.shade800;
-            label = '${SyncStatusService.instance.pendingCount.value}';
-            tooltip =
-                '${SyncStatusService.instance.pendingCount.value} perubahan menunggu. Ketuk untuk sync.';
-            break;
-          case SyncState.failed:
-            icon = Icons.cloud_off;
-            color = AppTheme.dangerColor;
-            label = 'GAGAL';
-            tooltip = 'Sinkronisasi gagal. Ketuk untuk coba lagi.';
-            break;
-          case SyncState.idle:
-            icon = Icons.cloud_done_outlined;
-            color = Colors.green.shade700;
-            label = 'OK';
-            tooltip = 'Semua data tersinkron. Ketuk untuk sync manual.';
-            break;
-        }
-        return Tooltip(
-          message: tooltip,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(4),
-            onTap: _trySync,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+        // PERBAIKAN BUG #1: Bungkus pendingCount dengan ValueListenableBuilder<int>
+        // agar UI tetap rebuild saat nilai antrean berubah, meskipun state tetap 'pending'.
+        return ValueListenableBuilder<int>(
+          valueListenable: SyncStatusService.instance.pendingCount,
+          builder: (context, pendingCount, __) {
+            IconData icon;
+            Color color;
+            String label;
+            String tooltip;
+            switch (state) {
+              case SyncState.syncing:
+                icon = Icons.sync;
+                color = AppTheme.primaryColor;
+                label = 'SYNC';
+                tooltip = 'Menyinkronkan...';
+                break;
+              case SyncState.pending:
+                icon = Icons.cloud_upload_outlined;
+                color = Colors.orange.shade800;
+                label = '$pendingCount';
+                tooltip =
+                    '$pendingCount perubahan menunggu. Ketuk untuk sync.';
+                break;
+              case SyncState.failed:
+                icon = Icons.cloud_off;
+                color = AppTheme.dangerColor;
+                label = 'GAGAL';
+                tooltip = 'Sinkronisasi gagal. Ketuk untuk coba lagi.';
+                break;
+              case SyncState.idle:
+                icon = Icons.cloud_done_outlined;
+                color = Colors.green.shade700;
+                label = 'OK';
+                tooltip = 'Semua data tersinkron. Ketuk untuk sync manual.';
+                break;
+            }
+            return Tooltip(
+              message: tooltip,
+              child: InkWell(
                 borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 13, color: color),
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
+                onTap: _trySync,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 13, color: color),
+                      const SizedBox(width: 4),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
