@@ -6,6 +6,7 @@ import 'core/theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/supabase_service.dart';
+import 'services/update_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +18,6 @@ void main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  // Status bar & nav bar tetap terlihat agar nyaman dipakai di portrait.
   await SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.manual,
     overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
@@ -31,21 +31,35 @@ void main() async {
     anonKey: supabaseAnonKey,
   );
 
-  // Muat flag offline session dari storage SEBELUM runApp agar isLoggedIn
-  // sudah akurat saat MyApp.build() dievaluasi.
   await SupabaseService().initSession();
 
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Cek update otomatis SEKALI setelah frame pertama tampil,
+    // agar Navigator siap. Tidak memblokir startup.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.instance.checkAndNotify();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = SupabaseService().isLoggedIn;
 
     return MaterialApp(
+      navigatorKey: UpdateService.navigatorKey,
       title: 'NatunaPOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

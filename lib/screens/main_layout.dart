@@ -8,6 +8,7 @@ import 'pos_screen.dart';
 import 'kelola_screen.dart';
 import 'history_screen.dart';
 import 'login_screen.dart';
+import '../services/update_service.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
 import '../widgets/common/main_menu_scope.dart';
@@ -340,21 +341,32 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.sync, color: AppTheme.primaryColor),
-              title: const Text('Sync Sekarang'),
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                _trySync();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: AppTheme.dangerColor),
-              title: const Text(
-                'Keluar',
-                style: TextStyle(color: AppTheme.dangerColor),
-              ),
-              onTap: _handleLogout,
-            ),
+  leading: const Icon(Icons.sync, color: AppTheme.primaryColor),
+  title: const Text('Sync Sekarang'),
+  onTap: () {
+    _scaffoldKey.currentState?.closeDrawer();
+    _trySync();
+  },
+),
+// >>> TAMBAHKAN INI <<<
+ListTile(
+  leading:
+      const Icon(Icons.system_update, color: AppTheme.primaryColor),
+  title: const Text('Cek Update'),
+  onTap: () {
+    _scaffoldKey.currentState?.closeDrawer();
+    UpdateService.instance.checkAndNotify(force: true);
+  },
+),
+// <<< SAMPAI SINI >>>
+ListTile(
+  leading: const Icon(Icons.logout, color: AppTheme.dangerColor),
+  title: const Text(
+    'Keluar',
+    style: TextStyle(color: AppTheme.dangerColor),
+  ),
+  onTap: _handleLogout,
+),
             const SizedBox(height: 8),
           ],
         ),

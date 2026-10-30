@@ -47,3 +47,4 @@ jobs:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
+          --dart-define=UPDATE_MANIFEST_URL=${{ secrets.UPDATE_MANIFEST_URL }}
