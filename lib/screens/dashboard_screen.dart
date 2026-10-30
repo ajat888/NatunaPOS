@@ -116,7 +116,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             const SizedBox(height: 24),
-            _buildCallToAction(isCompact: isCompact),
+            // PERUBAHAN DI SINI: Hanya tampil jika belum ada transaksi hari ini
+            if (_transactionCount == 0) 
+              _buildCallToAction(isCompact: isCompact),
           ],
         ),
       ),
