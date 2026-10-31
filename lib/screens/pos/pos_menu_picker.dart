@@ -32,6 +32,9 @@ class _PosMenuPicker extends StatelessWidget {
 
   List<Product> get _filteredProducts {
     if (filterCategoryId == null) return products;
+    if (filterCategoryId == -1) {
+      return products.where((p) => p.categoryId == null).toList();
+    }
     return products.where((p) => p.categoryId == filterCategoryId).toList();
   }
 
@@ -41,6 +44,14 @@ class _PosMenuPicker extends StatelessWidget {
     final size = Breakpoints.of(context);
     final double maxExtent =
         size.isCompact ? 140.0 : (size.isMedium ? 170.0 : 200.0);
+
+    // Hanya tampilkan kategori yang memiliki setidaknya 1 produk aktif
+    final availableCategories = categories.where((c) {
+      return products.any((p) => p.categoryId == c.id);
+    }).toList();
+    
+    // Cek apakah ada produk tanpa kategori
+    final hasUncategorized = products.any((p) => p.categoryId == null);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -62,7 +73,7 @@ class _PosMenuPicker extends StatelessWidget {
       ),
       body: Column(
         children: [
-          if (categories.isNotEmpty)
+          if (availableCategories.isNotEmpty || hasUncategorized)
             Container(
               height: 50,
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -71,20 +82,25 @@ class _PosMenuPicker extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  ChoiceChip(
-                    label: const Text('Semua'),
-                    selected: filterCategoryId == null,
-                    onSelected: (_) => onFilterChanged(null),
-                  ),
-                  const SizedBox(width: 8),
-                  ...categories.map((c) => Padding(
+                  ...availableCategories.map((c) => Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
                           label: Text(c.name),
                           selected: filterCategoryId == c.id,
-                          onSelected: (_) => onFilterChanged(c.id),
+                          onSelected: (_) => onFilterChanged(
+                              filterCategoryId == c.id ? null : c.id),
                         ),
                       )),
+                  if (hasUncategorized)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: const Text('Tanpa Kategori'),
+                        selected: filterCategoryId == -1,
+                        onSelected: (_) => onFilterChanged(
+                            filterCategoryId == -1 ? null : -1),
+                      ),
+                    ),
                 ],
               ),
             ),
