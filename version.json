@@ -1,6 +1,6 @@
 {
-  "latest_version": "1.0.1",
+  "latest_version": "1.0.2",
   "download_url": "https://github.com/ajat888/NatunaPOS/releases/download/v1.0.1/app-release.apk",
-  "release_notes": "Perbaikan bug laporan hari ini.",
+  "release_notes": "Ganti Logo",
   "force_update": false
 }
