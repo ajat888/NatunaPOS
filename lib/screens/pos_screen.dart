@@ -64,6 +64,14 @@ class PosScreenState extends State<PosScreen> {
       final categories = await _localDb.getCategories();
       final openOrders = await _localDb.getOpenOrders();
       if (!mounted) return;
+
+      // Pastikan filter kategori saat ini masih valid
+      if (_filterCategoryId != null && _filterCategoryId != -1) {
+        if (!categories.any((c) => c.id == _filterCategoryId)) {
+          _filterCategoryId = null;
+        }
+      }
+
       setState(() {
         _products = products;
         _categories = categories;
@@ -115,6 +123,19 @@ class PosScreenState extends State<PosScreen> {
     return null;
   }
 
+  // Mengambil ID kategori pertama yang punya produk, atau -1 jika hanya ada produk tanpa kategori
+  int? _getDefaultCategoryId() {
+    for (final c in _categories) {
+      if (_products.any((p) => p.categoryId == c.id)) {
+        return c.id;
+      }
+    }
+    if (_products.any((p) => p.categoryId == null)) {
+      return -1;
+    }
+    return null;
+  }
+
   void _openEmptyTable(int tableNumber) {
     setState(() {
       _afterMenuView = PosView.tables;
@@ -123,7 +144,7 @@ class PosScreenState extends State<PosScreen> {
       _activeOrderType = 'dine_in';
       _activeTableNumber = tableNumber;
       _cart.clear();
-      _filterCategoryId = null;
+      _filterCategoryId = _getDefaultCategoryId(); // Set otomatis ke kategori pertama
     });
   }
 
@@ -137,7 +158,7 @@ class PosScreenState extends State<PosScreen> {
       _activeOrderType = 'take_away';
       _activeTableNumber = null;
       _cart.clear();
-      _filterCategoryId = null;
+      _filterCategoryId = _getDefaultCategoryId(); // Set otomatis ke kategori pertama
     });
   }
 
@@ -154,7 +175,7 @@ class PosScreenState extends State<PosScreen> {
     setState(() {
       _afterMenuView = PosView.orderDetail;
       _cart.clear();
-      _filterCategoryId = null;
+      _filterCategoryId = _getDefaultCategoryId(); // Set otomatis ke kategori pertama
       _view = PosView.menu;
     });
   }
