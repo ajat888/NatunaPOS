@@ -1,4 +1,5 @@
 // lib/screens/kelola_screen.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,22 +15,25 @@ import '../widgets/common/thousand_formatter.dart';
 
 part 'kelola/product_dialog.dart';
 part 'kelola/category_dialog.dart';
+part 'kelola/product_card.dart';
 
 class KelolaScreen extends StatefulWidget {
   const KelolaScreen({super.key});
 
   @override
-  State<KelolaScreen> createState() => KelolaScreenState(); // Ubah jadi public
+  State<KelolaScreen> createState() => KelolaScreenState();
 }
 
-class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
+class KelolaScreenState extends State<KelolaScreen>
     with SingleTickerProviderStateMixin {
   final _service = SupabaseService();
   late final TabController _tabController;
 
   List<Product> _products = [];
+  List<Product> _inactiveProducts = [];
   List<Category> _categories = [];
   int? _filterCategoryId;
+  bool _showInactive = false;
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -37,7 +41,7 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    reloadData(); // Ganti nama
+    reloadData();
   }
 
   @override
@@ -46,15 +50,17 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
     super.dispose();
   }
 
-  Future<void> reloadData() async { // Ganti nama jadi public
+  Future<void> reloadData() async {
     if (mounted) setState(() { _isLoading = true; _errorMessage = null; });
 
     try {
       final products = await _service.getLocalProducts();
+      final inactiveProducts = await _service.getLocalInactiveProducts();
       final categories = await _service.getLocalCategories();
       if (!mounted) return;
       setState(() {
         _products = products;
+        _inactiveProducts = inactiveProducts;
         _categories = categories;
         _isLoading = false;
       });
@@ -62,9 +68,14 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
       _service.syncData().then((_) async {
         try {
           final p = await _service.getLocalProducts();
+          final ip = await _service.getLocalInactiveProducts();
           final c = await _service.getLocalCategories();
           if (!mounted) return;
-          setState(() { _products = p; _categories = c; });
+          setState(() {
+            _products = p;
+            _inactiveProducts = ip;
+            _categories = c;
+          });
         } catch (e) {
           debugPrint('Reload after sync failed: $e');
         }
@@ -87,8 +98,9 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
   }
 
   List<Product> get _filteredProducts {
-    if (_filterCategoryId == null) return _products;
-    return _products.where((p) => p.categoryId == _filterCategoryId).toList();
+    final base = _showInactive ? _inactiveProducts : _products;
+    if (_filterCategoryId == null) return base;
+    return base.where((p) => p.categoryId == _filterCategoryId).toList();
   }
 
   Future<void> _showProductDialog({Product? existing}) async {
@@ -101,7 +113,7 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
         service: _service,
       ),
     );
-    if (result == true) await reloadData(); // Ganti nama
+    if (result == true) await reloadData();
   }
 
   Future<void> _showCategoryDialog({Category? existing}) async {
@@ -110,34 +122,48 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
       barrierDismissible: false,
       builder: (_) => _CategoryDialog(existing: existing, service: _service),
     );
-    if (result == true) await reloadData(); // Ganti nama
+    if (result == true) await reloadData();
   }
 
   Future<void> _confirmDeleteProduct(Product product) async {
+    final isRestoring = _showInactive;
+    final title = isRestoring ? 'Aktifkan Produk' : 'Nonaktifkan Produk';
+    final content = isRestoring
+        ? 'Yakin ingin mengaktifkan kembali "${product.name}"?'
+        : 'Yakin ingin menonaktifkan "${product.name}"?\nProduk tidak akan muncul di kasir.';
+    final confirmText = isRestoring ? 'AKTIFKAN' : 'NONAKTIFKAN';
+    final btnColor = isRestoring ? Colors.green : AppTheme.dangerColor;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Hapus Produk'),
-        content: Text('Yakin ingin menghapus "${product.name}"?'),
+        title: Text(title),
+        content: Text(content),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('BATAL')),
           ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerColor),
+              style: ElevatedButton.styleFrom(backgroundColor: btnColor),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('HAPUS')),
+              child: Text(confirmText)),
         ],
       ),
     );
     if (confirmed != true) return;
-    await _service.deleteProduct(product.id);
+
+    if (isRestoring) {
+      await _service.restoreProduct(product.id);
+    } else {
+      await _service.deleteProduct(product.id);
+    }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Produk dihapus'), backgroundColor: Colors.green));
-    await reloadData(); // Ganti nama
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            isRestoring ? 'Produk diaktifkan kembali' : 'Produk dinonaktifkan'),
+        backgroundColor: Colors.green));
+    await reloadData();
   }
 
   Future<void> _confirmDeleteCategory(Category category) async {
@@ -164,7 +190,7 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kategori dihapus'), backgroundColor: Colors.green));
-    await reloadData(); // Ganti nama
+    await reloadData();
   }
 
   @override
@@ -181,7 +207,7 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: reloadData, // Ganti nama
+              onPressed: reloadData,
               tooltip: 'Muat ulang')
         ],
         bottom: TabBar(
@@ -205,7 +231,7 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
                           style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
                       TextButton(
-                          onPressed: reloadData, // Ganti nama
+                          onPressed: reloadData,
                           child: const Text('Coba Lagi'))
                     ]))
               : TabBarView(controller: _tabController, children: [
@@ -220,35 +246,70 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
       children: [
         Column(
           children: [
-            if (_categories.isNotEmpty)
-              Container(
-                height: 50,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    ChoiceChip(
-                        label: const Text('Semua'),
-                        selected: _filterCategoryId == null,
-                        onSelected: (val) =>
-                            setState(() => _filterCategoryId = null)),
-                    const SizedBox(width: 8),
-                    ..._categories.map((c) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                            label: Text(c.name),
-                            selected: _filterCategoryId == c.id,
+            Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        ChoiceChip(
+                            label: const Text('Semua'),
+                            selected: _filterCategoryId == null,
                             onSelected: (val) =>
-                                setState(() => _filterCategoryId = c.id)))),
-                  ],
-                ),
+                                setState(() => _filterCategoryId = null)),
+                        const SizedBox(width: 8),
+                        ..._categories.map((c) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                                label: Text(c.name),
+                                selected: _filterCategoryId == c.id,
+                                onSelected: (val) =>
+                                    setState(() => _filterCategoryId = c.id)))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => setState(() => _showInactive = !_showInactive),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _showInactive ? AppTheme.dangerColor.withOpacity(0.1) : AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _showInactive ? AppTheme.dangerColor : AppTheme.primaryColor),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 14, color: _showInactive ? AppTheme.dangerColor : AppTheme.primaryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            _showInactive ? 'Nonaktif' : 'Aktif',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _showInactive ? AppTheme.dangerColor : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
             Expanded(
               child: _filteredProducts.isEmpty
-                  ? const Center(
-                      child: Text('Tidak ada produk di kategori ini.',
-                          style: TextStyle(color: AppTheme.textLightColor)))
+                  ? Center(
+                      child: Text(
+                          _showInactive 
+                              ? 'Tidak ada produk nonaktif.' 
+                              : 'Tidak ada produk aktif di kategori ini.',
+                          style: const TextStyle(color: AppTheme.textLightColor)))
                   : GridView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                       gridDelegate:
@@ -260,115 +321,32 @@ class KelolaScreenState extends State<KelolaScreen> // Ubah jadi public
                       itemCount: _filteredProducts.length,
                       itemBuilder: (context, index) {
                         final product = _filteredProducts[index];
-                        return Container(
-                          decoration: BoxDecoration(
-                              color: AppTheme.surfaceColor,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: const Color(0xFFE2E8F0))),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                  child: ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(8)),
-                                      child: _buildProductImage(product))),
-                              Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                            child: Text(product.name,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    color: AppTheme.textColor),
-                                                maxLines: 1,
-                                                overflow:
-                                                    TextOverflow.ellipsis)),
-                                        if (!product.isSynced)
-                                          const Icon(Icons.cloud_off,
-                                              size: 14,
-                                              color: AppTheme.dangerColor),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                        'Rp ${NumberFormat.decimalPattern('id').format(product.price)}',
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            color: AppTheme.primaryColor,
-                                            fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          InkWell(
-                                              onTap: () =>
-                                                  _showProductDialog(
-                                                      existing: product),
-                                              child: const Icon(
-                                                  Icons.edit_outlined,
-                                                  color:
-                                                      AppTheme.primaryColor,
-                                                  size: 20)),
-                                          const SizedBox(width: 12),
-                                          InkWell(
-                                              onTap: () =>
-                                                  _confirmDeleteProduct(product),
-                                              child: const Icon(
-                                                  Icons.delete_outline,
-                                                  color: AppTheme.dangerColor,
-                                                  size: 20)),
-                                        ])
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                        return _ProductCard(
+                          product: product,
+                          isInactive: _showInactive,
+                          onEdit: () => _showProductDialog(existing: product),
+                          onDeleteRestore: () => _confirmDeleteProduct(product),
                         );
                       },
                     ),
             ),
           ],
         ),
-        Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.extended(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                onPressed: () => _showProductDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Tambah Produk'))),
+        if (!_showInactive)
+          Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton.extended(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  onPressed: () => _showProductDialog(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah Produk'))),
       ],
     );
   }
-
-  Widget _buildProductImage(Product product) {
-    if (product.localImagePath != null &&
-        File(product.localImagePath!).existsSync()) {
-      return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
-    }
-    if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
-      return Image.network(product.imageUrl!,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildImagePlaceholder());
-    }
-    return _buildImagePlaceholder();
-  }
-
-  Widget _buildImagePlaceholder() => Container(
-      color: const Color(0xFFF1F5F9),
-      child: const Center(
-          child: Icon(Icons.image_outlined,
-              color: AppTheme.textLightColor, size: 40)));
 
   Widget _buildCategoriesTab() {
     return Stack(

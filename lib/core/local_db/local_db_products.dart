@@ -44,6 +44,13 @@ mixin LocalDbProducts {
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
+  Future<List<Product>> getInactiveProducts() async {
+    final db = await database;
+    final maps =
+        await db.query('products', where: 'is_deleted = 1', orderBy: 'id ASC');
+    return maps.map((m) => Product.fromDb(m)).toList();
+  }
+
   Future<List<Product>> getUnsyncedProducts() async {
     final db = await database;
     final maps =
@@ -56,6 +63,24 @@ mixin LocalDbProducts {
     final maps =
         await db.query('products', where: 'is_deleted = 1 AND is_synced = 0');
     return maps.map((m) => Product.fromDb(m)).toList();
+  }
+
+  Future<bool> isProductNameDuplicate(String name, {int? excludeId}) async {
+    final db = await database;
+    final whereClause = excludeId != null
+        ? 'LOWER(name) = ? AND is_deleted = 0 AND id != ?'
+        : 'LOWER(name) = ? AND is_deleted = 0';
+    final whereArgsList = excludeId != null
+        ? [name.toLowerCase().trim(), excludeId]
+        : [name.toLowerCase().trim()];
+
+    final maps = await db.query(
+      'products',
+      where: whereClause,
+      whereArgs: whereArgsList,
+      limit: 1,
+    );
+    return maps.isNotEmpty;
   }
 
   Future<void> upsertProduct(Product product) async {
@@ -72,6 +97,18 @@ mixin LocalDbProducts {
   Future<void> markProductDeleted(int id) async {
     final db = await database;
     await db.update('products', {'is_deleted': 1, 'is_synced': 0},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> restoreProduct(int id) async {
+    final db = await database;
+    await db.update('products', {'is_deleted': 0, 'is_synced': 0},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> markProductSyncedAndDeleted(int id) async {
+    final db = await database;
+    await db.update('products', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
   }
 

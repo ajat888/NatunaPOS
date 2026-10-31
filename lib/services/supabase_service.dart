@@ -151,6 +151,7 @@ class SupabaseService {
   }
 
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();
+  Future<List<Product>> getLocalInactiveProducts() => _localDb.getInactiveProducts();
   Future<List<Category>> getLocalCategories() => _localDb.getCategories();
 
   Future<void> syncData() async {
@@ -214,6 +215,9 @@ class SupabaseService {
     return computed == expectedHash;
   }
 
+  Future<bool> isProductNameDuplicate(String name, {int? excludeId}) =>
+      _localDb.isProductNameDuplicate(name, excludeId: excludeId);
+
   Future<void> createProduct({
     required String name,
     required int price,
@@ -258,6 +262,11 @@ class SupabaseService {
 
   Future<void> deleteProduct(int id) async {
     await _localDb.markProductDeleted(id);
+    await SyncStatusService.instance.refreshPendingCount();
+  }
+
+  Future<void> restoreProduct(int id) async {
+    await _localDb.restoreProduct(id);
     await SyncStatusService.instance.refreshPendingCount();
   }
 

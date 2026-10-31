@@ -44,7 +44,8 @@ class SyncRunner {
         if (p.id > 0) {
           await _client.from('products').delete().eq('id', p.id);
         }
-        await _localDb.deleteProduct(p.id);
+        // Ubah dari hard-delete menjadi mark synced
+        await _localDb.markProductSyncedAndDeleted(p.id);
       } catch (e) {
         debugPrint('Sync delete product ${p.id} failed: $e');
         failures++;

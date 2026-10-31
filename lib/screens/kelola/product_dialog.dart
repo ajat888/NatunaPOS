@@ -23,6 +23,9 @@ class _ProductDialogState extends State<_ProductDialog> {
   bool _isSaving = false;
   String? _errorMessage;
 
+  Timer? _debounce;
+  String? _nameError;
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +54,22 @@ class _ProductDialogState extends State<_ProductDialog> {
     _nameController.dispose();
     _priceController.dispose();
     _hppController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  Future<void> _checkDuplicateName(String name) async {
+    if (name.trim().isEmpty) {
+      if (mounted) setState(() => _nameError = null);
+      return;
+    }
+    final isDup = await widget.service.isProductNameDuplicate(
+      name,
+      excludeId: widget.existing?.id,
+    );
+    if (mounted) {
+      setState(() => _nameError = isDup ? 'Nama produk sudah ada' : null);
+    }
   }
 
   Future<void> _pickImage() async {
@@ -78,6 +96,8 @@ class _ProductDialogState extends State<_ProductDialog> {
   }
 
   Future<void> _save() async {
+    if (_nameError != null) return; // Cegah simpan jika ada error duplikat
+    
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _isSaving = true;
@@ -174,7 +194,16 @@ class _ProductDialogState extends State<_ProductDialog> {
               const SizedBox(height: 16),
               TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Nama Produk'),
+                  decoration: InputDecoration(
+                    labelText: 'Nama Produk',
+                    errorText: _nameError,
+                  ),
+                  onChanged: (val) {
+                    if (_debounce?.isActive ?? false) _debounce!.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 400), () {
+                      _checkDuplicateName(val);
+                    });
+                  },
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'Nama wajib diisi'
                       : null),
