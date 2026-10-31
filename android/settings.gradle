@@ -18,10 +18,10 @@ pluginManagement {
 
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    // PERBAIKAN: Wajib AGP 9.1.1 untuk Flutter 3.47
-    id "com.android.application" version "9.1.1" apply false
-    // PERBAIKAN: Kotlin versi baru yang kompatibel
-    id "org.jetbrains.kotlin.android" version "2.2.20" apply false
+    // Ubah dari 9.1.1 menjadi 8.5.0
+    id "com.android.application" version "8.5.0" apply false
+    // Ubah dari 2.2.20 menjadi 2.0.10
+    id "org.jetbrains.kotlin.android" version "2.0.10" apply false
 }
 
 include ":app"
