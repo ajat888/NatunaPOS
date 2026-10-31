@@ -44,7 +44,6 @@ class SyncRunner {
         if (p.id > 0) {
           await _client.from('products').delete().eq('id', p.id);
         }
-        // Ubah dari hard-delete menjadi mark synced
         await _localDb.markProductSyncedAndDeleted(p.id);
       } catch (e) {
         debugPrint('Sync delete product ${p.id} failed: $e');
@@ -197,16 +196,18 @@ class SyncRunner {
             newServerId: newProductId,
           );
         } else {
+          // FIX: Gunakan upsert agar jika produk sudah dihapus di server (misal: restore),
+          // produk bisa dibuat ulang tanpa error.
           await _client
               .from('products')
-              .update({
+              .upsert({
+                'id': p.id,
                 'name': p.name,
                 'price': p.price,
                 'hpp': p.hpp,
                 'category_id': finalCategoryId,
                 'image_url': finalImageUrl,
-              })
-              .eq('id', p.id);
+              });
           await _localDb.upsertProduct(Product(
             id: p.id,
             name: p.name,

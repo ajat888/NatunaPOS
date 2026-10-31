@@ -58,6 +58,15 @@ class KelolaScreenState extends State<KelolaScreen>
       final inactiveProducts = await _service.getLocalInactiveProducts();
       final categories = await _service.getLocalCategories();
       if (!mounted) return;
+
+      // Validasi filter jika kategori tersebut sudah kosong / terhapus
+      final base = _showInactive ? inactiveProducts : products;
+      if (_filterCategoryId != null && _filterCategoryId != -1) {
+        final hasCat = categories.any((c) => c.id == _filterCategoryId) && 
+                       base.any((p) => p.categoryId == _filterCategoryId);
+        if (!hasCat) _filterCategoryId = null;
+      }
+
       setState(() {
         _products = products;
         _inactiveProducts = inactiveProducts;
@@ -89,17 +98,10 @@ class KelolaScreenState extends State<KelolaScreen>
     }
   }
 
-  String? _categoryName(int? id) {
-    if (id == null) return null;
-    for (final c in _categories) {
-      if (c.id == id) return c.name;
-    }
-    return null;
-  }
-
   List<Product> get _filteredProducts {
     final base = _showInactive ? _inactiveProducts : _products;
     if (_filterCategoryId == null) return base;
+    if (_filterCategoryId == -1) return base.where((p) => p.categoryId == null).toList();
     return base.where((p) => p.categoryId == _filterCategoryId).toList();
   }
 
@@ -242,6 +244,15 @@ class KelolaScreenState extends State<KelolaScreen>
   }
 
   Widget _buildProductsTab() {
+    final baseProducts = _showInactive ? _inactiveProducts : _products;
+    
+    // Hanya tampilkan kategori yang punya produk
+    final activeCategories = _categories.where((c) {
+      return baseProducts.any((p) => p.categoryId == c.id);
+    }).toList();
+    
+    final hasUncategorized = baseProducts.any((p) => p.categoryId == null);
+
     return Stack(
       children: [
         Column(
@@ -255,25 +266,36 @@ class KelolaScreenState extends State<KelolaScreen>
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        ChoiceChip(
-                            label: const Text('Semua'),
-                            selected: _filterCategoryId == null,
-                            onSelected: (val) =>
-                                setState(() => _filterCategoryId = null)),
-                        const SizedBox(width: 8),
-                        ..._categories.map((c) => Padding(
+                        ...activeCategories.map((c) => Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
                                 label: Text(c.name),
                                 selected: _filterCategoryId == c.id,
-                                onSelected: (val) =>
-                                    setState(() => _filterCategoryId = c.id)))),
+                                onSelected: (val) {
+                                  setState(() {
+                                    _filterCategoryId = _filterCategoryId == c.id ? null : c.id;
+                                  });
+                                }))),
+                        if (hasUncategorized)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                                label: const Text('Tanpa Kategori'),
+                                selected: _filterCategoryId == -1,
+                                onSelected: (val) {
+                                  setState(() {
+                                    _filterCategoryId = _filterCategoryId == -1 ? null : -1;
+                                  });
+                                })),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: () => setState(() => _showInactive = !_showInactive),
+                    onTap: () => setState(() {
+                      _showInactive = !_showInactive;
+                      _filterCategoryId = null; // Reset filter saat ganti tab
+                    }),
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -308,7 +330,7 @@ class KelolaScreenState extends State<KelolaScreen>
                       child: Text(
                           _showInactive 
                               ? 'Tidak ada produk nonaktif.' 
-                              : 'Tidak ada produk aktif di kategori ini.',
+                              : 'Tidak ada produk di kategori ini.',
                           style: const TextStyle(color: AppTheme.textLightColor)))
                   : GridView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
