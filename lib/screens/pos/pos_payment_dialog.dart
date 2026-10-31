@@ -1,4 +1,3 @@
-// lib/screens/pos/pos_payment_dialog.dart
 part of '../pos_screen.dart';
 
 class _PaymentDialog extends StatefulWidget {
@@ -68,7 +67,6 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // Clamp lebar dialog agar muat di layar kecil (portrait HP).
     final screenWidth = MediaQuery.sizeOf(context).width;
     final contentWidth = screenWidth < 528 ? screenWidth - 88 : 440.0;
 
@@ -84,22 +82,68 @@ class _PaymentDialogState extends State<_PaymentDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${widget.order.label} • ${widget.order.itemCount} item',
+                Text(widget.order.label,
                     style: const TextStyle(
-                        color: AppTheme.textLightColor, fontSize: 12)),
-                Text('Total',
+                        color: AppTheme.textLightColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                Text('${widget.order.itemCount} item',
                     style: const TextStyle(
                         color: AppTheme.textLightColor, fontSize: 12)),
               ],
             ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text('Rp ${_formatter.format(widget.order.total)}',
-                  style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textColor)),
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 150),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(12),
+                itemCount: widget.order.items.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 12, color: Color(0xFFE2E8F0)),
+                itemBuilder: (context, i) {
+                  final item = widget.order.items[i];
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${item.productName} x${item.qty}',
+                          style: const TextStyle(
+                              fontSize: 13, color: AppTheme.textColor),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        'Rp ${_formatter.format(item.subtotal)}',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textColor),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Total',
+                    style: TextStyle(
+                        color: AppTheme.textLightColor, fontSize: 12)),
+                Text('Rp ${_formatter.format(widget.order.total)}',
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textColor)),
+              ],
             ),
             const SizedBox(height: 16),
             const Text('Uang Diterima',

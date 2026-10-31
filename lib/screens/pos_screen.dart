@@ -1,4 +1,3 @@
-// lib/screens/pos_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +17,7 @@ part 'pos/pos_table_view.dart';
 part 'pos/pos_menu_picker.dart';
 part 'pos/pos_order_detail.dart';
 part 'pos/pos_payment_dialog.dart';
+part 'pos/pos_save_dialog.dart';
 
 enum PosView { tables, menu, orderDetail }
 
@@ -65,7 +65,6 @@ class PosScreenState extends State<PosScreen> {
       final openOrders = await _localDb.getOpenOrders();
       if (!mounted) return;
 
-      // Pastikan filter kategori saat ini masih valid
       if (_filterCategoryId != null && _filterCategoryId != -1) {
         if (!categories.any((c) => c.id == _filterCategoryId)) {
           _filterCategoryId = null;
@@ -123,7 +122,6 @@ class PosScreenState extends State<PosScreen> {
     return null;
   }
 
-  // Mengambil ID kategori pertama yang punya produk, atau -1 jika hanya ada produk tanpa kategori
   int? _getDefaultCategoryId() {
     for (final c in _categories) {
       if (_products.any((p) => p.categoryId == c.id)) {
@@ -144,7 +142,7 @@ class PosScreenState extends State<PosScreen> {
       _activeOrderType = 'dine_in';
       _activeTableNumber = tableNumber;
       _cart.clear();
-      _filterCategoryId = _getDefaultCategoryId(); // Set otomatis ke kategori pertama
+      _filterCategoryId = _getDefaultCategoryId();
     });
   }
 
@@ -158,7 +156,7 @@ class PosScreenState extends State<PosScreen> {
       _activeOrderType = 'take_away';
       _activeTableNumber = null;
       _cart.clear();
-      _filterCategoryId = _getDefaultCategoryId(); // Set otomatis ke kategori pertama
+      _filterCategoryId = _getDefaultCategoryId();
     });
   }
 
@@ -175,7 +173,7 @@ class PosScreenState extends State<PosScreen> {
     setState(() {
       _afterMenuView = PosView.orderDetail;
       _cart.clear();
-      _filterCategoryId = _getDefaultCategoryId(); // Set otomatis ke kategori pertama
+      _filterCategoryId = _getDefaultCategoryId();
       _view = PosView.menu;
     });
   }
@@ -227,22 +225,18 @@ class PosScreenState extends State<PosScreen> {
     final target = _activeOrderType == 'take_away'
         ? '$_activeOrderKey'
         : 'Meja $_activeTableNumber';
+    
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Simpan Pesanan?'),
-        content: Text('Simpan $_cartItemCount item ke $target?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('EDIT')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('YA')),
-        ],
+      builder: (context) => _SaveOrderDialog(
+        cart: _cart,
+        products: _products,
+        targetLabel: target,
+        total: _cartTotal,
+        itemCount: _cartItemCount,
       ),
     );
+    
     if (confirmed != true) return;
 
     try {
