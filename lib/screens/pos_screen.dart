@@ -223,7 +223,28 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
       ),
     );
     if (confirmed != true) return;
-    await _saveOrder();
+
+    // BUG #7 FIX: bungkus dengan try/catch agar kegagalan DB tidak silent.
+    // Cart tetap utuh sehingga user bisa retry tanpa kehilangan input.
+    try {
+      await _saveOrder();
+    } catch (e) {
+      debugPrint('Save order failed: $e');
+      if (!mounted) return;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyimpan pesanan: $msg'),
+          backgroundColor: AppTheme.dangerColor,
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'COBA LAGI',
+            textColor: Colors.white,
+            onPressed: _promptSaveOrder,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _saveOrder() async {

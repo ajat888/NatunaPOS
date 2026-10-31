@@ -1,4 +1,5 @@
 // lib/core/local_db/local_db_transactions.dart
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import '../../models/transaction.dart';
 
@@ -62,13 +63,32 @@ mixin LocalDbTransactions {
         'CREATE INDEX IF NOT EXISTS idx_tx_created ON transactions(created_at)');
   }
 
+  /// BUG #4 FIX: idempoten. Setiap ALTER dibungkus try/catch agar
+  /// `onUpgrade` tidak pernah abort karena `duplicate column` (mis.
+  /// DB dipulihkan dari backup, atau upgrade partial sebelumnya).
   static Future<void> upgradeTransactionsV8(Database db) async {
-    await db.execute(
-        'ALTER TABLE transactions ADD COLUMN cash_received INTEGER DEFAULT 0');
-    await db.execute(
-        'ALTER TABLE transactions ADD COLUMN change_amount INTEGER DEFAULT 0');
-    await db.execute('ALTER TABLE transactions ADD COLUMN table_number TEXT');
-    await db.execute('ALTER TABLE transactions ADD COLUMN order_type TEXT');
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN cash_received INTEGER DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.cash_received already exists: $e');
+    }
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN change_amount INTEGER DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.change_amount already exists: $e');
+    }
+    try {
+      await db.execute('ALTER TABLE transactions ADD COLUMN table_number TEXT');
+    } catch (e) {
+      debugPrint('transactions.table_number already exists: $e');
+    }
+    try {
+      await db.execute('ALTER TABLE transactions ADD COLUMN order_type TEXT');
+    } catch (e) {
+      debugPrint('transactions.order_type already exists: $e');
+    }
   }
 
   Future<void> insertTransaction({

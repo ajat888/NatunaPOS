@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, compute;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,6 +16,20 @@ import 'sync_runner.dart';
 import 'sync_status_service.dart';
 
 enum LoginMode { online, offline }
+
+// BUG #6 FIX: top-level function agar bisa dijalankan di isolate terpisah
+// lewat `compute()`, supaya 10.000 iterasi SHA-256 tidak membekukan UI
+// saat verifikasi login offline.
+String _computePasswordHash(Map<String, String> args) {
+  final password = args['password'] ?? '';
+  final salt = args['salt'] ?? '';
+  final initial = utf8.encode('$salt$password$salt');
+  var digest = sha256.convert(initial);
+  for (var i = 0; i < 10000; i++) {
+    digest = sha256.convert([...digest.bytes, ...utf8.encode(salt)]);
+  }
+  return digest.toString();
+}
 
 class SupabaseService {
   SupabaseService._();
@@ -60,7 +74,8 @@ class SupabaseService {
             'Login gagal. Login pertama kali memerlukan internet.');
       }
 
-      if (!_hashMatches(password, cache.salt, cache.passwordHash)) {
+      // BUG #6 FIX: `_hashMatches` sekarang async (pakai compute).
+      if (!await _hashMatches(password, cache.salt, cache.passwordHash)) {
         throw AuthException('Email atau password salah.');
       }
       if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
@@ -138,10 +153,10 @@ class SupabaseService {
 
       // Coba login diam-diam ke Supabase
       await _client.auth.signInWithPassword(email: email, password: password);
-      
+
       // Jika berhasil, hapus status offline session
       await _setOfflineSession(null);
-      
+
       // Langsung jalankan sinkronisasi
       await syncData();
       return true;
@@ -192,7 +207,8 @@ class SupabaseService {
 
   Future<void> _saveAuthCache(String email, String password) async {
     final salt = _generateSalt();
-    final hash = _hashPassword(password, salt);
+    // BUG #6 FIX: `_hashPassword` sekarang async.
+    final hash = await _hashPassword(password, salt);
     await _localDb.upsertAuthCache(AuthCacheEntry(
       email: email,
       passwordHash: hash,
@@ -206,17 +222,19 @@ class SupabaseService {
     return base64Encode(List.generate(16, (_) => rng.nextInt(256)));
   }
 
-  String _hashPassword(String password, String salt) {
-    final initial = utf8.encode('$salt$password$salt');
-    var digest = sha256.convert(initial);
-    for (var i = 0; i < 10000; i++) {
-      digest = sha256.convert([...digest.bytes, ...utf8.encode(salt)]);
-    }
-    return digest.toString();
+  // BUG #6 FIX: hash dijalankan di isolate terpisah via `compute()`.
+  Future<String> _hashPassword(String password, String salt) {
+    return compute(_computePasswordHash, {
+      'password': password,
+      'salt': salt,
+    });
   }
 
-  bool _hashMatches(String password, String salt, String expectedHash) {
-    return _hashPassword(password, salt) == expectedHash;
+  // BUG #6 FIX: async karena `_hashPassword` async.
+  Future<bool> _hashMatches(
+      String password, String salt, String expectedHash) async {
+    final computed = await _hashPassword(password, salt);
+    return computed == expectedHash;
   }
 
   // ---- CRUD ----
@@ -333,7 +351,7 @@ class SupabaseService {
       tableNumber: order.orderKey,
       orderType: order.orderType,
     );
-    
+
     await SyncStatusService.instance.refreshPendingCount();
   }
 
