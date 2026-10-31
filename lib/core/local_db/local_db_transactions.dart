@@ -63,8 +63,6 @@ mixin LocalDbTransactions {
         'CREATE INDEX IF NOT EXISTS idx_tx_created ON transactions(created_at)');
   }
 
-  /// BUG #4 (dari fix sebelumnya): idempoten. Setiap ALTER dibungkus try/catch
-  /// agar `onUpgrade` tidak pernah abort karena `duplicate column`.
   static Future<void> upgradeTransactionsV8(Database db) async {
     try {
       await db.execute(
@@ -283,10 +281,6 @@ mixin LocalDbTransactions {
   }) async {
     final db = await database;
     await db.transaction((txn) async {
-      // BUG C FIX: cek dulu apakah transaksi induk benar-benar di-insert.
-      // ConflictAlgorithm.ignore mengembalikan rowId (int) jika sukses,
-      // dan 0 jika di-ignore (transaksi sudah ada). Items hanya boleh
-      // di-insert saat induk baru (mencegah duplikasi items).
       final insertResult = await txn.insert(
         'transactions',
         {
@@ -302,10 +296,8 @@ mixin LocalDbTransactions {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
-      if (insertResult == 0) {
-        // Sudah ada di lokal → jangan insert items lagi.
-        return;
-      }
+      if (insertResult == 0) return;
+      
       for (final line in items) {
         await txn.insert('transaction_items', {
           'transaction_id': id,

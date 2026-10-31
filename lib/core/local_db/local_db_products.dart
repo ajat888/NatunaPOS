@@ -86,11 +86,6 @@ mixin LocalDbProducts {
     );
   }
 
-  /// BUG B FIX: atomik — ganti produk lama (id negatif) dengan produk baru
-  /// (id server) dan remap semua referensi DALAM SATU DB TRANSACTION.
-  /// Jika crash di tengah, SQLite rollback → konsisten (produk lama masih
-  /// ada, retry akan push ulang produk server — trade-off duplikasi server
-  /// yang lebih baik daripada referensi yatim di lokal).
   Future<void> transactionalReplaceProduct({
     required int oldId,
     required Product newProduct,
@@ -98,24 +93,20 @@ mixin LocalDbProducts {
   }) async {
     final db = await database;
     await db.transaction((txn) async {
-      // 1. Insert produk baru (id server, is_synced = 1).
       await txn.insert('products', newProduct.toDb(),
           conflictAlgorithm: ConflictAlgorithm.replace);
-      // 2. Remap referensi di transaction_items.
       await txn.update(
         'transaction_items',
         {'product_id': newServerId},
         where: 'product_id = ?',
         whereArgs: [oldId],
       );
-      // 3. Remap referensi di open_order_items.
       await txn.update(
         'open_order_items',
         {'product_id': newServerId},
         where: 'product_id = ?',
         whereArgs: [oldId],
       );
-      // 4. Hapus produk lama.
       await txn.delete('products', where: 'id = ?', whereArgs: [oldId]);
     });
   }

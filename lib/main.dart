@@ -11,7 +11,6 @@ import 'services/update_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Bebas portrait & landscape (Opsi B).
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -26,10 +25,29 @@ void main() async {
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-  await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseAnonKey,
-  );
+  try {
+    await Supabase.initialize(
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+    );
+  } catch (e) {
+    runApp(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Text(
+              'Gagal menginisialisasi aplikasi.\nPastikan konfigurasi server sudah benar.\n\nError: $e',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ),
+      ),
+    ));
+    return;
+  }
 
   await SupabaseService().initSession();
 
@@ -47,8 +65,6 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Cek update otomatis SEKALI setelah frame pertama tampil,
-    // agar Navigator siap. Tidak memblokir startup.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       UpdateService.instance.checkAndNotify();
     });

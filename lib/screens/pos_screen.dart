@@ -25,10 +25,10 @@ class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
 
   @override
-  State<PosScreen> createState() => PosScreenState(); // Ubah jadi public
+  State<PosScreen> createState() => PosScreenState();
 }
 
-class PosScreenState extends State<PosScreen> { // Ubah jadi public
+class PosScreenState extends State<PosScreen> {
   final _service = SupabaseService();
   final _localDb = LocalDb.instance;
 
@@ -49,10 +49,10 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
   @override
   void initState() {
     super.initState();
-    reloadData(); // Ganti nama
+    reloadData();
   }
 
-  Future<void> reloadData() async { // Ganti nama jadi public
+  Future<void> reloadData() async {
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -261,11 +261,6 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
     });
     if (lines.isEmpty) return;
 
-    // BUG A FIX: cek DB langsung (bukan hanya state `_openOrders`).
-    // Jika createOpenOrder sukses sebelumnya tapi `_reloadOpenOrders` gagal,
-    // state `_openOrders` masih kosong. Cek DB dulu agar retry memakai
-    // `append` (idempoten via merge product_id), bukan `create` lagi
-    // (yang akan melanggar UNIQUE constraint `order_key`).
     final dbExisting = await _localDb.getOpenOrder(_activeOrderKey!);
     final existing = dbExisting ?? _findOrder(_activeOrderKey!);
     if (existing == null) {
@@ -281,6 +276,9 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
         lines: lines,
       );
     }
+    
+    _cart.clear();
+    
     await _reloadOpenOrders();
     if (!mounted) return;
     if (_afterMenuView == PosView.orderDetail) {
@@ -302,6 +300,7 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
         service: _service,
         onSuccess: () async {
           await _reloadOpenOrders();
+          _service.syncData();
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Pembayaran berhasil'),
@@ -349,7 +348,7 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
               Text(_errorMessage!,
                   style: const TextStyle(color: AppTheme.dangerColor)),
               const SizedBox(height: 16),
-              TextButton(onPressed: reloadData, child: const Text('Coba Lagi')), // Ganti nama
+              TextButton(onPressed: reloadData, child: const Text('Coba Lagi')),
             ],
           ),
         ),
@@ -378,7 +377,7 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: reloadData, // Ganti nama
+              onPressed: reloadData,
               tooltip: 'Muat ulang'),
         ],
       ),

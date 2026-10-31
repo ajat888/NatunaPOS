@@ -57,12 +57,33 @@ class SyncRunner {
     for (final c in unsyncedCategories) {
       try {
         if (c.id < 0) {
-          final response = await _client
-              .from('categories')
-              .insert({'name': c.name})
-              .select()
-              .single();
-          final newId = response['id'] as int;
+          int? existingServerId;
+          try {
+            final probe = await _client
+                .from('categories')
+                .select('id')
+                .eq('name', c.name)
+                .limit(1);
+            if ((probe as List).isNotEmpty) {
+              existingServerId = (probe.first['id'] as num).toInt();
+            }
+          } catch (e) {
+            debugPrint('Category idempotency probe failed: $e');
+          }
+
+          int newId;
+          Map<String, dynamic> response;
+          if (existingServerId != null) {
+            newId = existingServerId;
+            response = {'id': newId, 'name': c.name};
+          } else {
+            response = await _client
+                .from('categories')
+                .insert({'name': c.name})
+                .select()
+                .single();
+            newId = response['id'] as int;
+          }
           categoryIdMap[c.id] = newId;
           await _localDb.deleteCategory(c.id);
           await _localDb.upsertCategory(Category.fromJson(response));
@@ -112,11 +133,9 @@ class SyncRunner {
           }
           remainingLocalImagePath = null;
         } else if (p.localImagePath != null) {
-          // BUG #5 FIX: file lokal hilang — log jelas, jangan silent.
           debugPrint(
               'WARNING: Local image missing for product "${p.name}" (${p.id}) '
-              'at ${p.localImagePath}. Proceeding without upload. '
-              'Existing image_url=${p.imageUrl}');
+              'at ${p.localImagePath}. Proceeding without upload.');
           remainingLocalImagePath = null;
         }
 
@@ -127,26 +146,53 @@ class SyncRunner {
         }
 
         if (p.id < 0) {
-          final response = await _client
-              .from('products')
-              .insert({
-                'name': p.name,
-                'price': p.price,
-                'hpp': p.hpp,
-                'category_id': finalCategoryId,
-                'image_url': finalImageUrl,
-              })
-              .select()
-              .single();
-          final newProductId = (response['id'] as num).toInt();
+          int? existingServerId;
+          try {
+            final probe = await _client
+                .from('products')
+                .select('id')
+                .eq('name', p.name)
+                .eq('price', p.price)
+                .limit(1);
+            if ((probe as List).isNotEmpty) {
+              existingServerId = (probe.first['id'] as num).toInt();
+            }
+          } catch (e) {
+            debugPrint('Product idempotency probe failed: $e');
+          }
 
-          // BUG B FIX: ganti produk lama (id negatif) dengan produk baru
-          // (id positif) DALAM SATU DB TRANSACTION (insert baru + remap
-          // transaction_items + remap open_order_items + hapus lama).
-          // Jika crash di tengah, rollback → state konsisten.
+          int newProductId;
+          Product serverProduct;
+          if (existingServerId != null) {
+            newProductId = existingServerId;
+            serverProduct = Product(
+              id: newProductId,
+              name: p.name,
+              price: p.price,
+              hpp: p.hpp,
+              categoryId: finalCategoryId,
+              imageUrl: finalImageUrl,
+              isSynced: true,
+            );
+          } else {
+            final response = await _client
+                .from('products')
+                .insert({
+                  'name': p.name,
+                  'price': p.price,
+                  'hpp': p.hpp,
+                  'category_id': finalCategoryId,
+                  'image_url': finalImageUrl,
+                })
+                .select()
+                .single();
+            newProductId = (response['id'] as num).toInt();
+            serverProduct = Product.fromJson(response);
+          }
+
           await _localDb.transactionalReplaceProduct(
             oldId: p.id,
-            newProduct: Product.fromJson(response),
+            newProduct: serverProduct,
             newServerId: newProductId,
           );
         } else {
@@ -231,7 +277,6 @@ class SyncRunner {
 
         final localCreatedMs = tx.createdAt.millisecondsSinceEpoch;
 
-        // Idempotency: apakah transaksi ini sudah pernah ter-push (parsial)?
         int? existingServerId;
         try {
           final probe = await _client
@@ -244,13 +289,14 @@ class SyncRunner {
             return t == tx.total;
           }).toList();
           if (matches.isNotEmpty) {
-            existingServerId =
-                ((matches.first as Map)['id'] as num).toInt();
+            existingServerId = ((matches.first as Map)['id'] as num).toInt();
             debugPrint(
                 'Idempotency: tx ${tx.id} already on server as $existingServerId');
           }
-        } catch (e) {
-          debugPrint('Idempotency probe failed for tx ${tx.id}: $e');
+        } on PostgrestException catch (e) {
+          if (e.code != '42703' && !e.message.toLowerCase().contains('column')) {
+            debugPrint('Idempotency probe failed for tx ${tx.id}: $e');
+          }
         }
 
         int serverTxId;
@@ -322,7 +368,7 @@ class SyncRunner {
       }
     }
 
-    // STEP 8: Pull transaksi dari server (yang belum ada di lokal)
+    // STEP 8: Pull transaksi dari server
     try {
       int offset = 0;
       const pageSize = 500;

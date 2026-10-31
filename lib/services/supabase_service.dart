@@ -17,9 +17,6 @@ import 'sync_status_service.dart';
 
 enum LoginMode { online, offline }
 
-// BUG #6 FIX: top-level function agar bisa dijalankan di isolate terpisah
-// lewat `compute()`, supaya 10.000 iterasi SHA-256 tidak membekukan UI
-// saat verifikasi login offline.
 String _computePasswordHash(Map<String, String> args) {
   final password = args['password'] ?? '';
   final salt = args['salt'] ?? '';
@@ -56,13 +53,11 @@ class SupabaseService {
     }
   }
 
-  // ---- Auth ----
-
   Future<LoginMode> login(String email, String password) async {
     try {
       await _client.auth.signInWithPassword(email: email, password: password);
       await _saveAuthCache(email, password);
-      await _saveSecurePassword(password); // Simpan password aman
+      await _saveSecurePassword(password);
       await _setOfflineSession(null);
       return LoginMode.online;
     } catch (onlineErr) {
@@ -74,7 +69,6 @@ class SupabaseService {
             'Login gagal. Login pertama kali memerlukan internet.');
       }
 
-      // BUG #6 FIX: `_hashMatches` sekarang async (pakai compute).
       if (!await _hashMatches(password, cache.salt, cache.passwordHash)) {
         throw AuthException('Email atau password salah.');
       }
@@ -83,7 +77,6 @@ class SupabaseService {
             'Password Anda telah berubah di server. Login online untuk memperbarui.');
       }
 
-      // Login offline berhasil, simpan password agar bisa auto-sync nanti
       await _saveSecurePassword(password);
       await _setOfflineSession(email);
       return LoginMode.offline;
@@ -92,7 +85,7 @@ class SupabaseService {
 
   Future<void> logout() async {
     await _setOfflineSession(null);
-    await _deleteSecurePassword(); // Hapus password aman
+    await _deleteSecurePassword();
     SyncStatusService.instance.reset();
     try {
       await _client.auth.signOut();
@@ -122,8 +115,6 @@ class SupabaseService {
     }
   }
 
-  // ---- Secure Storage & Auto Login ----
-
   Future<void> _saveSecurePassword(String password) async {
     try {
       await _secureStorage.write(key: _kSecurePasswordKey, value: password);
@@ -140,8 +131,6 @@ class SupabaseService {
     }
   }
 
-  /// Dipanggil oleh MainLayout saat internet terdeteksi.
-  /// Akan melakukan login ulang secara diam-diam jika sedang offline session.
   Future<bool> tryAutoLoginAndSync() async {
     if (!isOfflineSession) return false;
     final email = _cachedOfflineEmail;
@@ -151,13 +140,8 @@ class SupabaseService {
       final password = await _secureStorage.read(key: _kSecurePasswordKey);
       if (password == null) return false;
 
-      // Coba login diam-diam ke Supabase
       await _client.auth.signInWithPassword(email: email, password: password);
-
-      // Jika berhasil, hapus status offline session
       await _setOfflineSession(null);
-
-      // Langsung jalankan sinkronisasi
       await syncData();
       return true;
     } catch (e) {
@@ -166,12 +150,8 @@ class SupabaseService {
     }
   }
 
-  // ---- Local read ----
-
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();
   Future<List<Category>> getLocalCategories() => _localDb.getCategories();
-
-  // ---- Sync ----
 
   Future<void> syncData() async {
     if (_client.auth.currentSession == null) {
@@ -207,7 +187,6 @@ class SupabaseService {
 
   Future<void> _saveAuthCache(String email, String password) async {
     final salt = _generateSalt();
-    // BUG #6 FIX: `_hashPassword` sekarang async.
     final hash = await _hashPassword(password, salt);
     await _localDb.upsertAuthCache(AuthCacheEntry(
       email: email,
@@ -222,7 +201,6 @@ class SupabaseService {
     return base64Encode(List.generate(16, (_) => rng.nextInt(256)));
   }
 
-  // BUG #6 FIX: hash dijalankan di isolate terpisah via `compute()`.
   Future<String> _hashPassword(String password, String salt) {
     return compute(_computePasswordHash, {
       'password': password,
@@ -230,14 +208,11 @@ class SupabaseService {
     });
   }
 
-  // BUG #6 FIX: async karena `_hashPassword` async.
   Future<bool> _hashMatches(
       String password, String salt, String expectedHash) async {
     final computed = await _hashPassword(password, salt);
     return computed == expectedHash;
   }
-
-  // ---- CRUD ----
 
   Future<void> createProduct({
     required String name,
@@ -339,7 +314,6 @@ class SupabaseService {
             ))
         .toList();
 
-    // Gunakan method atomik untuk mencegah duplikasi transaksi jika app crash
     await _localDb.payOpenOrderAtomic(
       transactionId: transactionId,
       orderKey: orderKey,
