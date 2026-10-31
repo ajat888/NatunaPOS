@@ -112,21 +112,12 @@ class SyncRunner {
           }
           remainingLocalImagePath = null;
         } else if (p.localImagePath != null) {
-          // BUG #5 FIX: file lokal sudah hilang (Android storage cleanup,
-          // user hapus manual, dll). Jangan silent. Log dengan jelas.
+          // BUG #5 FIX: file lokal hilang — log jelas, jangan silent.
           debugPrint(
               'WARNING: Local image missing for product "${p.name}" (${p.id}) '
               'at ${p.localImagePath}. Proceeding without upload. '
               'Existing image_url=${p.imageUrl}');
-          // Jika ini update dan sudah ada imageUrl lama, pertahankan URL lama
-          // dan bersihkan localImagePath yang yatim.
-          if (finalImageUrl != null && finalImageUrl.isNotEmpty) {
-            remainingLocalImagePath = null;
-          } else {
-            // Produk baru tanpa imageUrl: bersihkan juga path yatim agar
-            // tidak retry selamanya. User akan lihat placeholder.
-            remainingLocalImagePath = null;
-          }
+          remainingLocalImagePath = null;
         }
 
         int? finalCategoryId = p.categoryId;
@@ -149,22 +140,15 @@ class SyncRunner {
               .single();
           final newProductId = (response['id'] as num).toInt();
 
-          await _localDb.upsertProduct(Product.fromJson(response));
-
-          try {
-            await _localDb.remapTransactionItemProductId(p.id, newProductId);
-          } catch (e) {
-            debugPrint('Remap tx item product ${p.id}->$newProductId failed: $e');
-            failures++;
-          }
-          try {
-            await _localDb.remapOpenOrderItemProductId(p.id, newProductId);
-          } catch (e) {
-            debugPrint('Remap open item product ${p.id}->$newProductId failed: $e');
-            failures++;
-          }
-
-          await _localDb.deleteProduct(p.id);
+          // BUG B FIX: ganti produk lama (id negatif) dengan produk baru
+          // (id positif) DALAM SATU DB TRANSACTION (insert baru + remap
+          // transaction_items + remap open_order_items + hapus lama).
+          // Jika crash di tengah, rollback → state konsisten.
+          await _localDb.transactionalReplaceProduct(
+            oldId: p.id,
+            newProduct: Product.fromJson(response),
+            newServerId: newProductId,
+          );
         } else {
           await _client
               .from('products')
@@ -239,10 +223,11 @@ class SyncRunner {
       failures++;
     }
 
+    // STEP 7: Push transaksi lokal yang belum tersinkron
     final unsyncedTransactions = await _localDb.getUnsyncedTransactions();
     for (final tx in unsyncedTransactions) {
       try {
-        if (tx.id >= 0) continue; // sudah tidak negatif → bukan antrean
+        if (tx.id >= 0) continue;
 
         final localCreatedMs = tx.createdAt.millisecondsSinceEpoch;
 
@@ -266,13 +251,11 @@ class SyncRunner {
           }
         } catch (e) {
           debugPrint('Idempotency probe failed for tx ${tx.id}: $e');
-          // lanjut ke insert normal
         }
 
         int serverTxId;
         if (existingServerId != null) {
           serverTxId = existingServerId;
-          // Bersihkan item parsial dari percobaan sebelumnya.
           try {
             await _client
                 .from('transaction_items')
@@ -314,7 +297,6 @@ class SyncRunner {
           serverTxId = txResponse['id'] as int;
         }
 
-        // Insert items.
         for (final item in tx.items) {
           final pushProductId =
               (item.productId != null && item.productId! > 0)
@@ -340,6 +322,7 @@ class SyncRunner {
       }
     }
 
+    // STEP 8: Pull transaksi dari server (yang belum ada di lokal)
     try {
       int offset = 0;
       const pageSize = 500;
@@ -358,7 +341,6 @@ class SyncRunner {
               e.message.toLowerCase().contains('column'))) {
             rethrow;
           }
-          // Tier 2: kolom baru tidak ada, tapi masih ada created_at_local.
           try {
             final response = await _client
                 .from('transactions')
@@ -372,7 +354,6 @@ class SyncRunner {
                 e2.message.toLowerCase().contains('column'))) {
               rethrow;
             }
-            // Tier 3: created_at_local pun tidak ada. Gunakan created_at.
             final response = await _client
                 .from('transactions')
                 .select(
@@ -406,8 +387,6 @@ class SyncRunner {
             );
           }).toList();
 
-          // Tanggal: prioritas created_at_local (int ms), fallback created_at
-          // (ISO string / int ms / null).
           int createdAtMs = 0;
           final rawLocal = m['created_at_local'];
           if (rawLocal is num) {

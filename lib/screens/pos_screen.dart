@@ -224,8 +224,6 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
     );
     if (confirmed != true) return;
 
-    // BUG #7 FIX: bungkus dengan try/catch agar kegagalan DB tidak silent.
-    // Cart tetap utuh sehingga user bisa retry tanpa kehilangan input.
     try {
       await _saveOrder();
     } catch (e) {
@@ -262,7 +260,14 @@ class PosScreenState extends State<PosScreen> { // Ubah jadi public
       ));
     });
     if (lines.isEmpty) return;
-    final existing = _findOrder(_activeOrderKey!);
+
+    // BUG A FIX: cek DB langsung (bukan hanya state `_openOrders`).
+    // Jika createOpenOrder sukses sebelumnya tapi `_reloadOpenOrders` gagal,
+    // state `_openOrders` masih kosong. Cek DB dulu agar retry memakai
+    // `append` (idempoten via merge product_id), bukan `create` lagi
+    // (yang akan melanggar UNIQUE constraint `order_key`).
+    final dbExisting = await _localDb.getOpenOrder(_activeOrderKey!);
+    final existing = dbExisting ?? _findOrder(_activeOrderKey!);
     if (existing == null) {
       await _localDb.createOpenOrder(
         orderKey: _activeOrderKey!,

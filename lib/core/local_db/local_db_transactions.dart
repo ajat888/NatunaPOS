@@ -63,9 +63,8 @@ mixin LocalDbTransactions {
         'CREATE INDEX IF NOT EXISTS idx_tx_created ON transactions(created_at)');
   }
 
-  /// BUG #4 FIX: idempoten. Setiap ALTER dibungkus try/catch agar
-  /// `onUpgrade` tidak pernah abort karena `duplicate column` (mis.
-  /// DB dipulihkan dari backup, atau upgrade partial sebelumnya).
+  /// BUG #4 (dari fix sebelumnya): idempoten. Setiap ALTER dibungkus try/catch
+  /// agar `onUpgrade` tidak pernah abort karena `duplicate column`.
   static Future<void> upgradeTransactionsV8(Database db) async {
     try {
       await db.execute(
@@ -127,8 +126,6 @@ mixin LocalDbTransactions {
     });
   }
 
-  /// Membungkus insert transaksi dan hapus open order dalam satu DB transaction.
-  /// Mencegah duplikasi transaksi jika salah satu operasi gagal di tengah jalan.
   Future<void> payOpenOrderAtomic({
     required int transactionId,
     required String orderKey,
@@ -142,7 +139,6 @@ mixin LocalDbTransactions {
   }) async {
     final db = await database;
     await db.transaction((txn) async {
-      // 1. Insert transaksi baru
       await txn.insert('transactions', {
         'id': transactionId,
         'total': total,
@@ -154,8 +150,6 @@ mixin LocalDbTransactions {
         'table_number': tableNumber,
         'order_type': orderType,
       });
-
-      // 2. Insert item transaksi
       for (final line in lines) {
         await txn.insert('transaction_items', {
           'transaction_id': transactionId,
@@ -166,12 +160,8 @@ mixin LocalDbTransactions {
           'qty': line.qty,
         });
       }
-
-      // 3. Hapus item dari open order
       await txn.delete('open_order_items',
           where: 'order_key = ?', whereArgs: [orderKey]);
-
-      // 4. Hapus open order utama
       await txn.delete('open_orders',
           where: 'order_key = ?', whereArgs: [orderKey]);
     });
@@ -271,10 +261,6 @@ mixin LocalDbTransactions {
     return maps.map((m) => m['id'] as int).toSet();
   }
 
-  /// Isu A: setelah produk lokal (id negatif) berhasil di-push ke server dan
-  /// mendapat ID positif, semua referensi di transaction_items harus di-remap
-  /// agar transaksi yang belum tersinkron tetap punya link ke produk server
-  /// saat di-push pada STEP 7.
   Future<void> remapTransactionItemProductId(int oldId, int newId) async {
     final db = await database;
     await db.update(
@@ -297,7 +283,11 @@ mixin LocalDbTransactions {
   }) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.insert(
+      // BUG C FIX: cek dulu apakah transaksi induk benar-benar di-insert.
+      // ConflictAlgorithm.ignore mengembalikan rowId (int) jika sukses,
+      // dan 0 jika di-ignore (transaksi sudah ada). Items hanya boleh
+      // di-insert saat induk baru (mencegah duplikasi items).
+      final insertResult = await txn.insert(
         'transactions',
         {
           'id': id,
@@ -312,6 +302,10 @@ mixin LocalDbTransactions {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+      if (insertResult == 0) {
+        // Sudah ada di lokal → jangan insert items lagi.
+        return;
+      }
       for (final line in items) {
         await txn.insert('transaction_items', {
           'transaction_id': id,
