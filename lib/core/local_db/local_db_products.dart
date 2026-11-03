@@ -26,14 +26,17 @@ mixin LocalDbProducts {
     await db.transaction((txn) async {
       final unsyncedMaps = await txn.query('products', where: 'is_synced = 0');
       final unsyncedIds = unsyncedMaps.map((m) => m['id'] as int).toSet();
-      
-      // FIX: Hanya hapus yang tersinkron DAN tidak dalam status dihapus (is_deleted = 0)
-      // Agar produk nonaktif (soft-delete) tidak ikut terhapus secara permanen dari lokal
+
+      final deletedMaps = await txn.query('products',
+          where: 'is_deleted = 1 AND is_synced = 1');
+      final deletedIds = deletedMaps.map((m) => m['id'] as int).toSet();
+
       await txn.delete('products', where: 'is_synced = 1 AND is_deleted = 0');
-      
+
       final batch = txn.batch();
       for (final p in serverProducts) {
         if (unsyncedIds.contains(p.id)) continue;
+        if (deletedIds.contains(p.id)) continue;
         batch.insert('products', p.toDb(),
             conflictAlgorithm: ConflictAlgorithm.replace);
       }

@@ -23,6 +23,10 @@ class _SyncPusher {
     return failures;
   }
 
+  bool _isFkError(PostgrestException e) =>
+      e.code == '23503' ||
+      e.message.toLowerCase().contains('foreign key');
+
   Future<int> _pushDeletedCategories() async {
     int failures = 0;
     final deleted = await _localDb.getDeletedCategories();
@@ -32,6 +36,13 @@ class _SyncPusher {
           await _client.from('categories').delete().eq('id', c.id);
         }
         await _localDb.deleteCategory(c.id);
+      } on PostgrestException catch (e) {
+        if (_isFkError(e)) {
+          await _localDb.deleteCategory(c.id);
+        } else {
+          debugPrint('Sync delete category ${c.id} failed: $e');
+          failures++;
+        }
       } catch (e) {
         debugPrint('Sync delete category ${c.id} failed: $e');
         failures++;
@@ -49,6 +60,13 @@ class _SyncPusher {
           await _client.from('products').delete().eq('id', p.id);
         }
         await _localDb.markProductSyncedAndDeleted(p.id);
+      } on PostgrestException catch (e) {
+        if (_isFkError(e)) {
+          await _localDb.markProductSyncedAndDeleted(p.id);
+        } else {
+          debugPrint('Sync delete product ${p.id} failed: $e');
+          failures++;
+        }
       } catch (e) {
         debugPrint('Sync delete product ${p.id} failed: $e');
         failures++;
@@ -95,9 +113,10 @@ class _SyncPusher {
           await _localDb.deleteCategory(c.id);
           await _localDb.upsertCategory(Category.fromJson(response));
         } else {
-          await _client
-              .from('categories')
-              .update({'name': c.name}).eq('id', c.id);
+          await _client.from('categories').upsert({
+            'id': c.id,
+            'name': c.name,
+          });
           await _localDb.upsertCategory(c.copyWith(isSynced: true));
         }
       } catch (e) {
@@ -119,6 +138,32 @@ class _SyncPusher {
       }
     }
     return failures;
+  }
+
+  Future<Map<String, dynamic>> _sendProductInsert(
+      Map<String, dynamic> payload) async {
+    try {
+      return await _client.from('products').insert(payload).select().single();
+    } on PostgrestException catch (e) {
+      if (_isFkError(e) && payload['category_id'] != null) {
+        payload['category_id'] = null;
+        return await _client.from('products').insert(payload).select().single();
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _sendProductUpsert(Map<String, dynamic> payload) async {
+    try {
+      await _client.from('products').upsert(payload);
+    } on PostgrestException catch (e) {
+      if (_isFkError(e) && payload['category_id'] != null) {
+        payload['category_id'] = null;
+        await _client.from('products').upsert(payload);
+      } else {
+        rethrow;
+      }
+    }
   }
 
   Future<int> _pushProducts(Map<int, int> categoryIdMap) async {
@@ -144,8 +189,6 @@ class _SyncPusher {
           finalImageUrl =
               _client.storage.from('product_images').getPublicUrl(fileName);
           imageUploadedThisAttempt = true;
-          // FIX #1: file lokal TIDAK dihapus di sini. Dihapus HANYA setelah
-          // server insert/upsert + update DB lokal sama-sama sukses.
         } else if (p.localImagePath != null) {
           debugPrint(
               'WARNING: Local image missing for product "${p.name}" (${p.id})');
@@ -188,17 +231,14 @@ class _SyncPusher {
               isSynced: true,
             );
           } else {
-            final response = await _client
-                .from('products')
-                .insert({
-                  'name': p.name,
-                  'price': p.price,
-                  'hpp': p.hpp,
-                  'category_id': finalCategoryId,
-                  'image_url': finalImageUrl,
-                })
-                .select()
-                .single();
+            final payload = <String, dynamic>{
+              'name': p.name,
+              'price': p.price,
+              'hpp': p.hpp,
+              'category_id': finalCategoryId,
+              'image_url': finalImageUrl,
+            };
+            final response = await _sendProductInsert(payload);
             newId = (response['id'] as num).toInt();
             serverProduct = Product.fromJson(response);
           }
@@ -210,14 +250,15 @@ class _SyncPusher {
             newServerId: newId,
           );
         } else {
-          await _client.from('products').upsert({
+          final payload = <String, dynamic>{
             'id': p.id,
             'name': p.name,
             'price': p.price,
             'hpp': p.hpp,
             'category_id': finalCategoryId,
             'image_url': finalImageUrl,
-          });
+          };
+          await _sendProductUpsert(payload);
           serverConfirmed = true;
 
           await _localDb.upsertProduct(Product(
@@ -231,7 +272,7 @@ class _SyncPusher {
             isSynced: true,
           ));
         }
-        
+
         if (imageUploadedThisAttempt && p.localImagePath != null) {
           try {
             await File(p.localImagePath!).delete();
@@ -239,13 +280,9 @@ class _SyncPusher {
             debugPrint('Failed to remove local image: $e');
           }
         }
-        uploadedStoragePath = null; // jangan cleanup di catch
+        uploadedStoragePath = null;
       } catch (e) {
         debugPrint('Sync product ${p.id} failed: $e');
-        // FIX #3: hapus file yang sudah terlanjur diupload jika server
-        // belum mengonfirmasi insert/upsert, agar tidak jadi orphan.
-        // Jika server sudah confirm tetapi local DB update gagal, JANGAN
-        // hapus (produk di server sudah menunjuk ke file ini).
         if (!serverConfirmed && uploadedStoragePath != null) {
           try {
             await _client
@@ -265,11 +302,6 @@ class _SyncPusher {
   Future<int> _pushTransactions() async {
     int failures = 0;
 
-    // FIX #2: Kumpulkan produk lokal yang MASIH pending sync (is_synced=0,
-    // is_deleted=0). Transaksi yang mereferensikan produk-produk ini harus
-    // DITUNDA agar product_id tidak hilang permanen di server. Produk yang
-    // dihapus (is_deleted=1) tidak ikut, sehingga transaksi tetap bisa
-    // dipush dengan product_id=null untuk kasus produk yang memang dihapus.
     final pendingProductIds = <int>{};
     try {
       final unsyncedProducts = await _localDb.getUnsyncedProducts();
@@ -294,8 +326,7 @@ class _SyncPusher {
           }
         }
         if (mustDefer) {
-          debugPrint(
-              'Defer transaction ${tx.id}: menunggu sync produk lokal');
+          debugPrint('Defer transaction ${tx.id}: menunggu sync produk lokal');
           continue;
         }
 
