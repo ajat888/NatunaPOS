@@ -125,26 +125,27 @@ class _SyncPusher {
     int failures = 0;
     final unsynced = await _localDb.getUnsyncedProducts();
     for (final p in unsynced) {
+      String? uploadedStoragePath;
+      bool imageUploadedThisAttempt = false;
+      bool serverConfirmed = false;
+
       try {
         String? finalImageUrl = p.imageUrl;
         String? remainingLocal = p.localImagePath;
 
-        if (p.localImagePath != null &&
-            File(p.localImagePath!).existsSync()) {
+        if (p.localImagePath != null && File(p.localImagePath!).existsSync()) {
           final fileName =
               'product_${DateTime.now().microsecondsSinceEpoch}_${_rng.nextInt(999999)}.jpg';
           await _client
               .storage
               .from('product_images')
               .upload(fileName, File(p.localImagePath!));
+          uploadedStoragePath = fileName;
           finalImageUrl =
               _client.storage.from('product_images').getPublicUrl(fileName);
-          try {
-            await File(p.localImagePath!).delete();
-          } catch (e) {
-            debugPrint('Failed to remove local image: $e');
-          }
-          remainingLocal = null;
+          imageUploadedThisAttempt = true;
+          // FIX #1: file lokal TIDAK dihapus di sini. Dihapus HANYA setelah
+          // server insert/upsert + update DB lokal sama-sama sukses.
         } else if (p.localImagePath != null) {
           debugPrint(
               'WARNING: Local image missing for product "${p.name}" (${p.id})');
@@ -201,6 +202,7 @@ class _SyncPusher {
             newId = (response['id'] as num).toInt();
             serverProduct = Product.fromJson(response);
           }
+          serverConfirmed = true;
 
           await _localDb.transactionalReplaceProduct(
             oldId: p.id,
@@ -216,6 +218,8 @@ class _SyncPusher {
             'category_id': finalCategoryId,
             'image_url': finalImageUrl,
           });
+          serverConfirmed = true;
+
           await _localDb.upsertProduct(Product(
             id: p.id,
             name: p.name,
@@ -227,8 +231,31 @@ class _SyncPusher {
             isSynced: true,
           ));
         }
+        
+        if (imageUploadedThisAttempt && p.localImagePath != null) {
+          try {
+            await File(p.localImagePath!).delete();
+          } catch (e) {
+            debugPrint('Failed to remove local image: $e');
+          }
+        }
+        uploadedStoragePath = null; // jangan cleanup di catch
       } catch (e) {
         debugPrint('Sync product ${p.id} failed: $e');
+        // FIX #3: hapus file yang sudah terlanjur diupload jika server
+        // belum mengonfirmasi insert/upsert, agar tidak jadi orphan.
+        // Jika server sudah confirm tetapi local DB update gagal, JANGAN
+        // hapus (produk di server sudah menunjuk ke file ini).
+        if (!serverConfirmed && uploadedStoragePath != null) {
+          try {
+            await _client
+                .storage
+                .from('product_images')
+                .remove([uploadedStoragePath]);
+          } catch (cleanupErr) {
+            debugPrint('Failed to cleanup orphan upload: $cleanupErr');
+          }
+        }
         failures++;
       }
     }
@@ -237,14 +264,43 @@ class _SyncPusher {
 
   Future<int> _pushTransactions() async {
     int failures = 0;
+
+    // FIX #2: Kumpulkan produk lokal yang MASIH pending sync (is_synced=0,
+    // is_deleted=0). Transaksi yang mereferensikan produk-produk ini harus
+    // DITUNDA agar product_id tidak hilang permanen di server. Produk yang
+    // dihapus (is_deleted=1) tidak ikut, sehingga transaksi tetap bisa
+    // dipush dengan product_id=null untuk kasus produk yang memang dihapus.
+    final pendingProductIds = <int>{};
+    try {
+      final unsyncedProducts = await _localDb.getUnsyncedProducts();
+      for (final p in unsyncedProducts) {
+        if (p.id < 0) pendingProductIds.add(p.id);
+      }
+    } catch (e) {
+      debugPrint('Build pending product ids failed: $e');
+    }
+
     final unsynced = await _localDb.getUnsyncedTransactions();
     for (final tx in unsynced) {
       try {
         if (tx.id >= 0) continue;
+
+        bool mustDefer = false;
+        for (final item in tx.items) {
+          if (item.productId != null &&
+              pendingProductIds.contains(item.productId)) {
+            mustDefer = true;
+            break;
+          }
+        }
+        if (mustDefer) {
+          debugPrint(
+              'Defer transaction ${tx.id}: menunggu sync produk lokal');
+          continue;
+        }
+
         final localCreatedMs = tx.createdAt.millisecondsSinceEpoch;
 
-        // Semua kolom dikirim selalu. Tidak ada fallback: jika schema
-        // belum lengkap, insert gagal dan transaksi tetap antre (is_synced = 0).
         final Map<String, dynamic> payload = {
           'total': tx.total,
           'subtotal': tx.subtotal,
@@ -280,8 +336,6 @@ class _SyncPusher {
 
         int serverTxId;
         if (existingId != null) {
-          // Transaksi sudah ada di server (kemungkinan insert sebelumnya
-          // terputus). Perbarui baris termasuk kolom pajak, lalu ganti item.
           serverTxId = existingId;
           await _client
               .from('transactions')
