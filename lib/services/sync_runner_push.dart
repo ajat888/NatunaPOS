@@ -243,6 +243,23 @@ class _SyncPusher {
         if (tx.id >= 0) continue;
         final localCreatedMs = tx.createdAt.millisecondsSinceEpoch;
 
+        // Semua kolom dikirim selalu. Tidak ada fallback: jika schema
+        // belum lengkap, insert gagal dan transaksi tetap antre (is_synced = 0).
+        final Map<String, dynamic> payload = {
+          'total': tx.total,
+          'subtotal': tx.subtotal,
+          'bill_discount': tx.billDiscount,
+          'discount_type': tx.discountType,
+          'discount_value': tx.discountValue,
+          'tax_rate': tx.taxRate,
+          'tax_amount': tx.taxAmount,
+          'created_at_local': localCreatedMs,
+          'cash_received': tx.cashReceived,
+          'change_amount': tx.changeAmount,
+          'table_number': tx.tableNumber,
+          'order_type': tx.orderType,
+        };
+
         int? existingId;
         try {
           final probe = await _client
@@ -257,80 +274,30 @@ class _SyncPusher {
           if (matches.isNotEmpty) {
             existingId = ((matches.first as Map)['id'] as num).toInt();
           }
-        } on PostgrestException catch (e) {
-          if (e.code != '42703' && !e.message.toLowerCase().contains('column')) {
-            debugPrint('Idempotency probe failed for tx ${tx.id}: $e');
-          }
+        } catch (e) {
+          debugPrint('Idempotency probe failed for tx ${tx.id}: $e');
         }
 
         int serverTxId;
         if (existingId != null) {
+          // Transaksi sudah ada di server (kemungkinan insert sebelumnya
+          // terputus). Perbarui baris termasuk kolom pajak, lalu ganti item.
           serverTxId = existingId;
-          try {
-            await _client
-                .from('transaction_items')
-                .delete()
-                .eq('transaction_id', serverTxId);
-          } catch (e) {
-            debugPrint('Cleanup old items for tx $serverTxId failed: $e');
-          }
+          await _client
+              .from('transactions')
+              .update(payload)
+              .eq('id', serverTxId);
+          await _client
+              .from('transaction_items')
+              .delete()
+              .eq('transaction_id', serverTxId);
         } else {
-          Map<String, dynamic> response;
-          try {
-            response = await _client
-                .from('transactions')
-                .insert({
-                  'total': tx.total,
-                  'subtotal': tx.subtotal,
-                  'bill_discount': tx.billDiscount,
-                  'discount_type': tx.discountType,
-                  'discount_value': tx.discountValue,
-                  'tax_rate': tx.taxRate,
-                  'tax_amount': tx.taxAmount,
-                  'created_at_local': localCreatedMs,
-                  'cash_received': tx.cashReceived,
-                  'change_amount': tx.changeAmount,
-                  'table_number': tx.tableNumber,
-                  'order_type': tx.orderType,
-                })
-                .select()
-                .single();
-          } on PostgrestException catch (e) {
-            if (e.code == '42703' ||
-                e.message.toLowerCase().contains('column')) {
-              try {
-                response = await _client
-                    .from('transactions')
-                    .insert({
-                      'total': tx.total,
-                      'created_at_local': localCreatedMs,
-                      'cash_received': tx.cashReceived,
-                      'change_amount': tx.changeAmount,
-                      'table_number': tx.tableNumber,
-                      'order_type': tx.orderType,
-                    })
-                    .select()
-                    .single();
-              } on PostgrestException catch (e2) {
-                if (e2.code == '42703' ||
-                    e2.message.toLowerCase().contains('column')) {
-                  response = await _client
-                      .from('transactions')
-                      .insert({
-                        'total': tx.total,
-                        'created_at_local': localCreatedMs,
-                      })
-                      .select()
-                      .single();
-                } else {
-                  rethrow;
-                }
-              }
-            } else {
-              rethrow;
-            }
-          }
-          serverTxId = response['id'] as int;
+          final response = await _client
+              .from('transactions')
+              .insert(payload)
+              .select()
+              .single();
+          serverTxId = (response['id'] as num).toInt();
         }
 
         for (final item in tx.items) {
