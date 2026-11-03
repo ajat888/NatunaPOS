@@ -112,7 +112,7 @@ class _SyncPusher {
           await _client.from('categories').upsert({
             'id': c.id,
             'name': c.name,
-          });
+          }, onConflict: 'id');
           await _localDb.upsertCategory(c.copyWith(isSynced: true));
         }
       } catch (e) {
@@ -151,11 +151,11 @@ class _SyncPusher {
 
   Future<void> _sendProductUpsert(Map<String, dynamic> payload) async {
     try {
-      await _client.from('products').upsert(payload);
+      await _client.from('products').upsert(payload, onConflict: 'id');
     } on PostgrestException catch (e) {
       if (_isFkError(e) && payload['category_id'] != null) {
         payload['category_id'] = null;
-        await _client.from('products').upsert(payload);
+        await _client.from('products').upsert(payload, onConflict: 'id');
       } else {
         rethrow;
       }
