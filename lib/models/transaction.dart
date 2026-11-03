@@ -53,6 +53,12 @@ class TransactionItem {
 class Transaction {
   final int id;
   final int total;
+  final int subtotal;
+  final int billDiscount;
+  final String discountType; // 'nominal' | 'percent'
+  final int discountValue;
+  final double taxRate;
+  final int taxAmount;
   final DateTime createdAt;
   final bool isSynced;
   final List<TransactionItem> items;
@@ -64,6 +70,12 @@ class Transaction {
   Transaction({
     required this.id,
     required this.total,
+    this.subtotal = 0,
+    this.billDiscount = 0,
+    this.discountType = 'nominal',
+    this.discountValue = 0,
+    this.taxRate = 0,
+    this.taxAmount = 0,
     required this.createdAt,
     required this.isSynced,
     required this.items,
@@ -80,6 +92,12 @@ class Transaction {
     return Transaction(
       id: m['id'] as int,
       total: (m['total'] as num?)?.toInt() ?? 0,
+      subtotal: (m['subtotal'] as num?)?.toInt() ?? 0,
+      billDiscount: (m['bill_discount'] as num?)?.toInt() ?? 0,
+      discountType: (m['discount_type'] as String?) ?? 'nominal',
+      discountValue: (m['discount_value'] as num?)?.toInt() ?? 0,
+      taxRate: (m['tax_rate'] as num?)?.toDouble() ?? 0,
+      taxAmount: (m['tax_amount'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         m['created_at'] as int,
         isUtc: true,

@@ -62,13 +62,11 @@ class SupabaseService {
       return LoginMode.online;
     } catch (onlineErr) {
       final cache = await _localDb.getAuthCache(email);
-
       if (cache == null) {
         if (onlineErr is AuthException) rethrow;
         throw AuthException(
             'Login gagal. Login pertama kali memerlukan internet.');
       }
-
       if (!await _hashMatches(password, cache.salt, cache.passwordHash)) {
         throw AuthException('Email atau password salah.');
       }
@@ -76,7 +74,6 @@ class SupabaseService {
         throw AuthException(
             'Password Anda telah berubah di server. Login online untuk memperbarui.');
       }
-
       await _saveSecurePassword(password);
       await _setOfflineSession(email);
       return LoginMode.offline;
@@ -135,11 +132,9 @@ class SupabaseService {
     if (!isOfflineSession) return false;
     final email = _cachedOfflineEmail;
     if (email == null) return false;
-
     try {
       final password = await _secureStorage.read(key: _kSecurePasswordKey);
       if (password == null) return false;
-
       await _client.auth.signInWithPassword(email: email, password: password);
       await _setOfflineSession(null);
       await syncData();
@@ -151,7 +146,8 @@ class SupabaseService {
   }
 
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();
-  Future<List<Product>> getLocalInactiveProducts() => _localDb.getInactiveProducts();
+  Future<List<Product>> getLocalInactiveProducts() =>
+      _localDb.getInactiveProducts();
   Future<List<Category>> getLocalCategories() => _localDb.getCategories();
 
   Future<void> syncData() async {
@@ -159,18 +155,15 @@ class SupabaseService {
       await SyncStatusService.instance.refreshPendingCount();
       return;
     }
-
     if (_isSyncing) return;
     _isSyncing = true;
     SyncStatusService.instance.markSyncing();
-
     try {
       final failures = await SyncRunner(
         client: _client,
         localDb: _localDb,
         rng: _rng,
       ).run();
-
       if (failures > 0) {
         SyncStatusService.instance.markFailed(
             'Sinkronisasi gagal ($failures operasi). Akan dicoba lagi otomatis.');
@@ -297,19 +290,33 @@ class SupabaseService {
     await _localDb.insertTransaction(
       transactionId: transactionId,
       total: total,
+      subtotal: total,
       createdAt: now,
       lines: lines,
     );
     await SyncStatusService.instance.refreshPendingCount();
   }
 
+  /// Bayar open order dengan perhitungan diskon + PPN final.
+  /// [taxRate] = 0 berarti transaksi ini tanpa PPN.
   Future<void> payOpenOrder({
     required String orderKey,
     required int cashReceived,
     required int changeAmount,
+    required int billDiscount,
+    required String discountType,
+    required int discountValue,
+    required double taxRate,
   }) async {
     final order = await _localDb.getOpenOrder(orderKey);
     if (order == null) throw Exception('Pesanan tidak ditemukan');
+
+    final subtotal = order.subtotal;
+    final safeDiscount = billDiscount.clamp(0, subtotal);
+    final dasarPajak = subtotal - safeDiscount;
+    final taxAmount =
+        taxRate > 0 ? (dasarPajak * taxRate / 100).round() : 0;
+    final grandTotal = dasarPajak + taxAmount;
 
     final now = DateTime.now();
     final transactionId = -now.toUtc().microsecondsSinceEpoch;
@@ -326,7 +333,13 @@ class SupabaseService {
     await _localDb.payOpenOrderAtomic(
       transactionId: transactionId,
       orderKey: orderKey,
-      total: order.total,
+      total: grandTotal,
+      subtotal: subtotal,
+      billDiscount: safeDiscount,
+      discountType: discountType,
+      discountValue: discountValue,
+      taxRate: taxRate,
+      taxAmount: taxAmount,
       createdAt: now,
       lines: lines,
       cashReceived: cashReceived,

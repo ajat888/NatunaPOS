@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme.dart';
+import 'core/tax_settings.dart';           // ← BARU
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/supabase_service.dart';
@@ -21,6 +22,10 @@ void main() async {
     SystemUiMode.manual,
     overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
   );
+
+  // Muat pengaturan pajak SEBELUM runApp agar payment dialog
+  // sudah punya nilai terbaru saat pertama dibuka.
+  await TaxSettings.instance.load();      // ← BARU
 
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');

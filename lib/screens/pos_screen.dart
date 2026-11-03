@@ -1,3 +1,4 @@
+// lib/screens/pos_screen.dart  (potongan HEAD FILE saja, sisanya SAMA)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import '../models/open_order.dart';
 import '../core/local_db.dart';
 import '../core/theme.dart';
 import '../core/breakpoints.dart';
+import '../core/tax_settings.dart';        // ← BARU
 import '../widgets/common/main_menu_scope.dart';
 import '../widgets/common/thousand_formatter.dart';
 
@@ -18,6 +20,7 @@ part 'pos/pos_menu_picker.dart';
 part 'pos/pos_order_detail.dart';
 part 'pos/pos_payment_dialog.dart';
 part 'pos/pos_save_dialog.dart';
+part 'pos/pos_discount_dialog.dart';      // ← BARU
 
 enum PosView { tables, menu, orderDetail }
 

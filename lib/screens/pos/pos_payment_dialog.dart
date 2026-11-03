@@ -1,3 +1,4 @@
+// lib/screens/pos/pos_payment_dialog.dart
 part of '../pos_screen.dart';
 
 class _PaymentDialog extends StatefulWidget {
@@ -21,13 +22,21 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   bool _saving = false;
   String? _error;
 
-  int get _cashReceived {
-    final clean = _controller.text.replaceAll('.', '').trim();
-    return int.tryParse(clean) ?? 0;
-  }
+  // Diskon bill
+  int _billDiscount = 0;
+  String _discountType = 'nominal';
+  int _discountValue = 0;
 
-  int get _change => _cashReceived - widget.order.total;
-  bool get _canPay => _cashReceived >= widget.order.total;
+  // PPN
+  bool _applyTax = false;
+  double _taxRate = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyTax = TaxSettings.instance.isEnabled;
+    _taxRate = TaxSettings.instance.currentRate;
+  }
 
   @override
   void dispose() {
@@ -35,10 +44,43 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     super.dispose();
   }
 
+  int get _subtotal => widget.order.subtotal;
+  int get _dasarPajak => _subtotal - _billDiscount;
+  int get _taxAmount =>
+      _applyTax && _taxRate > 0 ? (_dasarPajak * _taxRate / 100).round() : 0;
+  int get _grandTotal => _dasarPajak + _taxAmount;
+
+  int get _cashReceived {
+    final clean = _controller.text.replaceAll('.', '').trim();
+    return int.tryParse(clean) ?? 0;
+  }
+
+  int get _change => _cashReceived - _grandTotal;
+  bool get _canPay => _cashReceived >= _grandTotal;
+
   void _setAmount(int amount) {
     setState(() {
       _controller.text = _formatter.format(amount);
     });
+  }
+
+  Future<void> _editDiscount() async {
+    final result = await showDialog<DiscountResult>(
+      context: context,
+      builder: (_) => _DiscountDialog(
+        subtotal: _subtotal,
+        currentBillDiscount: _billDiscount,
+        currentType: _discountType,
+        currentValue: _discountValue,
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _billDiscount = result.billDiscount;
+        _discountType = result.discountType;
+        _discountValue = result.discountValue;
+      });
+    }
   }
 
   Future<void> _pay() async {
@@ -52,6 +94,10 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         orderKey: widget.order.orderKey,
         cashReceived: _cashReceived,
         changeAmount: _change,
+        billDiscount: _billDiscount,
+        discountType: _discountType,
+        discountValue: _discountValue,
+        taxRate: _applyTax ? _taxRate : 0,
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -94,7 +140,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
             ),
             const SizedBox(height: 8),
             Container(
-              constraints: const BoxConstraints(maxHeight: 150),
+              constraints: const BoxConstraints(maxHeight: 130),
               decoration: BoxDecoration(
                 color: AppTheme.backgroundColor,
                 borderRadius: BorderRadius.circular(8),
@@ -132,13 +178,74 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            // Breakdown
+            _breakdownRow('Subtotal', 'Rp ${_formatter.format(_subtotal)}'),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: _editDiscount,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          _billDiscount > 0 ? 'Diskon' : 'Tambah Diskon',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _billDiscount > 0
+                                ? AppTheme.dangerColor
+                                : AppTheme.primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          _billDiscount > 0
+                              ? Icons.edit_outlined
+                              : Icons.add_circle_outline,
+                          size: 13,
+                          color: _billDiscount > 0
+                              ? AppTheme.dangerColor
+                              : AppTheme.primaryColor,
+                        ),
+                      ],
+                    ),
+                    Text(
+                      _billDiscount > 0
+                          ? '−Rp ${_formatter.format(_billDiscount)}'
+                          : 'Rp 0',
+                      style: TextStyle(
+                        fontSize: _billDiscount > 0 ? 13 : 12,
+                        fontWeight: FontWeight.w600,
+                        color: _billDiscount > 0
+                            ? AppTheme.dangerColor
+                            : AppTheme.textLightColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_applyTax && _taxRate > 0) ...[
+              const SizedBox(height: 6),
+              _breakdownRow(
+                'PPN ${_taxRate == _taxRate.roundToDouble() ? _taxRate.toInt() : _taxRate}%',
+                'Rp ${_formatter.format(_taxAmount)}',
+              ),
+            ],
+            const Divider(height: 16, color: Color(0xFFE2E8F0)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Total',
                     style: TextStyle(
-                        color: AppTheme.textLightColor, fontSize: 12)),
-                Text('Rp ${_formatter.format(widget.order.total)}',
+                        color: AppTheme.textLightColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                Text('Rp ${_formatter.format(_grandTotal)}',
                     style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -162,7 +269,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => _setAmount(widget.order.total),
+                    onPressed: () => _setAmount(_grandTotal),
                     child: const Text('UANG PAS'),
                   ),
                 ),
@@ -239,6 +346,22 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                       color: Colors.white, strokeWidth: 2))
               : const Text('BAYAR'),
         ),
+      ],
+    );
+  }
+
+  Widget _breakdownRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                color: AppTheme.textLightColor, fontSize: 12)),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textColor)),
       ],
     );
   }

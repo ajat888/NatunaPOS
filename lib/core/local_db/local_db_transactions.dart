@@ -11,6 +11,12 @@ mixin LocalDbTransactions {
       CREATE TABLE transactions (
         id INTEGER PRIMARY KEY,
         total INTEGER NOT NULL,
+        subtotal INTEGER DEFAULT 0,
+        bill_discount INTEGER DEFAULT 0,
+        discount_type TEXT DEFAULT 'nominal',
+        discount_value INTEGER DEFAULT 0,
+        tax_rate REAL DEFAULT 0,
+        tax_amount INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL,
         is_synced INTEGER DEFAULT 0,
         is_deleted INTEGER DEFAULT 0,
@@ -88,9 +94,54 @@ mixin LocalDbTransactions {
     }
   }
 
+  static Future<void> upgradeTransactionsV9(Database db) async {
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN subtotal INTEGER DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.subtotal already exists: $e');
+    }
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN bill_discount INTEGER DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.bill_discount already exists: $e');
+    }
+    try {
+      await db.execute(
+          "ALTER TABLE transactions ADD COLUMN discount_type TEXT DEFAULT 'nominal'");
+    } catch (e) {
+      debugPrint('transactions.discount_type already exists: $e');
+    }
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN discount_value INTEGER DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.discount_value already exists: $e');
+    }
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN tax_rate REAL DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.tax_rate already exists: $e');
+    }
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN tax_amount INTEGER DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.tax_amount already exists: $e');
+    }
+  }
+
   Future<void> insertTransaction({
     required int transactionId,
     required int total,
+    int subtotal = 0,
+    int billDiscount = 0,
+    String discountType = 'nominal',
+    int discountValue = 0,
+    double taxRate = 0,
+    int taxAmount = 0,
     required DateTime createdAt,
     required List<TransactionLine> lines,
     int cashReceived = 0,
@@ -103,6 +154,12 @@ mixin LocalDbTransactions {
       await txn.insert('transactions', {
         'id': transactionId,
         'total': total,
+        'subtotal': subtotal,
+        'bill_discount': billDiscount,
+        'discount_type': discountType,
+        'discount_value': discountValue,
+        'tax_rate': taxRate,
+        'tax_amount': taxAmount,
         'created_at': createdAt.toUtc().millisecondsSinceEpoch,
         'is_synced': 0,
         'is_deleted': 0,
@@ -128,6 +185,12 @@ mixin LocalDbTransactions {
     required int transactionId,
     required String orderKey,
     required int total,
+    required int subtotal,
+    required int billDiscount,
+    required String discountType,
+    required int discountValue,
+    required double taxRate,
+    required int taxAmount,
     required DateTime createdAt,
     required List<TransactionLine> lines,
     required int cashReceived,
@@ -140,6 +203,12 @@ mixin LocalDbTransactions {
       await txn.insert('transactions', {
         'id': transactionId,
         'total': total,
+        'subtotal': subtotal,
+        'bill_discount': billDiscount,
+        'discount_type': discountType,
+        'discount_value': discountValue,
+        'tax_rate': taxRate,
+        'tax_amount': taxAmount,
         'created_at': createdAt.toUtc().millisecondsSinceEpoch,
         'is_synced': 0,
         'is_deleted': 0,
@@ -274,6 +343,12 @@ mixin LocalDbTransactions {
     required int total,
     required int createdAtLocalMs,
     required List<TransactionLine> items,
+    int subtotal = 0,
+    int billDiscount = 0,
+    String discountType = 'nominal',
+    int discountValue = 0,
+    double taxRate = 0,
+    int taxAmount = 0,
     int cashReceived = 0,
     int changeAmount = 0,
     String? tableNumber,
@@ -286,6 +361,12 @@ mixin LocalDbTransactions {
         {
           'id': id,
           'total': total,
+          'subtotal': subtotal,
+          'bill_discount': billDiscount,
+          'discount_type': discountType,
+          'discount_value': discountValue,
+          'tax_rate': taxRate,
+          'tax_amount': taxAmount,
           'created_at': createdAtLocalMs,
           'is_synced': 1,
           'is_deleted': 0,
@@ -297,7 +378,6 @@ mixin LocalDbTransactions {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
       if (insertResult == 0) return;
-      
       for (final line in items) {
         await txn.insert('transaction_items', {
           'transaction_id': id,

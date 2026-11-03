@@ -8,6 +8,7 @@ import 'pos_screen.dart';
 import 'kelola_screen.dart';
 import 'history_screen.dart';
 import 'login_screen.dart';
+import 'settings_screen.dart';
 import '../services/update_service.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
@@ -23,12 +24,12 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final _service = SupabaseService();
-  
+
   final _dashboardKey = GlobalKey<DashboardScreenState>();
   final _posKey = GlobalKey<PosScreenState>();
   final _kelolaKey = GlobalKey<KelolaScreenState>();
   final _historyKey = GlobalKey<HistoryScreenState>();
-  
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _connectivity = Connectivity();
 
@@ -87,16 +88,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Future<void> _trySync() async {
     if (!_service.isLoggedIn) return;
 
-    // Jika sedang login offline, coba auto-login pakai secure storage
     if (_service.isOfflineSession) {
       final success = await _service.tryAutoLoginAndSync();
       if (success && mounted) {
         _refreshAllScreens();
       }
-      return; // Hentikan proses di sini, karena tryAutoLoginAndSync sudah memanggil syncData
+      return;
     }
 
-    // Sync normal (jika sudah login online)
     try {
       await _service.syncData();
       if (mounted) {
@@ -171,14 +170,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     } else if (index == 3) {
       _historyKey.currentState?.reloadData();
     }
+    // index 4 (Pengaturan): tidak perlu refresh (state internal sendiri)
   }
 
   Widget _buildSyncBadge() {
     return ValueListenableBuilder<SyncState>(
       valueListenable: SyncStatusService.instance.state,
       builder: (context, state, _) {
-        // PERBAIKAN BUG #1: Bungkus pendingCount dengan ValueListenableBuilder<int>
-        // agar UI tetap rebuild saat nilai antrean berubah, meskipun state tetap 'pending'.
         return ValueListenableBuilder<int>(
           valueListenable: SyncStatusService.instance.pendingCount,
           builder: (context, pendingCount, __) {
@@ -336,37 +334,38 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   _buildDrawerItem(1, Icons.point_of_sale_outlined, 'Kasir'),
                   _buildDrawerItem(2, Icons.inventory_2_outlined, 'Kelola'),
                   _buildDrawerItem(3, Icons.receipt_long_outlined, 'Riwayat'),
+                  _buildDrawerItem(
+                      4, Icons.settings_outlined, 'Pengaturan'),
                 ],
               ),
             ),
             const Divider(height: 1),
             ListTile(
-  leading: const Icon(Icons.sync, color: AppTheme.primaryColor),
-  title: const Text('Sync Sekarang'),
-  onTap: () {
-    _scaffoldKey.currentState?.closeDrawer();
-    _trySync();
-  },
-),
-// >>> TAMBAHKAN INI <<<
-ListTile(
-  leading:
-      const Icon(Icons.system_update, color: AppTheme.primaryColor),
-  title: const Text('Cek Update'),
-  onTap: () {
-    _scaffoldKey.currentState?.closeDrawer();
-    UpdateService.instance.checkAndNotify(force: true);
-  },
-),
-// <<< SAMPAI SINI >>>
-ListTile(
-  leading: const Icon(Icons.logout, color: AppTheme.dangerColor),
-  title: const Text(
-    'Keluar',
-    style: TextStyle(color: AppTheme.dangerColor),
-  ),
-  onTap: _handleLogout,
-),
+              leading: const Icon(Icons.sync, color: AppTheme.primaryColor),
+              title: const Text('Sync Sekarang'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                _trySync();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.system_update,
+                  color: AppTheme.primaryColor),
+              title: const Text('Cek Update'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                UpdateService.instance.checkAndNotify(force: true);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.logout, color: AppTheme.dangerColor),
+              title: const Text(
+                'Keluar',
+                style: TextStyle(color: AppTheme.dangerColor),
+              ),
+              onTap: _handleLogout,
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -384,6 +383,7 @@ ListTile(
       PosScreen(key: _posKey),
       KelolaScreen(key: _kelolaKey),
       HistoryScreen(key: _historyKey),
+      const SettingsScreen(),
     ];
 
     return Scaffold(
