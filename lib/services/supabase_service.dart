@@ -312,7 +312,7 @@ class SupabaseService {
     if (order == null) throw Exception('Pesanan tidak ditemukan');
 
     final subtotal = order.subtotal;
-    final safeDiscount = billDiscount.clamp(0, subtotal);
+    final safeDiscount = billDiscount.clamp(0, subtotal).toInt();
     final dasarPajak = subtotal - safeDiscount;
     final taxAmount =
         taxRate > 0 ? (dasarPajak * taxRate / 100).round() : 0;

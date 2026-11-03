@@ -65,7 +65,14 @@ class OpenOrder {
     required this.items,
   });
 
-  int get total => items.fold(0, (s, e) => s + e.subtotal);
+  /// Subtotal = jumlah harga item sebelum diskon & PPN.
+  int get subtotal => items.fold(0, (s, e) => s + e.subtotal);
+
+  /// Alias untuk backward compatibility.
+  /// Nilai ini SAMA dengan subtotal karena diskon/PPN baru dihitung
+  /// saat pembayaran (bukan saat open order).
+  int get total => subtotal;
+
   int get itemCount => items.fold(0, (s, e) => s + e.qty);
   bool get isDineIn => orderType == 'dine_in';
 

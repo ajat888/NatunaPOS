@@ -1,11 +1,6 @@
 // lib/services/sync_runner_push.dart
 part of 'sync_runner.dart';
 
-import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint;
-import '../models/product.dart';
-import '../models/category.dart';
-
 class _SyncPusher {
   final SupabaseClient _client;
   final LocalDb _localDb;
@@ -157,7 +152,8 @@ class _SyncPusher {
         }
 
         int? finalCategoryId = p.categoryId;
-        if (finalCategoryId != null && categoryIdMap.containsKey(finalCategoryId)) {
+        if (finalCategoryId != null &&
+            categoryIdMap.containsKey(finalCategoryId)) {
           finalCategoryId = categoryIdMap[finalCategoryId];
         }
 
@@ -279,7 +275,6 @@ class _SyncPusher {
             debugPrint('Cleanup old items for tx $serverTxId failed: $e');
           }
         } else {
-          // Coba insert dengan kolom baru (V9), fallback jika server lama
           Map<String, dynamic> response;
           try {
             response = await _client

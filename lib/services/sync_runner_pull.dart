@@ -1,11 +1,6 @@
 // lib/services/sync_runner_pull.dart
 part of 'sync_runner.dart';
 
-import 'package:flutter/foundation.dart' show debugPrint;
-import '../models/product.dart';
-import '../models/category.dart';
-import '../models/transaction.dart';
-
 class _SyncPuller {
   final SupabaseClient _client;
   final LocalDb _localDb;
@@ -91,7 +86,6 @@ class _SyncPuller {
               e.message.toLowerCase().contains('column'))) {
             rethrow;
           }
-          // Fallback: tanpa kolom diskon/pajak
           try {
             final response = await _client
                 .from('transactions')
@@ -126,7 +120,7 @@ class _SyncPuller {
 
           final rawItems =
               (m['transaction_items'] as List?) ?? const <dynamic>[];
-          final items = rawItems.map((i) {
+          final items = rawItems.map<TransactionLine>((i) {
             final im = i as Map<String, dynamic>;
             return TransactionLine(
               productId: (im['product_id'] as num?)?.toInt(),
