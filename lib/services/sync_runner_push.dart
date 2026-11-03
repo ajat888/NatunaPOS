@@ -291,7 +291,14 @@ class _SyncPusher {
             debugPrint('Failed to cleanup orphan upload: $cleanupErr');
           }
         }
-        failures++;
+        
+        // Anti-macet: Jika server menolak permanen (misal nama kembar), 
+        // tandai sinkron agar antrean tidak looping.
+        if (e is PostgrestException) {
+           await _localDb.markProductSynced(p.id);
+        } else {
+           failures++;
+        }
       }
     }
     return failures;
@@ -388,14 +395,31 @@ class _SyncPusher {
               (item.productId != null && item.productId! > 0)
                   ? item.productId
                   : null;
-          await _client.from('transaction_items').insert({
-            'transaction_id': serverTxId,
-            'product_id': pushProductId,
-            'product_name': item.productName,
-            'price': item.price,
-            'hpp': item.hpp,
-            'qty': item.qty,
-          });
+                  
+          try {
+            await _client.from('transaction_items').insert({
+              'transaction_id': serverTxId,
+              'product_id': pushProductId,
+              'product_name': item.productName,
+              'price': item.price,
+              'hpp': item.hpp,
+              'qty': item.qty,
+            });
+          } on PostgrestException catch (e) {
+            if (_isFkError(e) && pushProductId != null) {
+               // Jika produk sudah terhapus di server, simpan sebagai null
+               await _client.from('transaction_items').insert({
+                  'transaction_id': serverTxId,
+                  'product_id': null,
+                  'product_name': item.productName,
+                  'price': item.price,
+                  'hpp': item.hpp,
+                  'qty': item.qty,
+                });
+            } else {
+               rethrow;
+            }
+          }
         }
 
         await _localDb.replaceTransactionId(oldId: tx.id, newId: serverTxId);

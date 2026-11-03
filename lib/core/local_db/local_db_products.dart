@@ -119,6 +119,12 @@ mixin LocalDbProducts {
         where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<void> markProductSynced(int id) async {
+    final db = await database;
+    await db.update('products', {'is_synced': 1},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> remapProductCategory(
       int oldCategoryId, int newCategoryId) async {
     final db = await database;
