@@ -57,18 +57,14 @@ class _SyncPusher {
     for (final p in deleted) {
       try {
         if (p.id > 0) {
-          await _client.from('products').delete().eq('id', p.id);
+          await _client
+              .from('products')
+              .update({'is_active': false})
+              .eq('id', p.id);
         }
         await _localDb.markProductSyncedAndDeleted(p.id);
-      } on PostgrestException catch (e) {
-        if (_isFkError(e)) {
-          await _localDb.markProductSyncedAndDeleted(p.id);
-        } else {
-          debugPrint('Sync delete product ${p.id} failed: $e');
-          failures++;
-        }
       } catch (e) {
-        debugPrint('Sync delete product ${p.id} failed: $e');
+        debugPrint('Sync deactivate product ${p.id} failed: $e');
         failures++;
       }
     }
@@ -237,6 +233,7 @@ class _SyncPusher {
               'hpp': p.hpp,
               'category_id': finalCategoryId,
               'image_url': finalImageUrl,
+              'is_active': true,
             };
             final response = await _sendProductInsert(payload);
             newId = (response['id'] as num).toInt();
@@ -257,6 +254,7 @@ class _SyncPusher {
             'hpp': p.hpp,
             'category_id': finalCategoryId,
             'image_url': finalImageUrl,
+            'is_active': true,
           };
           await _sendProductUpsert(payload);
           serverConfirmed = true;

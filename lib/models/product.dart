@@ -8,6 +8,7 @@ class Product {
   final String? imageUrl;
   final String? localImagePath;
   final bool isSynced;
+  final bool isDeleted;
 
   Product({
     required this.id,
@@ -18,9 +19,11 @@ class Product {
     this.imageUrl,
     this.localImagePath,
     this.isSynced = true,
+    this.isDeleted = false,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    final active = json['is_active'] as bool? ?? true;
     return Product(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
@@ -29,6 +32,7 @@ class Product {
       categoryId: (json['category_id'] as num?)?.toInt(),
       imageUrl: json['image_url'] as String?,
       isSynced: true,
+      isDeleted: !active,
     );
   }
 
@@ -40,6 +44,7 @@ class Product {
       'hpp': hpp,
       'category_id': categoryId,
       'image_url': imageUrl,
+      'is_active': !isDeleted,
     };
   }
 
@@ -53,6 +58,7 @@ class Product {
       imageUrl: map['image_url'] as String?,
       localImagePath: map['local_image_path'] as String?,
       isSynced: (map['is_synced'] as int? ?? 1) == 1,
+      isDeleted: (map['is_deleted'] as int? ?? 0) == 1,
     );
   }
 
@@ -66,6 +72,7 @@ class Product {
       'image_url': imageUrl,
       'local_image_path': localImagePath,
       'is_synced': isSynced ? 1 : 0,
+      'is_deleted': isDeleted ? 1 : 0,
     };
   }
 
@@ -80,6 +87,7 @@ class Product {
     Object? imageUrl = _sentinel,
     Object? localImagePath = _sentinel,
     bool? isSynced,
+    bool? isDeleted,
   }) {
     return Product(
       id: id ?? this.id,
@@ -96,6 +104,7 @@ class Product {
           ? this.localImagePath 
           : localImagePath as String?,
       isSynced: isSynced ?? this.isSynced,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 
