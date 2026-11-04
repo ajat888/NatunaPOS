@@ -149,13 +149,30 @@ class _SyncPusher {
     }
   }
 
-  Future<void> _sendProductUpsert(Map<String, dynamic> payload) async {
+  Future<void> _sendProductUpdate(
+      int id, Map<String, dynamic> payload) async {
     try {
-      await _client.from('products').upsert(payload, onConflict: 'id');
+      final res = await _client
+          .from('products')
+          .update(payload)
+          .eq('id', id)
+          .select();
+      if ((res as List).isEmpty) {
+        payload['id'] = id;
+        await _client.from('products').insert(payload);
+      }
     } on PostgrestException catch (e) {
       if (_isFkError(e) && payload['category_id'] != null) {
         payload['category_id'] = null;
-        await _client.from('products').upsert(payload, onConflict: 'id');
+        final res = await _client
+            .from('products')
+            .update(payload)
+            .eq('id', id)
+            .select();
+        if ((res as List).isEmpty) {
+          payload['id'] = id;
+          await _client.from('products').insert(payload);
+        }
       } else {
         rethrow;
       }
@@ -248,7 +265,6 @@ class _SyncPusher {
           );
         } else {
           final payload = <String, dynamic>{
-            'id': p.id,
             'name': p.name,
             'price': p.price,
             'hpp': p.hpp,
@@ -256,7 +272,7 @@ class _SyncPusher {
             'image_url': finalImageUrl,
             'is_active': true,
           };
-          await _sendProductUpsert(payload);
+          await _sendProductUpdate(p.id, payload);
           serverConfirmed = true;
 
           await _localDb.upsertProduct(Product(
@@ -292,10 +308,14 @@ class _SyncPusher {
           }
         }
         
-        // Anti-macet: Jika server menolak permanen (misal nama kembar), 
-        // tandai sinkron agar antrean tidak looping.
         if (e is PostgrestException) {
-           await _localDb.markProductSynced(p.id);
+           if (e.code == '23505' || e.code == '23502') {
+              // Abaikan error Unique/Null constraint (data memang tidak valid)
+              await _localDb.markProductSynced(p.id);
+           } else {
+              // Error RLS, jaringan, dll -> hitung gagal agar bisa retry
+              failures++;
+           }
         } else {
            failures++;
         }
