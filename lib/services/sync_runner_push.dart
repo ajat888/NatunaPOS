@@ -33,18 +33,14 @@ class _SyncPusher {
     for (final c in deleted) {
       try {
         if (c.id > 0) {
-          await _client.from('categories').delete().eq('id', c.id);
+          await _client
+              .from('categories')
+              .update({'is_active': false})
+              .eq('id', c.id);
         }
-        await _localDb.deleteCategory(c.id);
-      } on PostgrestException catch (e) {
-        if (_isFkError(e)) {
-          await _localDb.deleteCategory(c.id);
-        } else {
-          debugPrint('Sync delete category ${c.id} failed: $e');
-          failures++;
-        }
+        await _localDb.markCategorySyncedAndDeleted(c.id);
       } catch (e) {
-        debugPrint('Sync delete category ${c.id} failed: $e');
+        debugPrint('Sync deactivate category ${c.id} failed: $e');
         failures++;
       }
     }
@@ -96,11 +92,11 @@ class _SyncPusher {
           Map<String, dynamic> response;
           if (existingId != null) {
             newId = existingId;
-            response = {'id': newId, 'name': c.name};
+            response = {'id': newId, 'name': c.name, 'is_active': true};
           } else {
             response = await _client
                 .from('categories')
-                .insert({'name': c.name})
+                .insert({'name': c.name, 'is_active': true})
                 .select()
                 .single();
             newId = response['id'] as int;
@@ -109,10 +105,19 @@ class _SyncPusher {
           await _localDb.deleteCategory(c.id);
           await _localDb.upsertCategory(Category.fromJson(response));
         } else {
-          await _client.from('categories').upsert({
-            'id': c.id,
+          final payload = <String, dynamic>{
             'name': c.name,
-          }, onConflict: 'id');
+            'is_active': true,
+          };
+          final res = await _client
+              .from('categories')
+              .update(payload)
+              .eq('id', c.id)
+              .select();
+          if ((res as List).isEmpty) {
+            payload['id'] = c.id;
+            await _client.from('categories').insert(payload);
+          }
           await _localDb.upsertCategory(c.copyWith(isSynced: true));
         }
       } catch (e) {
@@ -310,10 +315,8 @@ class _SyncPusher {
         
         if (e is PostgrestException) {
            if (e.code == '23505' || e.code == '23502') {
-              // Abaikan error Unique/Null constraint (data memang tidak valid)
               await _localDb.markProductSynced(p.id);
            } else {
-              // Error RLS, jaringan, dll -> hitung gagal agar bisa retry
               failures++;
            }
         } else {
@@ -427,7 +430,6 @@ class _SyncPusher {
             });
           } on PostgrestException catch (e) {
             if (_isFkError(e) && pushProductId != null) {
-               // Jika produk sudah terhapus di server, simpan sebagai null
                await _client.from('transaction_items').insert({
                   'transaction_id': serverTxId,
                   'product_id': null,

@@ -27,10 +27,17 @@ mixin LocalDbCategories {
       final unsyncedMaps =
           await txn.query('categories', where: 'is_synced = 0');
       final unsyncedIds = unsyncedMaps.map((m) => m['id'] as int).toSet();
-      await txn.delete('categories', where: 'is_synced = 1');
+
+      final deletedMaps = await txn.query('categories',
+          where: 'is_deleted = 1 AND is_synced = 1');
+      final deletedIds = deletedMaps.map((m) => m['id'] as int).toSet();
+
+      await txn.delete('categories', where: 'is_synced = 1 AND is_deleted = 0');
+
       final batch = txn.batch();
       for (final c in categories) {
         if (unsyncedIds.contains(c.id)) continue;
+        if (deletedIds.contains(c.id)) continue;
         batch.insert('categories', c.toDb(),
             conflictAlgorithm: ConflictAlgorithm.replace);
       }
@@ -86,5 +93,17 @@ mixin LocalDbCategories {
         whereArgs: [id],
       );
     });
+  }
+
+  Future<void> markCategorySyncedAndDeleted(int id) async {
+    final db = await database;
+    await db.update('categories', {'is_synced': 1},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> markCategorySynced(int id) async {
+    final db = await database;
+    await db.update('categories', {'is_synced': 1},
+        where: 'id = ?', whereArgs: [id]);
   }
 }
