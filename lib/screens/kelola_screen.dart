@@ -12,6 +12,7 @@ import '../models/category.dart';
 import '../services/supabase_service.dart';
 import '../widgets/common/main_menu_scope.dart';
 import '../widgets/common/thousand_formatter.dart';
+import '../widgets/common/title_case_formatter.dart'; // ← IMPORT BARU
 
 part 'kelola/product_dialog.dart';
 part 'kelola/category_dialog.dart';

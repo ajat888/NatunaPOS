@@ -1,3 +1,4 @@
+// lib/screens/kelola/category_dialog.dart
 part of '../kelola_screen.dart';
 
 class _CategoryDialog extends StatefulWidget {
@@ -80,6 +81,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
               ],
               TextFormField(
                   controller: _nameController,
+                  inputFormatters: [TitleCaseFormatter()], // ← FORMATTER BARU
                   decoration:
                       const InputDecoration(labelText: 'Nama Kategori'),
                   validator: (v) => (v == null || v.trim().isEmpty)
