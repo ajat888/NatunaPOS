@@ -52,6 +52,13 @@ mixin LocalDbCategories {
     return maps.map((m) => Category.fromDb(m)).toList();
   }
 
+  Future<List<Category>> getInactiveCategories() async {
+    final db = await database;
+    final maps = await db
+        .query('categories', where: 'is_deleted = 1', orderBy: 'id ASC');
+    return maps.map((m) => Category.fromDb(m)).toList();
+  }
+
   Future<List<Category>> getUnsyncedCategories() async {
     final db = await database;
     final maps = await db
@@ -93,6 +100,12 @@ mixin LocalDbCategories {
         whereArgs: [id],
       );
     });
+  }
+
+  Future<void> restoreCategory(int id) async {
+    final db = await database;
+    await db.update('categories', {'is_deleted': 0, 'is_synced': 0},
+        where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> markCategorySyncedAndDeleted(int id) async {

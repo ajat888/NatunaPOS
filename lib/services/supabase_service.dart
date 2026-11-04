@@ -149,6 +149,8 @@ class SupabaseService {
   Future<List<Product>> getLocalInactiveProducts() =>
       _localDb.getInactiveProducts();
   Future<List<Category>> getLocalCategories() => _localDb.getCategories();
+  Future<List<Category>> getLocalInactiveCategories() =>
+      _localDb.getInactiveCategories();
 
   Future<void> syncData() async {
     if (_client.auth.currentSession == null) {
@@ -278,6 +280,11 @@ class SupabaseService {
 
   Future<void> deleteCategory(int id) async {
     await _localDb.markCategoryDeleted(id);
+    await SyncStatusService.instance.refreshPendingCount();
+  }
+
+  Future<void> restoreCategory(int id) async {
+    await _localDb.restoreCategory(id);
     await SyncStatusService.instance.refreshPendingCount();
   }
 
