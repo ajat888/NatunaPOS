@@ -11,7 +11,7 @@ extension _ReceiptGenerator on PrinterService {
     final logoPath = settings.logoPath.value;
     if (logoPath != null && File(logoPath).existsSync()) {
       try {
-        final img.Image? image = img.decodeImage(File(logoPath).readAsBytesSync());
+        final image = img.decodeImage(File(logoPath).readAsBytesSync());
         if (image != null) {
           bytes.addAll(generator.imageRaster(
             image,

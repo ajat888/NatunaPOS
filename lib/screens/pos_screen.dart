@@ -1,9 +1,9 @@
-// lib/screens/pos_screen.dart  (potongan HEAD FILE saja, sisanya SAMA)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/supabase_service.dart';
+import '../services/printer_service.dart'; // <-- TAMBAHKAN BARIS INI
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
@@ -11,7 +11,7 @@ import '../models/open_order.dart';
 import '../core/local_db.dart';
 import '../core/theme.dart';
 import '../core/breakpoints.dart';
-import '../core/tax_settings.dart';        // ← BARU
+import '../core/tax_settings.dart';
 import '../widgets/common/main_menu_scope.dart';
 import '../widgets/common/thousand_formatter.dart';
 
