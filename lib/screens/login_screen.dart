@@ -1,10 +1,10 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ← IMPORT BARU
 import '../services/supabase_service.dart';
 import '../core/theme.dart';
 import 'main_layout.dart';
-import '../widgets/common/thousand_formatter.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,17 +16,56 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocusNode = FocusNode(); // ← FOKUS BARU
   final _service = SupabaseService();
+
+  static const String _kLastEmailKey = 'natunapos_last_email'; // ← KEY BARU
 
   bool _isLoading = false;
   String? _errorMessage;
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    _loadSavedEmail(); // ← PANGGIL FUNGSI SAAT DIBUKA
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose(); // ← DISPOSE FOCUS NODE
     super.dispose();
+  }
+
+  // ← FUNGSI BARU UNTUK MEMBACA EMAIL
+  Future<void> _loadSavedEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedEmail = prefs.getString(_kLastEmailKey);
+      if (savedEmail != null && savedEmail.isNotEmpty && mounted) {
+        setState(() {
+          _emailController.text = savedEmail;
+        });
+        // Pindahkan kursor langsung ke password agar user tinggal ketik
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _passwordFocusNode.requestFocus();
+        });
+      }
+    } catch (e) {
+      debugPrint('Gagal memuat email tersimpan: $e');
+    }
+  }
+
+  // ← FUNGSI BARU UNTUK MENYIMPAN EMAIL
+  Future<void> _saveEmail(String email) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kLastEmailKey, email);
+    } catch (e) {
+      debugPrint('Gagal menyimpan email: $e');
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -41,10 +80,15 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final email = _emailController.text.trim();
       final mode = await _service.login(
-        _emailController.text.trim(),
+        email,
         _passwordController.text.trim(),
       );
+      
+      // ← SIMPAN EMAIL SETELAH BERHASIL LOGIN
+      await _saveEmail(email); 
+
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       Navigator.pushReplacement(
@@ -159,6 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
+          onSubmitted: (_) => _passwordFocusNode.requestFocus(), // Lanjut ke password
           decoration: const InputDecoration(
             labelText: 'Email',
             prefixIcon: Icon(Icons.email_outlined),
@@ -167,6 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 16),
         TextField(
           controller: _passwordController,
+          focusNode: _passwordFocusNode, // ← GUNAKAN FOCUS NODE
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _handleLogin(),
