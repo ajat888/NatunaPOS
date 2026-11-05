@@ -8,16 +8,31 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.reset());
 
-    // 1. PROSES LOGO
+    // 1. PROSES LOGO (DIPERKETAT)
     final logoPath = settings.logoPath.value;
     if (logoPath != null && File(logoPath).existsSync()) {
       try {
         final rawImage = img.decodeImage(File(logoPath).readAsBytesSync());
         if (rawImage != null) {
-          // Resize logo agar muat di kertas 58mm (sekitar 180px)
-          final resizedImage = img.copyResize(rawImage, width: 180);
+          // A. Buat kanvas putih sebagai background (menghapus transparansi)
+          final background = img.Image(
+            width: rawImage.width,
+            height: rawImage.height,
+          );
+          img.fill(background, color: img.ColorRgb8(255, 255, 255));
+          
+          // B. Gabungkan logo asli ke atas background putih
+          final flattened = img.compositeImage(background, rawImage);
+          
+          // C. Resize ke lebar aman (180px) agar tidak memenuhi buffer printer
+          final resized = img.copyResize(flattened, width: 180);
+          
+          // D. Ubah ke Grayscale (hitam-putih murni) agar printer bisa membacanya
+          final grayscale = img.grayscale(resized);
+
+          // E. Cetak gambar
           bytes.addAll(generator.imageRaster(
-            resizedImage,
+            grayscale,
             align: PosAlign.center,
           ));
           bytes.addAll(generator.feed(1)); // Jarak setelah logo
@@ -28,7 +43,6 @@ extension _ReceiptGenerator on PrinterService {
     }
 
     // 2. NAMA TOKO & SUBTITLE
-    // Ukuran font di-reset ke normal (size1), tapi tetap Bold
     bytes.addAll(generator.text(
       settings.storeName.value.toUpperCase(),
       styles: const PosStyles(
@@ -60,9 +74,8 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.hr());
 
-    // 3. INFO TRANSAKSI & WAKTU (DIPERDEK)
+    // 3. INFO TRANSAKSI & WAKTU
     final dateFmt = DateFormat('yyyyMMdd').format(tx.createdAt);
-    // Format diubah agar tidak terpotong
     final timeFmt = DateFormat('dd/MM/yy HH:mm').format(tx.createdAt); 
     final noNota = 'NTN-$dateFmt-${tx.id.toString().padLeft(4, '0')}';
     final table = tx.tableNumber ?? '-';
