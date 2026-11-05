@@ -189,28 +189,28 @@ class _SyncPusher {
     final unsynced = await _localDb.getUnsyncedProducts();
     for (final p in unsynced) {
       String? uploadedStoragePath;
-      bool imageUploadedThisAttempt = false;
       bool serverConfirmed = false;
 
       try {
         String? finalImageUrl = p.imageUrl;
         String? remainingLocal = p.localImagePath;
 
-        if (p.localImagePath != null && File(p.localImagePath!).existsSync()) {
+        if (remainingLocal != null && !File(remainingLocal).existsSync()) {
+          debugPrint(
+              'WARNING: Local image missing for product "${p.name}" (${p.id})');
+          remainingLocal = null;
+        }
+
+        if (remainingLocal != null) {
           final fileName =
               'product_${DateTime.now().microsecondsSinceEpoch}_${_rng.nextInt(999999)}.jpg';
           await _client
               .storage
               .from('product_images')
-              .upload(fileName, File(p.localImagePath!));
+              .upload(fileName, File(remainingLocal));
           uploadedStoragePath = fileName;
           finalImageUrl =
               _client.storage.from('product_images').getPublicUrl(fileName);
-          imageUploadedThisAttempt = true;
-        } else if (p.localImagePath != null) {
-          debugPrint(
-              'WARNING: Local image missing for product "${p.name}" (${p.id})');
-          remainingLocal = null;
         }
 
         int? finalCategoryId = p.categoryId;
@@ -246,6 +246,7 @@ class _SyncPusher {
               hpp: p.hpp,
               categoryId: finalCategoryId,
               imageUrl: finalImageUrl,
+              localImagePath: remainingLocal,
               isSynced: true,
             );
           } else {
@@ -259,7 +260,8 @@ class _SyncPusher {
             };
             final response = await _sendProductInsert(payload);
             newId = (response['id'] as num).toInt();
-            serverProduct = Product.fromJson(response);
+            serverProduct = Product.fromJson(response)
+                .copyWith(localImagePath: remainingLocal);
           }
           serverConfirmed = true;
 
@@ -291,15 +293,6 @@ class _SyncPusher {
             isSynced: true,
           ));
         }
-
-        if (imageUploadedThisAttempt && p.localImagePath != null) {
-          try {
-            await File(p.localImagePath!).delete();
-          } catch (e) {
-            debugPrint('Failed to remove local image: $e');
-          }
-        }
-        uploadedStoragePath = null;
       } catch (e) {
         debugPrint('Sync product ${p.id} failed: $e');
         if (!serverConfirmed && uploadedStoragePath != null) {
@@ -312,15 +305,15 @@ class _SyncPusher {
             debugPrint('Failed to cleanup orphan upload: $cleanupErr');
           }
         }
-        
+
         if (e is PostgrestException) {
-           if (e.code == '23505' || e.code == '23502') {
-              await _localDb.markProductSynced(p.id);
-           } else {
-              failures++;
-           }
+          if (e.code == '23505' || e.code == '23502') {
+            await _localDb.markProductSynced(p.id);
+          } else {
+            failures++;
+          }
         } else {
-           failures++;
+          failures++;
         }
       }
     }
@@ -418,7 +411,7 @@ class _SyncPusher {
               (item.productId != null && item.productId! > 0)
                   ? item.productId
                   : null;
-                  
+
           try {
             await _client.from('transaction_items').insert({
               'transaction_id': serverTxId,
@@ -430,16 +423,16 @@ class _SyncPusher {
             });
           } on PostgrestException catch (e) {
             if (_isFkError(e) && pushProductId != null) {
-               await _client.from('transaction_items').insert({
-                  'transaction_id': serverTxId,
-                  'product_id': null,
-                  'product_name': item.productName,
-                  'price': item.price,
-                  'hpp': item.hpp,
-                  'qty': item.qty,
-                });
+              await _client.from('transaction_items').insert({
+                'transaction_id': serverTxId,
+                'product_id': null,
+                'product_name': item.productName,
+                'price': item.price,
+                'hpp': item.hpp,
+                'qty': item.qty,
+              });
             } else {
-               rethrow;
+              rethrow;
             }
           }
         }

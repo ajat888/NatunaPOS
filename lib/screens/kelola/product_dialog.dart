@@ -47,6 +47,9 @@ class _ProductDialogState extends State<_ProductDialog> {
     }
     _existingImageUrl = widget.existing?.imageUrl;
     _localImagePath = widget.existing?.localImagePath;
+    if (_localImagePath != null && !File(_localImagePath!).existsSync()) {
+      _localImagePath = null;
+    }
   }
 
   @override
@@ -96,8 +99,8 @@ class _ProductDialogState extends State<_ProductDialog> {
   }
 
   Future<void> _save() async {
-    if (_nameError != null) return; // Cegah simpan jika ada error duplikat
-    
+    if (_nameError != null) return;
+
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _isSaving = true;
@@ -194,7 +197,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               const SizedBox(height: 16),
               TextFormField(
                   controller: _nameController,
-                  inputFormatters: [TitleCaseFormatter()], // ← FORMATTER BARU
+                  inputFormatters: [TitleCaseFormatter()],
                   decoration: InputDecoration(
                     labelText: 'Nama Produk',
                     errorText: _nameError,

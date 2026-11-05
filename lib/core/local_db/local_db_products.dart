@@ -1,4 +1,5 @@
 // lib/core/local_db/local_db_products.dart
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import '../../models/product.dart';
 
@@ -31,13 +32,33 @@ mixin LocalDbProducts {
           where: 'is_deleted = 1 AND is_synced = 1');
       final deletedIds = deletedMaps.map((m) => m['id'] as int).toSet();
 
+      final existingMaps = await txn.query(
+        'products',
+        columns: ['id', 'local_image_path', 'image_url'],
+        where: 'local_image_path IS NOT NULL',
+      );
+      final localCacheByPid = <int, ({String path, String? url})>{};
+      for (final m in existingMaps) {
+        final pid = m['id'] as int;
+        final path = m['local_image_path'] as String?;
+        final url = m['image_url'] as String?;
+        if (path != null && File(path).existsSync()) {
+          localCacheByPid[pid] = (path: path, url: url);
+        }
+      }
+
       await txn.delete('products', where: 'is_synced = 1 AND is_deleted = 0');
 
       final batch = txn.batch();
       for (final p in serverProducts) {
         if (unsyncedIds.contains(p.id)) continue;
         if (deletedIds.contains(p.id)) continue;
-        batch.insert('products', p.toDb(),
+        final dbMap = p.toDb();
+        final cache = localCacheByPid[p.id];
+        if (cache != null && p.imageUrl != null && p.imageUrl == cache.url) {
+          dbMap['local_image_path'] = cache.path;
+        }
+        batch.insert('products', dbMap,
             conflictAlgorithm: ConflictAlgorithm.replace);
       }
       await batch.commit(noResult: true);
