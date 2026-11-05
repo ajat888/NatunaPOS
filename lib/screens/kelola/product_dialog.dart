@@ -103,12 +103,13 @@ class _ProductDialogState extends State<_ProductDialog> {
 
   Future<void> _save() async {
     if (_nameError != null) return;
-
     if (!_formKey.currentState!.validate()) return;
+    
     setState(() {
       _isSaving = true;
       _errorMessage = null;
     });
+    
     try {
       final name = _nameController.text.trim();
       final price =

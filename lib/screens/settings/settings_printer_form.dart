@@ -16,7 +16,13 @@ class _PrinterSectionState extends State<_PrinterSection> {
   Future<void> _pickLogo() async {
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 400, maxHeight: 400);
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 80,
+      );
+      
       if (picked != null) {
         final appDir = await getApplicationDocumentsDirectory();
         final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.png';
@@ -26,6 +32,13 @@ class _PrinterSectionState extends State<_PrinterSection> {
       }
     } catch (e) {
       debugPrint('Pick logo failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal memuat gambar. Pastikan izin galeri aktif.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
     }
   }
 
@@ -47,16 +60,22 @@ class _PrinterSectionState extends State<_PrinterSection> {
       await AppSettings.instance.savePrinter(device.macAdress, device.name);
       if (!mounted) return;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Printer terhubung'), backgroundColor: Colors.green));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Printer terhubung'), backgroundColor: Colors.green),
+      );
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal terhubung ke printer'), backgroundColor: AppTheme.dangerColor));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal terhubung ke printer'), backgroundColor: AppTheme.dangerColor),
+      );
     }
   }
 
   Future<void> _testPrint() async {
     if (AppSettings.instance.printerMac.value == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pilih printer terlebih dahulu')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih printer terlebih dahulu')),
+      );
       return;
     }
     setState(() => _testing = true);
@@ -64,7 +83,9 @@ class _PrinterSectionState extends State<_PrinterSection> {
     if (!mounted) return;
     setState(() => _testing = false);
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal mencetak struk test'), backgroundColor: AppTheme.dangerColor));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal mencetak struk test'), backgroundColor: AppTheme.dangerColor),
+      );
     }
   }
 
