@@ -11,12 +11,12 @@ extension _ReceiptGenerator on PrinterService {
     final logoPath = settings.logoPath.value;
     if (logoPath != null && File(logoPath).existsSync()) {
       try {
-        final image = img.decodeImage(File(logoPath).readAsBytesSync());
-        if (image != null) {
+        final rawImage = img.decodeImage(File(logoPath).readAsBytesSync());
+        if (rawImage != null) {
+          final resizedImage = img.copyResize(rawImage, width: 180);
           bytes.addAll(generator.imageRaster(
-            image,
+            resizedImage,
             align: PosAlign.center,
-            width: 180,
           ));
         }
       } catch (e) {
