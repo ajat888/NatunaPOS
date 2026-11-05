@@ -1,4 +1,3 @@
-// lib/core/local_db/local_db_products.dart
 import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import '../../models/product.dart';
@@ -91,6 +90,19 @@ mixin LocalDbProducts {
     final maps =
         await db.query('products', where: 'is_deleted = 1 AND is_synced = 0');
     return maps.map((m) => Product.fromDb(m)).toList();
+  }
+
+  Future<List<String>> getAllLocalImagePaths() async {
+    final db = await database;
+    final maps = await db.query(
+      'products',
+      columns: ['local_image_path'],
+      where: 'local_image_path IS NOT NULL',
+    );
+    return maps
+        .map((m) => m['local_image_path'] as String)
+        .where((path) => path.isNotEmpty)
+        .toList();
   }
 
   Future<bool> isProductNameDuplicate(String name, {int? excludeId}) async {

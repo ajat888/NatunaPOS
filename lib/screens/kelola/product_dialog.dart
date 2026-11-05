@@ -1,4 +1,3 @@
-// lib/screens/kelola/product_dialog.dart
 part of '../kelola_screen.dart';
 
 class _ProductDialog extends StatefulWidget {
@@ -79,7 +78,11 @@ class _ProductDialogState extends State<_ProductDialog> {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
-          source: ImageSource.gallery, imageQuality: 70);
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
       if (pickedFile != null) {
         final appDir = await getApplicationDocumentsDirectory();
         final fileName = 'img_${DateTime.now().microsecondsSinceEpoch}.jpg';

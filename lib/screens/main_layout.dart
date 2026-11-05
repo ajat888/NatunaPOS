@@ -1,4 +1,3 @@
-// lib/screens/main_layout.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -43,6 +42,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     SyncStatusService.instance.refreshPendingCount();
     SyncStatusService.instance.state.addListener(_onSyncStateChanged);
     _initConnectivity();
+    _runBackgroundCleanup();
+  }
+
+  Future<void> _runBackgroundCleanup() async {
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+    await _service.clearTempCache();
+    await _service.cleanupOrphanedImages();
   }
 
   @override
@@ -170,7 +177,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     } else if (index == 3) {
       _historyKey.currentState?.reloadData();
     }
-    // index 4 (Pengaturan): tidak perlu refresh (state internal sendiri)
   }
 
   Widget _buildSyncBadge() {

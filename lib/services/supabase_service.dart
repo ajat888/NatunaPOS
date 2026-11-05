@@ -1,9 +1,10 @@
-// lib/services/supabase_service.dart
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint, compute;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
@@ -50,6 +51,50 @@ class SupabaseService {
     if (_client.auth.currentSession != null && _cachedOfflineEmail != null) {
       _cachedOfflineEmail = null;
       await prefs.remove(_kOfflineEmailKey);
+    }
+  }
+
+  Future<void> cleanupOrphanedImages() async {
+    try {
+      final paths = await _localDb.getAllLocalImagePaths();
+      final dir = await getApplicationDocumentsDirectory();
+      if (!await dir.exists()) return;
+
+      final validPaths = paths.toSet();
+
+      await for (var entity in dir.list()) {
+        if (entity is File) {
+          final filename = entity.path.split('/').last;
+          if (filename.startsWith('img_') && filename.endsWith('.jpg')) {
+            if (!validPaths.contains(entity.path)) {
+              try {
+                await entity.delete();
+              } catch (e) {
+                debugPrint('Failed to delete orphaned image: $e');
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('cleanupOrphanedImages error: $e');
+    }
+  }
+
+  Future<void> clearTempCache() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      if (!await dir.exists()) return;
+
+      await for (var entity in dir.list()) {
+        try {
+          await entity.delete(recursive: true);
+        } catch (e) {
+          debugPrint('Failed to delete temp entity: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('clearTempCache error: $e');
     }
   }
 
@@ -304,8 +349,6 @@ class SupabaseService {
     await SyncStatusService.instance.refreshPendingCount();
   }
 
-  /// Bayar open order dengan perhitungan diskon + PPN final.
-  /// [taxRate] = 0 berarti transaksi ini tanpa PPN.
   Future<void> payOpenOrder({
     required String orderKey,
     required int cashReceived,
