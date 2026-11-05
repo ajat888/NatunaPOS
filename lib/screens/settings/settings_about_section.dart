@@ -12,11 +12,31 @@ class _AboutSectionState extends State<_AboutSection> {
   bool _busySync = false;
   bool _busyUpdate = false;
   bool _busyCache = false;
+  
+  Timer? _ticker;
+  DateTime _now = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _loadVersion();
+    _startTicker();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _startTicker() {
+    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _now = DateTime.now();
+        });
+      }
+    });
   }
 
   Future<void> _loadVersion() async {
@@ -103,13 +123,30 @@ class _AboutSectionState extends State<_AboutSection> {
     }
   }
 
-  String _fmtDate(DateTime? d) {
-    if (d == null) return 'Belum pernah';
-    final dd = d.day.toString().padLeft(2, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    final hh = d.hour.toString().padLeft(2, '0');
-    final mi = d.minute.toString().padLeft(2, '0');
-    return '$dd/$mm/${d.year} $hh:$mi';
+  String _formatRelativeTime(DateTime? date) {
+    if (date == null) return 'Belum pernah';
+    
+    final diff = _now.difference(date);
+    
+    if (diff.inSeconds < 0) return 'Baru saja';
+    if (diff.inSeconds < 60) {
+      return '${diff.inSeconds} detik yang lalu';
+    }
+    if (diff.inMinutes < 60) {
+      return '${diff.inMinutes} menit yang lalu';
+    }
+    if (diff.inHours < 24) {
+      return '${diff.inHours} jam yang lalu';
+    }
+    if (diff.inDays < 30) {
+      return '${diff.inDays} hari yang lalu';
+    }
+    
+    final dd = date.day.toString().padLeft(2, '0');
+    final mm = date.month.toString().padLeft(2, '0');
+    final hh = date.hour.toString().padLeft(2, '0');
+    final mi = date.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/${date.year} $hh:$mi';
   }
 
   @override
@@ -126,7 +163,7 @@ class _AboutSectionState extends State<_AboutSection> {
               ValueListenableBuilder<DateTime?>(
                 valueListenable: SyncStatusService.instance.lastSyncedAt,
                 builder: (context, last, _) {
-                  return _infoTile('Sinkron Terakhir', _fmtDate(last));
+                  return _infoTile('Sinkron Terakhir', _formatRelativeTime(last));
                 },
               ),
               const Divider(height: 1, color: Color(0xFFE2E8F0)),
