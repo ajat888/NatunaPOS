@@ -92,6 +92,11 @@ class _PrinterSectionState extends State<_PrinterSection> {
   @override
   Widget build(BuildContext context) {
     final settings = AppSettings.instance;
+    
+    // Cek apakah logo ada dan file-nya benar-benar ada di HP
+    final logoPath = settings.logoPath.value;
+    final hasLogo = logoPath != null && File(logoPath).existsSync();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -100,9 +105,20 @@ class _PrinterSectionState extends State<_PrinterSection> {
           child: Column(
             children: [
               ListTile(
-                leading: const Icon(Icons.image, color: AppTheme.primaryColor),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: hasLogo
+                      ? Image.file(File(logoPath), fit: BoxFit.contain)
+                      : const Icon(Icons.image, color: AppTheme.primaryColor),
+                ),
                 title: const Text('Logo Struk'),
-                subtitle: Text(settings.logoPath.value != null ? 'Logo terpasang' : 'Belum ada logo'),
+                subtitle: Text(hasLogo ? 'Logo terpasang' : 'Belum ada logo'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _pickLogo,
               ),
