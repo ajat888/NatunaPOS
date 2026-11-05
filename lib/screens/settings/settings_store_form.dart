@@ -9,6 +9,7 @@ class _StoreInfoSection extends StatefulWidget {
 
 class _StoreInfoSectionState extends State<_StoreInfoSection> {
   late final TextEditingController _nameController;
+  late final TextEditingController _subtitleController;
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
   late final TextEditingController _footerController;
@@ -19,6 +20,7 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
     super.initState();
     final s = AppSettings.instance;
     _nameController = TextEditingController(text: s.storeName.value);
+    _subtitleController = TextEditingController(text: s.storeSubtitle.value);
     _addressController = TextEditingController(text: s.storeAddress.value);
     _phoneController = TextEditingController(text: s.storePhone.value);
     _footerController = TextEditingController(text: s.receiptFooter.value);
@@ -27,6 +29,7 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
   @override
   void dispose() {
     _nameController.dispose();
+    _subtitleController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
     _footerController.dispose();
@@ -38,6 +41,7 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
     try {
       await AppSettings.instance.saveStoreInfo(
         name: _nameController.text,
+        subtitle: _subtitleController.text,
         address: _addressController.text,
         phone: _phoneController.text,
         footer: _footerController.text,
@@ -45,18 +49,12 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
       if (!mounted) return;
       FocusScope.of(context).unfocus();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Info toko disimpan'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('Info toko disimpan'), backgroundColor: Colors.green),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gagal menyimpan info toko'),
-          backgroundColor: AppTheme.dangerColor,
-        ),
+        const SnackBar(content: Text('Gagal menyimpan info toko'), backgroundColor: AppTheme.dangerColor),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -82,6 +80,12 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  controller: _subtitleController,
+                  decoration: const InputDecoration(labelText: 'Subtitle (Cafe & Resto)'),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextField(
                   controller: _addressController,
                   decoration: const InputDecoration(labelText: 'Alamat'),
                   minLines: 1,
@@ -99,24 +103,17 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
                 TextField(
                   controller: _footerController,
                   decoration: const InputDecoration(
-                    labelText: 'Footer Struk',
-                    helperText: 'Contoh: Terima kasih atas kunjungan Anda',
+                    labelText: 'Footer Struk / Promo',
+                    helperText: 'Contoh: Ada acara spesial? Hubungi WA...',
                   ),
-                  minLines: 1,
-                  maxLines: 2,
+                  minLines: 2,
+                  maxLines: 4,
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _saving ? null : _save,
                   child: _saving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Text('SIMPAN INFO TOKO'),
                 ),
               ],

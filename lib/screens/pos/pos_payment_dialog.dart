@@ -1,4 +1,3 @@
-// lib/screens/pos/pos_payment_dialog.dart
 part of '../pos_screen.dart';
 
 class _PaymentDialog extends StatefulWidget {
@@ -21,13 +20,12 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   final _formatter = NumberFormat.decimalPattern('id');
   bool _saving = false;
   String? _error;
+  bool _printReceipt = true;
 
-  // Diskon bill
   int _billDiscount = 0;
   String _discountType = 'nominal';
   int _discountValue = 0;
 
-  // PPN
   bool _applyTax = false;
   double _taxRate = 0;
 
@@ -46,8 +44,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
   int get _subtotal => widget.order.subtotal;
   int get _dasarPajak => _subtotal - _billDiscount;
-  int get _taxAmount =>
-      _applyTax && _taxRate > 0 ? (_dasarPajak * _taxRate / 100).round() : 0;
+  int get _taxAmount => _applyTax && _taxRate > 0 ? (_dasarPajak * _taxRate / 100).round() : 0;
   int get _grandTotal => _dasarPajak + _taxAmount;
 
   int get _cashReceived {
@@ -99,6 +96,14 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         discountValue: _discountValue,
         taxRate: _applyTax ? _taxRate : 0,
       );
+      
+      if (_printReceipt) {
+        final txs = await widget.service.getLocalTransactions(limit: 1);
+        if (txs.isNotEmpty) {
+          await PrinterService.instance.printReceipt(txs.first);
+        }
+      }
+
       if (!mounted) return;
       Navigator.of(context).pop();
       await widget.onSuccess();
@@ -121,229 +126,139 @@ class _PaymentDialogState extends State<_PaymentDialog> {
       title: const Text('Pembayaran'),
       content: SizedBox(
         width: contentWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(widget.order.label,
-                    style: const TextStyle(
-                        color: AppTheme.textLightColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
-                Text('${widget.order.itemCount} item',
-                    style: const TextStyle(
-                        color: AppTheme.textLightColor, fontSize: 12)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 130),
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(widget.order.label, style: const TextStyle(color: AppTheme.textLightColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text('${widget.order.itemCount} item', style: const TextStyle(color: AppTheme.textLightColor, fontSize: 12)),
+                ],
               ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(12),
-                itemCount: widget.order.items.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 12, color: Color(0xFFE2E8F0)),
-                itemBuilder: (context, i) {
-                  final item = widget.order.items[i];
-                  return Row(
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 130),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: widget.order.items.length,
+                  separatorBuilder: (_, __) => const Divider(height: 12, color: Color(0xFFE2E8F0)),
+                  itemBuilder: (context, i) {
+                    final item = widget.order.items[i];
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text('${item.productName} x${item.qty}', style: const TextStyle(fontSize: 13, color: AppTheme.textColor), overflow: TextOverflow.ellipsis),
+                        ),
+                        Text('Rp ${_formatter.format(item.subtotal)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textColor)),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              _breakdownRow('Subtotal', 'Rp ${_formatter.format(_subtotal)}'),
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: _editDiscount,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Text(
-                          '${item.productName} x${item.qty}',
-                          style: const TextStyle(
-                              fontSize: 13, color: AppTheme.textColor),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Row(
+                        children: [
+                          Text(_billDiscount > 0 ? 'Diskon' : 'Tambah Diskon', style: TextStyle(fontSize: 12, color: _billDiscount > 0 ? AppTheme.dangerColor : AppTheme.primaryColor, fontWeight: FontWeight.w500)),
+                          const SizedBox(width: 4),
+                          Icon(_billDiscount > 0 ? Icons.edit_outlined : Icons.add_circle_outline, size: 13, color: _billDiscount > 0 ? AppTheme.dangerColor : AppTheme.primaryColor),
+                        ],
                       ),
-                      Text(
-                        'Rp ${_formatter.format(item.subtotal)}',
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textColor),
-                      ),
+                      Text(_billDiscount > 0 ? '−Rp ${_formatter.format(_billDiscount)}' : 'Rp 0', style: TextStyle(fontSize: _billDiscount > 0 ? 13 : 12, fontWeight: FontWeight.w600, color: _billDiscount > 0 ? AppTheme.dangerColor : AppTheme.textLightColor)),
                     ],
-                  );
-                },
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            // Breakdown
-            _breakdownRow('Subtotal', 'Rp ${_formatter.format(_subtotal)}'),
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: _editDiscount,
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
+              if (_applyTax && _taxRate > 0) ...[
+                const SizedBox(height: 6),
+                _breakdownRow('PPN ${_taxRate == _taxRate.roundToDouble() ? _taxRate.toInt() : _taxRate}%', 'Rp ${_formatter.format(_taxAmount)}'),
+              ],
+              const Divider(height: 16, color: Color(0xFFE2E8F0)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total', style: TextStyle(color: AppTheme.textLightColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text('Rp ${_formatter.format(_grandTotal)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Uang Diterima', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _controller,
+                keyboardType: TextInputType.number,
+                inputFormatters: [ThousandFormatter()],
+                decoration: const InputDecoration(prefixText: 'Rp '),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: OutlinedButton(onPressed: () => _setAmount(_grandTotal), child: const Text('UANG PAS'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: OutlinedButton(onPressed: () => _setAmount(50000), child: const Text('50.000'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: OutlinedButton(onPressed: () => _setAmount(100000), child: const Text('100.000'))),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _canPay ? Colors.green.shade50 : AppTheme.dangerColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _canPay ? Colors.green.shade300 : AppTheme.dangerColor.withOpacity(0.3)),
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          _billDiscount > 0 ? 'Diskon' : 'Tambah Diskon',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _billDiscount > 0
-                                ? AppTheme.dangerColor
-                                : AppTheme.primaryColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          _billDiscount > 0
-                              ? Icons.edit_outlined
-                              : Icons.add_circle_outline,
-                          size: 13,
-                          color: _billDiscount > 0
-                              ? AppTheme.dangerColor
-                              : AppTheme.primaryColor,
-                        ),
-                      ],
-                    ),
-                    Text(
-                      _billDiscount > 0
-                          ? '−Rp ${_formatter.format(_billDiscount)}'
-                          : 'Rp 0',
-                      style: TextStyle(
-                        fontSize: _billDiscount > 0 ? 13 : 12,
-                        fontWeight: FontWeight.w600,
-                        color: _billDiscount > 0
-                            ? AppTheme.dangerColor
-                            : AppTheme.textLightColor,
-                      ),
-                    ),
+                    Text(_canPay ? 'Kembalian' : 'Kurang', style: TextStyle(color: _canPay ? Colors.green.shade900 : AppTheme.dangerColor, fontWeight: FontWeight.w600)),
+                    Text('Rp ${_formatter.format(_canPay ? _change : -_change)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _canPay ? Colors.green.shade900 : AppTheme.dangerColor)),
                   ],
                 ),
               ),
-            ),
-            if (_applyTax && _taxRate > 0) ...[
-              const SizedBox(height: 6),
-              _breakdownRow(
-                'PPN ${_taxRate == _taxRate.roundToDouble() ? _taxRate.toInt() : _taxRate}%',
-                'Rp ${_formatter.format(_taxAmount)}',
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: _printReceipt,
+                onChanged: (val) => setState(() => _printReceipt = val ?? true),
+                title: const Text('Cetak Struk Bluetooth', style: TextStyle(fontSize: 12)),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeColor: AppTheme.primaryColor,
               ),
-            ],
-            const Divider(height: 16, color: Color(0xFFE2E8F0)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total',
-                    style: TextStyle(
-                        color: AppTheme.textLightColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
-                Text('Rp ${_formatter.format(_grandTotal)}',
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textColor)),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12)),
               ],
-            ),
-            const SizedBox(height: 16),
-            const Text('Uang Diterima',
-                style: TextStyle(
-                    fontSize: 12, color: AppTheme.textLightColor)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _controller,
-              keyboardType: TextInputType.number,
-              inputFormatters: [ThousandFormatter()],
-              decoration: const InputDecoration(prefixText: 'Rp '),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _setAmount(_grandTotal),
-                    child: const Text('UANG PAS'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _setAmount(50000),
-                    child: const Text('50.000'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _setAmount(100000),
-                    child: const Text('100.000'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _canPay
-                    ? Colors.green.shade50
-                    : AppTheme.dangerColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: _canPay
-                        ? Colors.green.shade300
-                        : AppTheme.dangerColor.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(_canPay ? 'Kembalian' : 'Kurang',
-                      style: TextStyle(
-                          color: _canPay
-                              ? Colors.green.shade900
-                              : AppTheme.dangerColor,
-                          fontWeight: FontWeight.w600)),
-                  Text(
-                      'Rp ${_formatter.format(_canPay ? _change : -_change)}',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: _canPay
-                              ? Colors.green.shade900
-                              : AppTheme.dangerColor)),
-                ],
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!,
-                  style: const TextStyle(
-                      color: AppTheme.dangerColor, fontSize: 12)),
             ],
-          ],
+          ),
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('BATAL'),
-        ),
+        TextButton(onPressed: _saving ? null : () => Navigator.of(context).pop(), child: const Text('BATAL')),
         ElevatedButton(
           onPressed: _canPay && !_saving ? _pay : null,
           child: _saving
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2))
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : const Text('BAYAR'),
         ),
       ],
@@ -354,14 +269,8 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: const TextStyle(
-                color: AppTheme.textLightColor, fontSize: 12)),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textColor)),
+        Text(label, style: const TextStyle(color: AppTheme.textLightColor, fontSize: 12)),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textColor)),
       ],
     );
   }

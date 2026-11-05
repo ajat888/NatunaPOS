@@ -1,17 +1,23 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../core/theme.dart';
 import '../core/tax_settings.dart';
 import '../services/app_settings.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
 import '../services/update_service.dart';
+import '../services/printer_service.dart';
 import '../widgets/common/main_menu_scope.dart';
 
 part 'settings/settings_store_form.dart';
 part 'settings/settings_profile_form.dart';
 part 'settings/settings_tax_form.dart';
+part 'settings/settings_printer_form.dart';
 part 'settings/settings_about_section.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -40,6 +46,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _StoreInfoSection(),
           SizedBox(height: 16),
           _ProfileSection(),
+          SizedBox(height: 16),
+          _PrinterSection(),
           SizedBox(height: 16),
           _TaxSection(),
           SizedBox(height: 16),

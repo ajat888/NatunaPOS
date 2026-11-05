@@ -1,19 +1,19 @@
-// lib/screens/history_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/transaction.dart';
 import '../services/supabase_service.dart';
+import '../services/printer_service.dart';
 import '../widgets/common/main_menu_scope.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  State<HistoryScreen> createState() => HistoryScreenState(); // Ubah jadi public
+  State<HistoryScreen> createState() => HistoryScreenState();
 }
 
-class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
+class HistoryScreenState extends State<HistoryScreen> {
   final _service = SupabaseService();
   List<Transaction> _transactions = [];
   bool _isLoading = true;
@@ -22,10 +22,10 @@ class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
   @override
   void initState() {
     super.initState();
-    reloadData(); // Ganti nama
+    reloadData();
   }
 
-  Future<void> reloadData() async { // Ganti nama jadi public
+  Future<void> reloadData() async {
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -58,6 +58,17 @@ class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
     return t;
   }
 
+  Future<void> _reprint(Transaction tx) async {
+    final ok = await PrinterService.instance.printReceipt(tx);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Struk berhasil dicetak' : 'Gagal cetak struk. Periksa printer.'),
+        backgroundColor: ok ? Colors.green : AppTheme.dangerColor,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,7 +83,7 @@ class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: reloadData, // Ganti nama
+              onPressed: reloadData,
               tooltip: 'Muat ulang'),
         ],
       ),
@@ -83,21 +94,15 @@ class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_errorMessage!,
-                          style: const TextStyle(color: AppTheme.dangerColor)),
+                      Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
-                      TextButton(
-                          onPressed: reloadData, // Ganti nama
-                          child: const Text('Coba Lagi')),
+                      TextButton(onPressed: reloadData, child: const Text('Coba Lagi')),
                     ],
                   ),
                 )
               : _transactions.isEmpty
                   ? const Center(
-                      child: Text(
-                        'Belum ada riwayat transaksi.',
-                        style: TextStyle(color: AppTheme.textLightColor),
-                      ),
+                      child: Text('Belum ada riwayat transaksi.', style: TextStyle(color: AppTheme.textLightColor)),
                     )
                   : _buildList(),
     );
@@ -124,24 +129,28 @@ class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
               splashColor: Colors.transparent,
             ),
             child: ExpansionTile(
-              tilePadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              childrenPadding:
-                  const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-              title: Text(
-                'Rp ${formatCurrency.format(tx.total)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppTheme.textColor,
-                ),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Rp ${formatCurrency.format(tx.total)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.print, size: 20, color: AppTheme.primaryColor),
+                    onPressed: () => _reprint(tx),
+                    tooltip: 'Cetak Ulang',
+                  ),
+                ],
               ),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   '${_displayTable(tx)} • ${dateFormat.format(tx.createdAt)} • ${tx.itemCount} item',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textLightColor),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textLightColor),
                 ),
               ),
               children: [
@@ -153,17 +162,13 @@ class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
                         Expanded(
                           child: Text(
                             '${item.productName}  ×${item.qty}',
-                            style: const TextStyle(
-                                fontSize: 13, color: AppTheme.textColor),
+                            style: const TextStyle(fontSize: 13, color: AppTheme.textColor),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         Text(
                           'Rp ${formatCurrency.format(item.subtotal)}',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textLightColor,
-                              fontWeight: FontWeight.w500),
+                          style: const TextStyle(fontSize: 13, color: AppTheme.textLightColor, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -175,14 +180,10 @@ class HistoryScreenState extends State<HistoryScreen> { // Ubah jadi public
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Tunai / Kembali',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textLightColor)),
+                        const Text('Tunai / Kembali', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
                         Text(
                           'Rp ${formatCurrency.format(tx.cashReceived)} / Rp ${formatCurrency.format(tx.changeAmount)}',
-                          style: const TextStyle(
-                              fontSize: 12, color: AppTheme.textLightColor),
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textLightColor),
                         ),
                       ],
                     ),
