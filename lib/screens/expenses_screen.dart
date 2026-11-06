@@ -3,10 +3,12 @@ import 'package:intl/intl.dart';
 import '../core/breakpoints.dart';
 import '../core/theme.dart';
 import '../models/expense.dart';
+import '../models/expense_category.dart';
 import '../models/expense_item.dart';
 import '../services/app_settings.dart';
 import '../services/expense_service.dart';
 import '../widgets/common/main_menu_scope.dart';
+import '../widgets/common/thousand_formatter.dart';
 
 part 'expenses/expense_input_dialog.dart';
 
