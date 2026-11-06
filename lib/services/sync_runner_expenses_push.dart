@@ -34,8 +34,8 @@ class _SyncExpensesPusher {
               .eq('id', c.id);
         }
         await _localDb.markExpenseCategorySynced(c.id);
-      } catch (e) {
-        debugPrint('Deactivate expense category ${c.id} failed: $e');
+      } catch (err) {
+        debugPrint('Deactivate expense category ${c.id} failed: $err');
         failures++;
       }
     }
@@ -54,8 +54,8 @@ class _SyncExpensesPusher {
               .eq('id', it.id);
         }
         await _localDb.markExpenseItemSynced(it.id);
-      } catch (e) {
-        debugPrint('Deactivate expense item ${it.id} failed: $e');
+      } catch (err) {
+        debugPrint('Deactivate expense item ${it.id} failed: $err');
         failures++;
       }
     }
@@ -74,8 +74,8 @@ class _SyncExpensesPusher {
               .eq('id', e.id);
         }
         await _localDb.markExpenseSyncedAndDeleted(e.id);
-      } catch (e) {
-        debugPrint('Deactivate expense ${e.id} failed: $e');
+      } catch (err) {
+        debugPrint('Deactivate expense ${e.id} failed: $err');
         failures++;
       }
     }
@@ -99,8 +99,8 @@ class _SyncExpensesPusher {
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
             }
-          } catch (e) {
-            debugPrint('Expense category idempotency probe failed: $e');
+          } catch (err) {
+            debugPrint('Expense category idempotency probe failed: $err');
           }
 
           int newId;
@@ -133,8 +133,8 @@ class _SyncExpensesPusher {
           }
           await _localDb.upsertExpenseCategory(c.copyWith(isSynced: true));
         }
-      } catch (e) {
-        debugPrint('Push expense category ${c.id} failed: $e');
+      } catch (err) {
+        debugPrint('Push expense category ${c.id} failed: $err');
         failures++;
       }
     }
@@ -146,9 +146,9 @@ class _SyncExpensesPusher {
     for (final entry in categoryIdMap.entries) {
       try {
         await _localDb.remapExpenseItemCategory(entry.key, entry.value);
-      } catch (e) {
+      } catch (err) {
         debugPrint(
-            'Remap expense category ${entry.key} -> ${entry.value} failed: $e');
+            'Remap expense category ${entry.key} -> ${entry.value} failed: $err');
         failures++;
       }
     }
@@ -185,8 +185,8 @@ class _SyncExpensesPusher {
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
             }
-          } catch (e) {
-            debugPrint('Expense item idempotency probe failed: $e');
+          } catch (err) {
+            debugPrint('Expense item idempotency probe failed: $err');
           }
 
           int newId;
@@ -231,8 +231,8 @@ class _SyncExpensesPusher {
           }
           await _localDb.upsertExpenseItem(it.copyWith(isSynced: true));
         }
-      } catch (e) {
-        debugPrint('Push expense item ${it.id} failed: $e');
+      } catch (err) {
+        debugPrint('Push expense item ${it.id} failed: $err');
         failures++;
       }
     }
