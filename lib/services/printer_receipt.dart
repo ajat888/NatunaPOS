@@ -1,3 +1,4 @@
+// lib/services/printer_receipt.dart
 part of 'printer_service.dart';
 
 extension _ReceiptGenerator on PrinterService {
@@ -8,45 +9,34 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.reset());
 
-    // 1. PROSES LOGO (DIPERKETAT)
     final logoPath = settings.logoPath.value;
     if (logoPath != null && File(logoPath).existsSync()) {
       try {
         final rawImage = img.decodeImage(File(logoPath).readAsBytesSync());
         if (rawImage != null) {
-          // A. Buat kanvas putih sebagai background (menghapus transparansi)
           final background = img.Image(
             width: rawImage.width,
             height: rawImage.height,
           );
           img.fill(background, color: img.ColorRgb8(255, 255, 255));
-          
-          // B. Gabungkan logo asli ke atas background putih
           final flattened = img.compositeImage(background, rawImage);
-          
-          // C. Resize ke lebar aman (180px) agar tidak memenuhi buffer printer
           final resized = img.copyResize(flattened, width: 180);
-          
-          // D. Ubah ke Grayscale (hitam-putih murni) agar printer bisa membacanya
           final grayscale = img.grayscale(resized);
-
-          // E. Cetak gambar
           bytes.addAll(generator.imageRaster(
             grayscale,
             align: PosAlign.center,
           ));
-          bytes.addAll(generator.feed(1)); // Jarak setelah logo
+          bytes.addAll(generator.feed(1));
         }
       } catch (e) {
         debugPrint('Render logo gagal: $e');
       }
     }
 
-    // 2. NAMA TOKO & SUBTITLE
     bytes.addAll(generator.text(
       settings.storeName.value.toUpperCase(),
       styles: const PosStyles(
-        align: PosAlign.center, 
+        align: PosAlign.center,
         bold: true,
       ),
     ));
@@ -74,9 +64,8 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.hr());
 
-    // 3. INFO TRANSAKSI & WAKTU
     final dateFmt = DateFormat('yyyyMMdd').format(tx.createdAt);
-    final timeFmt = DateFormat('dd/MM/yy HH:mm').format(tx.createdAt); 
+    final timeFmt = DateFormat('dd/MM/yy HH:mm').format(tx.createdAt);
     final noNota = 'NTN-$dateFmt-${tx.id.toString().padLeft(4, '0')}';
     final table = tx.tableNumber ?? '-';
 
@@ -88,6 +77,19 @@ extension _ReceiptGenerator on PrinterService {
       PosColumn(text: 'Meja', width: 4),
       PosColumn(text: ': $table', width: 8),
     ]));
+
+    if (tx.parentOrderKey != null) {
+      String splitLabel = tx.parentOrderKey!;
+      if (splitLabel.startsWith('M-')) {
+        final n = int.tryParse(splitLabel.substring(2));
+        if (n != null) splitLabel = 'Meja $n';
+      }
+      bytes.addAll(generator.row([
+        PosColumn(text: 'Split', width: 4),
+        PosColumn(text: ': $splitLabel', width: 8),
+      ]));
+    }
+
     bytes.addAll(generator.row([
       PosColumn(text: 'Waktu', width: 4),
       PosColumn(text: ': $timeFmt', width: 8),
@@ -95,7 +97,6 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.hr());
 
-    // 4. DAFTAR ITEM
     for (final item in tx.items) {
       bytes.addAll(generator.text(item.productName, styles: const PosStyles(bold: true)));
       final sub = NumberFormat.decimalPattern('id').format(item.subtotal);
@@ -108,7 +109,6 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.hr());
 
-    // 5. RINGKASAN PEMBAYARAN
     final fmt = NumberFormat.decimalPattern('id');
     bytes.addAll(generator.row([
       PosColumn(text: 'Subtotal', width: 6, styles: const PosStyles(bold: true)),
@@ -146,7 +146,6 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.hr());
 
-    // 6. FOOTER
     if (settings.receiptFooter.value.isNotEmpty) {
       bytes.addAll(generator.text(
         settings.receiptFooter.value,

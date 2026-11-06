@@ -55,7 +55,7 @@ class Transaction {
   final int total;
   final int subtotal;
   final int billDiscount;
-  final String discountType; // 'nominal' | 'percent'
+  final String discountType;
   final int discountValue;
   final double taxRate;
   final int taxAmount;
@@ -66,6 +66,7 @@ class Transaction {
   final int changeAmount;
   final String? tableNumber;
   final String? orderType;
+  final String? parentOrderKey;
 
   Transaction({
     required this.id,
@@ -83,6 +84,7 @@ class Transaction {
     this.changeAmount = 0,
     this.tableNumber,
     this.orderType,
+    this.parentOrderKey,
   });
 
   factory Transaction.fromDb(
@@ -108,8 +110,11 @@ class Transaction {
       changeAmount: (m['change_amount'] as num?)?.toInt() ?? 0,
       tableNumber: m['table_number'] as String?,
       orderType: m['order_type'] as String?,
+      parentOrderKey: m['parent_order_key'] as String?,
     );
   }
 
   int get itemCount => items.fold(0, (s, e) => s + e.qty);
+
+  bool get isSplit => parentOrderKey != null;
 }

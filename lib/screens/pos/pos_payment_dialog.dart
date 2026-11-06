@@ -4,11 +4,13 @@ class _PaymentDialog extends StatefulWidget {
   final OpenOrder order;
   final SupabaseService service;
   final Future<void> Function() onSuccess;
+  final Map<int, int>? splitSelection;
 
   const _PaymentDialog({
     required this.order,
     required this.service,
     required this.onSuccess,
+    this.splitSelection,
   });
 
   @override
@@ -87,16 +89,29 @@ class _PaymentDialogState extends State<_PaymentDialog> {
       _error = null;
     });
     try {
-      await widget.service.payOpenOrder(
-        orderKey: widget.order.orderKey,
-        cashReceived: _cashReceived,
-        changeAmount: _change,
-        billDiscount: _billDiscount,
-        discountType: _discountType,
-        discountValue: _discountValue,
-        taxRate: _applyTax ? _taxRate : 0,
-      );
-      
+      if (widget.splitSelection != null) {
+        await widget.service.payPartialOpenOrder(
+          orderKey: widget.order.orderKey,
+          selections: widget.splitSelection!,
+          cashReceived: _cashReceived,
+          changeAmount: _change,
+          billDiscount: _billDiscount,
+          discountType: _discountType,
+          discountValue: _discountValue,
+          taxRate: _applyTax ? _taxRate : 0,
+        );
+      } else {
+        await widget.service.payOpenOrder(
+          orderKey: widget.order.orderKey,
+          cashReceived: _cashReceived,
+          changeAmount: _change,
+          billDiscount: _billDiscount,
+          discountType: _discountType,
+          discountValue: _discountValue,
+          taxRate: _applyTax ? _taxRate : 0,
+        );
+      }
+
       if (_printReceipt) {
         final txs = await widget.service.getLocalTransactions(limit: 1);
         if (txs.isNotEmpty) {
@@ -123,7 +138,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      title: const Text('Pembayaran'),
+      title: Text(widget.splitSelection != null
+          ? 'Pembayaran Split'
+          : 'Pembayaran'),
       content: SizedBox(
         width: contentWidth,
         child: SingleChildScrollView(

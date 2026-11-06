@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/supabase_service.dart';
-import '../services/printer_service.dart'; // <-- TAMBAHKAN BARIS INI
+import '../services/printer_service.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
@@ -20,9 +20,10 @@ part 'pos/pos_menu_picker.dart';
 part 'pos/pos_order_detail.dart';
 part 'pos/pos_payment_dialog.dart';
 part 'pos/pos_save_dialog.dart';
-part 'pos/pos_discount_dialog.dart';      // ← BARU
+part 'pos/pos_discount_dialog.dart';
+part 'pos/pos_split_view.dart';
 
-enum PosView { tables, menu, orderDetail }
+enum PosView { tables, menu, orderDetail, split }
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -191,6 +192,10 @@ class PosScreenState extends State<PosScreen> {
     });
   }
 
+  void _openSplitView() {
+    setState(() => _view = PosView.split);
+  }
+
   void _addToCart(Product product) {
     setState(() => _cart[product.id] = (_cart[product.id] ?? 0) + 1);
   }
@@ -228,7 +233,7 @@ class PosScreenState extends State<PosScreen> {
     final target = _activeOrderType == 'take_away'
         ? '$_activeOrderKey'
         : 'Meja $_activeTableNumber';
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => _SaveOrderDialog(
@@ -239,7 +244,7 @@ class PosScreenState extends State<PosScreen> {
         itemCount: _cartItemCount,
       ),
     );
-    
+
     if (confirmed != true) return;
 
     try {
@@ -294,15 +299,33 @@ class PosScreenState extends State<PosScreen> {
         lines: lines,
       );
     }
-    
+
     _cart.clear();
-    
+
     await _reloadOpenOrders();
     if (!mounted) return;
     if (_afterMenuView == PosView.orderDetail) {
       final o = _findOrder(_activeOrderKey!);
       if (o != null) {
         _openOrderDetail(o);
+        return;
+      }
+    }
+    _backToTables();
+  }
+
+  Future<void> _handlePaySuccess(String orderKey) async {
+    await _reloadOpenOrders();
+    _service.syncData();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Pembayaran berhasil'),
+      backgroundColor: Colors.green,
+    ));
+    if (_view == PosView.split) {
+      final refreshed = _findOrder(orderKey);
+      if (refreshed != null) {
+        _openOrderDetail(refreshed);
         return;
       }
     }
@@ -316,16 +339,48 @@ class PosScreenState extends State<PosScreen> {
       builder: (_) => _PaymentDialog(
         order: order,
         service: _service,
-        onSuccess: () async {
-          await _reloadOpenOrders();
-          _service.syncData();
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Pembayaran berhasil'),
-            backgroundColor: Colors.green,
-          ));
-          _backToTables();
-        },
+        onSuccess: () => _handlePaySuccess(order.orderKey),
+      ),
+    );
+  }
+
+  Future<void> _handleSplitPay(Map<int, int> selection) async {
+    final realOrder = _findOrder(_activeOrderKey ?? '');
+    if (realOrder == null) return;
+
+    final itemsById = {for (final i in realOrder.items) i.id: i};
+    final virtualItems = <OpenOrderItem>[];
+    for (final entry in selection.entries) {
+      final item = itemsById[entry.key];
+      if (item == null || entry.value <= 0) continue;
+      virtualItems.add(OpenOrderItem(
+        id: item.id,
+        orderKey: item.orderKey,
+        productId: item.productId,
+        productName: item.productName,
+        price: item.price,
+        hpp: item.hpp,
+        qty: entry.value,
+      ));
+    }
+    if (virtualItems.isEmpty) return;
+
+    final virtualOrder = OpenOrder(
+      orderKey: realOrder.orderKey,
+      orderType: realOrder.orderType,
+      tableNumber: realOrder.tableNumber,
+      createdAt: realOrder.createdAt,
+      items: virtualItems,
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PaymentDialog(
+        order: virtualOrder,
+        service: _service,
+        splitSelection: selection,
+        onSuccess: () => _handlePaySuccess(realOrder.orderKey),
       ),
     );
   }
@@ -379,6 +434,8 @@ class PosScreenState extends State<PosScreen> {
         return _buildMenuView();
       case PosView.orderDetail:
         return _buildOrderDetailView();
+      case PosView.split:
+        return _buildSplitView();
     }
   }
 
@@ -446,6 +503,7 @@ class PosScreenState extends State<PosScreen> {
       onBack: _backToTables,
       onAddMore: _startAddToExisting,
       onPay: () => _showPaymentFor(order),
+      onSplit: _openSplitView,
       onAdjustQty: (item, delta) => _adjustOpenOrderItemQty(order, item, delta),
       onVoid: () async {
         await _localDb.deleteOpenOrder(order.orderKey);
@@ -453,6 +511,24 @@ class PosScreenState extends State<PosScreen> {
         if (!mounted) return;
         _backToTables();
       },
+    );
+  }
+
+  Widget _buildSplitView() {
+    final order =
+        _activeOrderKey != null ? _findOrder(_activeOrderKey!) : null;
+    if (order == null) return _buildTablesView();
+    return _PosSplitView(
+      order: order,
+      onBack: () {
+        final o = _findOrder(_activeOrderKey!);
+        if (o != null) {
+          _openOrderDetail(o);
+        } else {
+          _backToTables();
+        }
+      },
+      onPay: _handleSplitPay,
     );
   }
 }

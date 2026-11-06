@@ -30,7 +30,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -94,6 +94,9 @@ class LocalDb with
     }
     if (oldVersion < 10) {
       await LocalDbOpenOrders.createTableDeletedOpenOrderKeys(db);
+    }
+    if (oldVersion < 11) {
+      await LocalDbTransactions.upgradeTransactionsV11(db);
     }
   }
 

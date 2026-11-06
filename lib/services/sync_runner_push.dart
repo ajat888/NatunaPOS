@@ -367,6 +367,9 @@ class _SyncPusher {
           'table_number': tx.tableNumber,
           'order_type': tx.orderType,
         };
+        if (tx.parentOrderKey != null) {
+          payload['parent_order_key'] = tx.parentOrderKey;
+        }
 
         int? existingId;
         try {

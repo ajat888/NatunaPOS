@@ -6,6 +6,7 @@ class _PosOrderDetailView extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onAddMore;
   final VoidCallback onPay;
+  final VoidCallback onSplit;
   final void Function(OpenOrderItem item, int delta) onAdjustQty;
   final Future<void> Function() onVoid;
 
@@ -14,9 +15,13 @@ class _PosOrderDetailView extends StatelessWidget {
     required this.onBack,
     required this.onAddMore,
     required this.onPay,
+    required this.onSplit,
     required this.onAdjustQty,
     required this.onVoid,
   });
+
+  bool get _canSplit =>
+      order.items.length > 1 || order.items.any((i) => i.qty > 1);
 
   @override
   Widget build(BuildContext context) {
@@ -64,8 +69,6 @@ class _PosOrderDetailView extends StatelessWidget {
     );
   }
 
-  // ---------- WIDE ----------
-
   Widget _buildWide() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,8 +99,6 @@ class _PosOrderDetailView extends StatelessWidget {
     );
   }
 
-  // ---------- COMPACT ----------
-
   Widget _buildCompact() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -124,8 +125,6 @@ class _PosOrderDetailView extends StatelessWidget {
       ],
     );
   }
-
-  // ---------- SHARED ----------
 
   Widget _buildItemsList() {
     final formatCurrency = NumberFormat.decimalPattern('id');
@@ -211,10 +210,19 @@ class _PosOrderDetailView extends StatelessWidget {
     final addButton = OutlinedButton.icon(
       onPressed: onAddMore,
       icon: const Icon(Icons.add),
-      label: const Text('TAMBAH PESANAN'),
+      label: const Text('TAMBAH'),
       style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14)),
     );
+    final splitButton = _canSplit
+        ? OutlinedButton.icon(
+            onPressed: onSplit,
+            icon: const Icon(Icons.call_split),
+            label: const Text('SPLIT'),
+            style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14)),
+          )
+        : null;
     final payButton = ElevatedButton.icon(
       onPressed: onPay,
       icon: const Icon(Icons.payments_outlined),
@@ -225,12 +233,24 @@ class _PosOrderDetailView extends StatelessWidget {
     if (vertical) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [addButton, const SizedBox(height: 8), payButton],
+        children: [
+          addButton,
+          const SizedBox(height: 8),
+          if (splitButton != null) ...[
+            splitButton,
+            const SizedBox(height: 8),
+          ],
+          payButton,
+        ],
       );
     }
     return Row(
       children: [
         Expanded(child: addButton),
+        if (splitButton != null) ...[
+          const SizedBox(width: 8),
+          Expanded(child: splitButton),
+        ],
         const SizedBox(width: 8),
         Expanded(child: payButton),
       ],

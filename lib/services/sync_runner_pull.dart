@@ -68,10 +68,6 @@ class _SyncPuller {
     }
   }
 
-  /// Download gambar produk yang belum punya file lokal. Dijalankan setelah
-  /// `replaceAllProducts` supaya `local_image_path` yang sudah ada tidak hilang.
-  /// Kegagalan download tidak dihitung sebagai sync failure — akan dicoba lagi
-  /// pada sync berikutnya.
   Future<void> _downloadMissingImages() async {
     try {
       final missing = await _localDb.getProductsNeedingImageDownload();
@@ -123,7 +119,7 @@ class _SyncPuller {
           final response = await _client
               .from('transactions')
               .select(
-                  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)')
+                  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)')
               .order('id', ascending: true)
               .range(offset, offset + pageSize - 1);
           list = response as List;
@@ -210,6 +206,7 @@ class _SyncPuller {
             changeAmount: (m['change_amount'] as num?)?.toInt() ?? 0,
             tableNumber: m['table_number'] as String?,
             orderType: m['order_type'] as String?,
+            parentOrderKey: m['parent_order_key'] as String?,
           );
         }
         if (list.length < pageSize) break;

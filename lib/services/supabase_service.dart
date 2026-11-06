@@ -1,3 +1,4 @@
+// lib/services/supabase_service.dart
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -392,6 +393,69 @@ class SupabaseService {
       taxAmount: taxAmount,
       createdAt: now,
       lines: lines,
+      cashReceived: cashReceived,
+      changeAmount: changeAmount,
+      tableNumber: order.orderKey,
+      orderType: order.orderType,
+    );
+
+    await SyncStatusService.instance.refreshPendingCount();
+  }
+
+  Future<void> payPartialOpenOrder({
+    required String orderKey,
+    required Map<int, int> selections,
+    required int cashReceived,
+    required int changeAmount,
+    required int billDiscount,
+    required String discountType,
+    required int discountValue,
+    required double taxRate,
+  }) async {
+    final order = await _localDb.getOpenOrder(orderKey);
+    if (order == null) throw Exception('Pesanan tidak ditemukan');
+
+    final itemsById = {for (final item in order.items) item.id: item};
+    final lines = <TransactionLine>[];
+    int subtotal = 0;
+    for (final entry in selections.entries) {
+      final item = itemsById[entry.key];
+      if (item == null) continue;
+      final qty = entry.value;
+      if (qty <= 0) continue;
+      subtotal += item.price * qty;
+      lines.add(TransactionLine(
+        productId: item.productId,
+        productName: item.productName,
+        price: item.price,
+        hpp: item.hpp,
+        qty: qty,
+      ));
+    }
+    if (lines.isEmpty) throw Exception('Tidak ada item yang dipilih');
+
+    final safeDiscount = billDiscount.clamp(0, subtotal).toInt();
+    final dasarPajak = subtotal - safeDiscount;
+    final taxAmount =
+        taxRate > 0 ? (dasarPajak * taxRate / 100).round() : 0;
+    final grandTotal = dasarPajak + taxAmount;
+
+    final now = DateTime.now();
+    final transactionId = -now.toUtc().microsecondsSinceEpoch;
+
+    await _localDb.payPartialOpenOrderAtomic(
+      transactionId: transactionId,
+      orderKey: orderKey,
+      total: grandTotal,
+      subtotal: subtotal,
+      billDiscount: safeDiscount,
+      discountType: discountType,
+      discountValue: discountValue,
+      taxRate: taxRate,
+      taxAmount: taxAmount,
+      createdAt: now,
+      lines: lines,
+      selectionQtyByItemId: selections,
       cashReceived: cashReceived,
       changeAmount: changeAmount,
       tableNumber: order.orderKey,
