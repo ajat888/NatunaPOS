@@ -20,6 +20,7 @@ class _ProductDialogState extends State<_ProductDialog> {
   String? _existingImageUrl;
   String? _localImagePath;
   bool _isSaving = false;
+  bool _isPickingImage = false;
   String? _errorMessage;
 
   Timer? _debounce;
@@ -75,29 +76,60 @@ class _ProductDialogState extends State<_ProductDialog> {
   }
 
   Future<void> _pickImage() async {
+    if (_isPickingImage) return;
+    setState(() => _isPickingImage = true);
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 70,
+        imageQuality: 60,
         maxWidth: 800,
         maxHeight: 800,
+        requestFullMetadata: false,
       );
-      if (pickedFile != null) {
-        final appDir = await getApplicationDocumentsDirectory();
-        final fileName = 'img_${DateTime.now().microsecondsSinceEpoch}.jpg';
-        final localFile =
-            await File(pickedFile.path).copy('${appDir.path}/$fileName');
-        setState(() {
-          _imageFile = localFile;
-          _localImagePath = localFile.path;
-        });
+      if (pickedFile == null) {
+        if (mounted) setState(() => _isPickingImage = false);
+        return;
       }
-    } catch (e) {
+
+      final sourceFile = File(pickedFile.path);
+      if (!await sourceFile.exists()) {
+        throw Exception('File gambar tidak ditemukan');
+      }
+
+      final fileSize = await sourceFile.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        throw Exception('Ukuran gambar terlalu besar (>5MB). Pilih yang lebih kecil.');
+      }
+
+      final appDir = await getApplicationDocumentsDirectory();
+      if (!await appDir.exists()) {
+        await appDir.create(recursive: true);
+      }
+      final fileName = 'img_${DateTime.now().microsecondsSinceEpoch}.jpg';
+      final localFile = await sourceFile.copy('${appDir.path}/$fileName');
+
       if (!mounted) return;
+      setState(() {
+        _imageFile = localFile;
+        _localImagePath = localFile.path;
+        _isPickingImage = false;
+      });
+    } catch (e) {
+      debugPrint('Pick image failed: $e');
+      if (!mounted) return;
+      setState(() => _isPickingImage = false);
+      final msg = e.toString().replaceAll('Exception: ', '');
+      final isPermission = msg.toLowerCase().contains('permission') ||
+          msg.toLowerCase().contains('denied') ||
+          msg.toLowerCase().contains('access');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Gagal memilih gambar: $e'),
-          backgroundColor: AppTheme.dangerColor));
+        content: Text(isPermission
+            ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
+            : 'Gagal memilih gambar: $msg'),
+        backgroundColor: AppTheme.dangerColor,
+        duration: const Duration(seconds: 6),
+      ));
     }
   }
 
@@ -179,7 +211,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               ],
               Center(
                 child: GestureDetector(
-                  onTap: _pickImage,
+                  onTap: _isPickingImage ? null : _pickImage,
                   child: Container(
                     height: 120,
                     width: 120,
@@ -191,10 +223,17 @@ class _ProductDialogState extends State<_ProductDialog> {
                             ? DecorationImage(
                                 image: imageProvider, fit: BoxFit.cover)
                             : null),
-                    child: imageProvider == null
-                        ? const Icon(Icons.add_a_photo_outlined,
-                            color: AppTheme.textLightColor, size: 32)
-                        : null,
+                    child: _isPickingImage
+                        ? const Center(
+                            child: SizedBox(
+                                height: 24,
+                                width: 24,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)))
+                        : imageProvider == null
+                            ? const Icon(Icons.add_a_photo_outlined,
+                                color: AppTheme.textLightColor, size: 32)
+                            : null,
                   ),
                 ),
               ),

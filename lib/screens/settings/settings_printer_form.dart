@@ -10,33 +10,63 @@ class _PrinterSection extends StatefulWidget {
 class _PrinterSectionState extends State<_PrinterSection> {
   bool _scanning = false;
   bool _testing = false;
+  bool _pickingLogo = false;
   List<BluetoothInfo> _devices = [];
   String? _error;
 
   Future<void> _pickLogo() async {
+    if (_pickingLogo) return;
+    setState(() => _pickingLogo = true);
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 400,
         maxHeight: 400,
-        imageQuality: 80,
+        imageQuality: 70,
+        requestFullMetadata: false,
       );
-      
-      if (picked != null) {
-        final appDir = await getApplicationDocumentsDirectory();
-        final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.png';
-        final localFile = await File(picked.path).copy('${appDir.path}/$fileName');
-        await AppSettings.instance.saveLogoPath(localFile.path);
-        if (mounted) setState(() {});
+
+      if (picked == null) {
+        if (mounted) setState(() => _pickingLogo = false);
+        return;
       }
+
+      final sourceFile = File(picked.path);
+      if (!await sourceFile.exists()) {
+        throw Exception('File gambar tidak ditemukan');
+      }
+
+      final fileSize = await sourceFile.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        throw Exception('Ukuran gambar terlalu besar (>5MB). Pilih yang lebih kecil.');
+      }
+
+      final appDir = await getApplicationDocumentsDirectory();
+      if (!await appDir.exists()) {
+        await appDir.create(recursive: true);
+      }
+      final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.png';
+      final localFile = await sourceFile.copy('${appDir.path}/$fileName');
+      await AppSettings.instance.saveLogoPath(localFile.path);
+
+      if (!mounted) return;
+      setState(() => _pickingLogo = false);
     } catch (e) {
       debugPrint('Pick logo failed: $e');
       if (!mounted) return;
+      setState(() => _pickingLogo = false);
+      final msg = e.toString().replaceAll('Exception: ', '');
+      final isPermission = msg.toLowerCase().contains('permission') ||
+          msg.toLowerCase().contains('denied') ||
+          msg.toLowerCase().contains('access');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gagal memuat gambar. Pastikan izin galeri aktif.'),
+        SnackBar(
+          content: Text(isPermission
+              ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
+              : 'Gagal memuat gambar: $msg'),
           backgroundColor: AppTheme.dangerColor,
+          duration: const Duration(seconds: 6),
         ),
       );
     }
@@ -92,8 +122,7 @@ class _PrinterSectionState extends State<_PrinterSection> {
   @override
   Widget build(BuildContext context) {
     final settings = AppSettings.instance;
-    
-    // Cek apakah logo ada dan file-nya benar-benar ada di HP
+
     final logoPath = settings.logoPath.value;
     final hasLogo = logoPath != null && File(logoPath).existsSync();
 
@@ -113,21 +142,27 @@ class _PrinterSectionState extends State<_PrinterSection> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: hasLogo
-                      ? Image.file(File(logoPath), fit: BoxFit.contain)
-                      : const Icon(Icons.image, color: AppTheme.primaryColor),
+                  child: _pickingLogo
+                      ? const Center(
+                          child: SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2)))
+                      : hasLogo
+                          ? Image.file(File(logoPath), fit: BoxFit.contain)
+                          : const Icon(Icons.image, color: AppTheme.primaryColor),
                 ),
                 title: const Text('Logo Struk'),
                 subtitle: Text(hasLogo ? 'Logo terpasang' : 'Belum ada logo'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: _pickLogo,
+                onTap: _pickingLogo ? null : _pickLogo,
               ),
               const Divider(height: 1, color: Color(0xFFE2E8F0)),
               ListTile(
                 leading: const Icon(Icons.bluetooth, color: AppTheme.primaryColor),
                 title: const Text('Printer Bluetooth'),
                 subtitle: Text(settings.printerName.value ?? 'Belum terhubung'),
-                trailing: _scanning 
+                trailing: _scanning
                   ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.search),
                 onTap: _scanning ? null : _scanDevices,
@@ -140,8 +175,8 @@ class _PrinterSectionState extends State<_PrinterSection> {
                       dense: true,
                       title: Text(d.name),
                       subtitle: Text(d.macAdress),
-                      trailing: settings.printerMac.value == d.macAdress 
-                        ? const Icon(Icons.check_circle, color: Colors.green, size: 16) 
+                      trailing: settings.printerMac.value == d.macAdress
+                        ? const Icon(Icons.check_circle, color: Colors.green, size: 16)
                         : null,
                       onTap: () => _selectDevice(d),
                     )).toList(),
@@ -156,7 +191,7 @@ class _PrinterSectionState extends State<_PrinterSection> {
               ListTile(
                 leading: const Icon(Icons.print, color: AppTheme.primaryColor),
                 title: const Text('Test Print'),
-                trailing: _testing 
+                trailing: _testing
                   ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.chevron_right),
                 onTap: _testing ? null : _testPrint,
