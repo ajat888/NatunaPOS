@@ -7,13 +7,19 @@ import 'local_db/local_db_categories.dart';
 import 'local_db/local_db_transactions.dart';
 import 'local_db/local_db_open_orders.dart';
 import 'local_db/local_db_auth.dart';
+import 'local_db/local_db_expense_categories.dart';
+import 'local_db/local_db_expense_items.dart';
+import 'local_db/local_db_expenses.dart';
 
 class LocalDb with
     LocalDbProducts,
     LocalDbCategories,
     LocalDbTransactions,
     LocalDbOpenOrders,
-    LocalDbAuth {
+    LocalDbAuth,
+    LocalDbExpenseCategories,
+    LocalDbExpenseItems,
+    LocalDbExpenses {
   static final LocalDb instance = LocalDb._init();
   static Future<Database>? _dbFuture;
 
@@ -30,7 +36,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -43,6 +49,9 @@ class LocalDb with
     await LocalDbAuth.createTableAuthCache(db);
     await LocalDbOpenOrders.createTableOpenOrders(db);
     await LocalDbOpenOrders.createTableDeletedOpenOrderKeys(db);
+    await LocalDbExpenseCategories.createTableExpenseCategories(db);
+    await LocalDbExpenseItems.createTableExpenseItems(db);
+    await LocalDbExpenses.createTableExpenses(db);
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -98,15 +107,23 @@ class LocalDb with
     if (oldVersion < 11) {
       await LocalDbTransactions.upgradeTransactionsV11(db);
     }
+    if (oldVersion < 12) {
+      await LocalDbExpenseCategories.createTableExpenseCategories(db);
+      await LocalDbExpenseItems.createTableExpenseItems(db);
+      await LocalDbExpenses.createTableExpenses(db);
+    }
   }
 
   Future<int> countPendingSync() async {
     final db = await database;
     final result = await db.rawQuery('''
       SELECT
-        (SELECT COUNT(*) FROM products      WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM categories    WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM transactions  WHERE is_synced = 0)
+        (SELECT COUNT(*) FROM products            WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM categories          WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM transactions        WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM expense_categories  WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM expense_items       WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM expenses            WHERE is_synced = 0)
       AS total
     ''');
     final v = result.first['total'];

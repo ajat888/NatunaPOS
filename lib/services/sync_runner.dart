@@ -10,12 +10,17 @@ import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
 import '../models/open_order.dart';
+import '../models/expense_category.dart';
+import '../models/expense_item.dart';
+import '../models/expense.dart';
 import 'app_settings.dart';
 
 part 'sync_runner_push.dart';
 part 'sync_runner_pull.dart';
 part 'sync_runner_open_orders.dart';
 part 'sync_runner_settings.dart';
+part 'sync_runner_expenses_push.dart';
+part 'sync_runner_expenses_pull.dart';
 
 class SyncRunner {
   final SupabaseClient client;
@@ -36,8 +41,11 @@ class SyncRunner {
     failures += await openOrderSync.pushDeletes();
     failures += await openOrderSync.pushUpserts();
 
+    failures += await _SyncExpensesPusher(this).pushAll();
+
     failures += await _SyncPuller(this).pullAll();
     failures += await openOrderSync.pull();
+    failures += await _SyncExpensesPuller(this).pullAll();
     failures += await _SyncSettings(this).sync();
 
     return failures;
