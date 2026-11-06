@@ -12,8 +12,13 @@ class AppSettings {
   static const String _kReceiptFooter = 'natunapos_receipt_footer';
   static const String _kCashierName = 'natunapos_cashier_name';
   static const String _kLogoPath = 'natunapos_logo_path';
+  static const String _kLogoUrl = 'natunapos_logo_url';
   static const String _kPrinterMac = 'natunapos_printer_mac';
   static const String _kPrinterName = 'natunapos_printer_name';
+  static const String _kSettingsDirty = 'natunapos_settings_dirty';
+  static const String _kLogoDirty = 'natunapos_logo_dirty';
+  static const String _kSettingsUpdatedAtMs =
+      'natunapos_settings_updated_at_ms';
 
   final ValueNotifier<String> storeName = ValueNotifier('');
   final ValueNotifier<String> storeSubtitle = ValueNotifier('');
@@ -25,6 +30,16 @@ class AppSettings {
   final ValueNotifier<String?> printerMac = ValueNotifier(null);
   final ValueNotifier<String?> printerName = ValueNotifier(null);
 
+  String? _logoUrl;
+  bool _isDirty = false;
+  bool _isLogoDirty = false;
+  int _updatedAtMs = 0;
+
+  String? get logoUrl => _logoUrl;
+  bool get isDirty => _isDirty;
+  bool get isLogoDirty => _isLogoDirty;
+  int get updatedAtMs => _updatedAtMs;
+
   Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -35,10 +50,24 @@ class AppSettings {
       receiptFooter.value = prefs.getString(_kReceiptFooter) ?? '';
       cashierName.value = prefs.getString(_kCashierName) ?? '';
       logoPath.value = prefs.getString(_kLogoPath);
+      _logoUrl = prefs.getString(_kLogoUrl);
       printerMac.value = prefs.getString(_kPrinterMac);
       printerName.value = prefs.getString(_kPrinterName);
+      _isDirty = prefs.getBool(_kSettingsDirty) ?? false;
+      _isLogoDirty = prefs.getBool(_kLogoDirty) ?? false;
+      _updatedAtMs = prefs.getInt(_kSettingsUpdatedAtMs) ?? 0;
     } catch (e) {
       debugPrint('AppSettings load failed: $e');
+    }
+  }
+
+  Future<void> markDirty() async {
+    _isDirty = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kSettingsDirty, true);
+    } catch (e) {
+      debugPrint('AppSettings markDirty failed: $e');
     }
   }
 
@@ -61,6 +90,7 @@ class AppSettings {
     storeAddress.value = address.trim();
     storePhone.value = phone.trim();
     receiptFooter.value = footer.trim();
+    await markDirty();
   }
 
   Future<void> saveCashierName(String name) async {
@@ -78,6 +108,25 @@ class AppSettings {
       await prefs.setString(_kLogoPath, path);
     }
     logoPath.value = path;
+    _isLogoDirty = true;
+    await prefs.setBool(_kLogoDirty, true);
+    await markDirty();
+  }
+
+  Future<void> saveLogoUrl(String? url) async {
+    _logoUrl = url;
+    final prefs = await SharedPreferences.getInstance();
+    if (url == null) {
+      await prefs.remove(_kLogoUrl);
+    } else {
+      await prefs.setString(_kLogoUrl, url);
+    }
+  }
+
+  Future<void> clearLogoDirty() async {
+    _isLogoDirty = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kLogoDirty, false);
   }
 
   Future<void> savePrinter(String? mac, String? name) async {
@@ -91,5 +140,70 @@ class AppSettings {
     }
     printerMac.value = mac;
     printerName.value = name;
+  }
+
+  Map<String, dynamic> toServerJson({String? logoUrl}) {
+    return {
+      'store_name': storeName.value,
+      'store_subtitle': storeSubtitle.value,
+      'store_address': storeAddress.value,
+      'store_phone': storePhone.value,
+      'receipt_footer': receiptFooter.value,
+      'logo_url': logoUrl,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
+  Future<void> markSynced(int serverUpdatedAtMs) async {
+    _isDirty = false;
+    _isLogoDirty = false;
+    _updatedAtMs = serverUpdatedAtMs;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kSettingsDirty, false);
+    await prefs.setBool(_kLogoDirty, false);
+    await prefs.setInt(_kSettingsUpdatedAtMs, serverUpdatedAtMs);
+  }
+
+  Future<void> applyFromServer({
+    required String storeName,
+    required String storeSubtitle,
+    required String storeAddress,
+    required String storePhone,
+    required String receiptFooter,
+    required String? logoPath,
+    required String? logoUrl,
+    required int serverUpdatedAtMs,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    this.storeName.value = storeName;
+    this.storeSubtitle.value = storeSubtitle;
+    this.storeAddress.value = storeAddress;
+    this.storePhone.value = storePhone;
+    this.receiptFooter.value = receiptFooter;
+    this.logoPath.value = logoPath;
+    _logoUrl = logoUrl;
+
+    await prefs.setString(_kStoreName, storeName);
+    await prefs.setString(_kStoreSubtitle, storeSubtitle);
+    await prefs.setString(_kStoreAddress, storeAddress);
+    await prefs.setString(_kStorePhone, storePhone);
+    await prefs.setString(_kReceiptFooter, receiptFooter);
+    if (logoPath != null) {
+      await prefs.setString(_kLogoPath, logoPath);
+    } else {
+      await prefs.remove(_kLogoPath);
+    }
+    if (logoUrl != null) {
+      await prefs.setString(_kLogoUrl, logoUrl);
+    } else {
+      await prefs.remove(_kLogoUrl);
+    }
+
+    _isDirty = false;
+    _isLogoDirty = false;
+    _updatedAtMs = serverUpdatedAtMs;
+    await prefs.setBool(_kSettingsDirty, false);
+    await prefs.setBool(_kLogoDirty, false);
+    await prefs.setInt(_kSettingsUpdatedAtMs, serverUpdatedAtMs);
   }
 }

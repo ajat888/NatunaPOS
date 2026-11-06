@@ -13,6 +13,13 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
   late final TextEditingController _footerController;
+
+  final _nameFocus = FocusNode();
+  final _subtitleFocus = FocusNode();
+  final _addressFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _footerFocus = FocusNode();
+
   bool _saving = false;
 
   @override
@@ -24,15 +31,62 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
     _addressController = TextEditingController(text: s.storeAddress.value);
     _phoneController = TextEditingController(text: s.storePhone.value);
     _footerController = TextEditingController(text: s.receiptFooter.value);
+
+    s.storeName.addListener(_syncName);
+    s.storeSubtitle.addListener(_syncSubtitle);
+    s.storeAddress.addListener(_syncAddress);
+    s.storePhone.addListener(_syncPhone);
+    s.receiptFooter.addListener(_syncFooter);
+  }
+
+  void _syncName() {
+    if (_nameFocus.hasFocus) return;
+    final v = AppSettings.instance.storeName.value;
+    if (_nameController.text != v) _nameController.text = v;
+  }
+
+  void _syncSubtitle() {
+    if (_subtitleFocus.hasFocus) return;
+    final v = AppSettings.instance.storeSubtitle.value;
+    if (_subtitleController.text != v) _subtitleController.text = v;
+  }
+
+  void _syncAddress() {
+    if (_addressFocus.hasFocus) return;
+    final v = AppSettings.instance.storeAddress.value;
+    if (_addressController.text != v) _addressController.text = v;
+  }
+
+  void _syncPhone() {
+    if (_phoneFocus.hasFocus) return;
+    final v = AppSettings.instance.storePhone.value;
+    if (_phoneController.text != v) _phoneController.text = v;
+  }
+
+  void _syncFooter() {
+    if (_footerFocus.hasFocus) return;
+    final v = AppSettings.instance.receiptFooter.value;
+    if (_footerController.text != v) _footerController.text = v;
   }
 
   @override
   void dispose() {
+    final s = AppSettings.instance;
+    s.storeName.removeListener(_syncName);
+    s.storeSubtitle.removeListener(_syncSubtitle);
+    s.storeAddress.removeListener(_syncAddress);
+    s.storePhone.removeListener(_syncPhone);
+    s.receiptFooter.removeListener(_syncFooter);
     _nameController.dispose();
     _subtitleController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
     _footerController.dispose();
+    _nameFocus.dispose();
+    _subtitleFocus.dispose();
+    _addressFocus.dispose();
+    _phoneFocus.dispose();
+    _footerFocus.dispose();
     super.dispose();
   }
 
@@ -49,12 +103,18 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
       if (!mounted) return;
       FocusScope.of(context).unfocus();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Info toko disimpan'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Info toko disimpan'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal menyimpan info toko'), backgroundColor: AppTheme.dangerColor),
+        const SnackBar(
+          content: Text('Gagal menyimpan info toko'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -75,18 +135,22 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
               children: [
                 TextField(
                   controller: _nameController,
+                  focusNode: _nameFocus,
                   decoration: const InputDecoration(labelText: 'Nama Toko'),
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _subtitleController,
-                  decoration: const InputDecoration(labelText: 'Subtitle (Cafe & Resto)'),
+                  focusNode: _subtitleFocus,
+                  decoration: const InputDecoration(
+                      labelText: 'Subtitle (Cafe & Resto)'),
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _addressController,
+                  focusNode: _addressFocus,
                   decoration: const InputDecoration(labelText: 'Alamat'),
                   minLines: 1,
                   maxLines: 2,
@@ -95,6 +159,7 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _phoneController,
+                  focusNode: _phoneFocus,
                   decoration: const InputDecoration(labelText: 'No. Telepon'),
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
@@ -102,6 +167,7 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _footerController,
+                  focusNode: _footerFocus,
                   decoration: const InputDecoration(
                     labelText: 'Footer Struk / Promo',
                     helperText: 'Contoh: Ada acara spesial? Hubungi WA...',
@@ -113,7 +179,12 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
                 ElevatedButton(
                   onPressed: _saving ? null : _save,
                   child: _saving
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
                       : const Text('SIMPAN INFO TOKO'),
                 ),
               ],

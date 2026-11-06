@@ -9,19 +9,23 @@ class _TaxSection extends StatefulWidget {
 
 class _TaxSectionState extends State<_TaxSection> {
   final _rateController = TextEditingController();
+  final _rateFocus = FocusNode();
   bool _savingRate = false;
 
   @override
   void initState() {
     super.initState();
     TaxSettings.instance.enabled.addListener(_onTaxChanged);
+    TaxSettings.instance.rate.addListener(_onRateChanged);
     _syncRateText();
   }
 
   @override
   void dispose() {
     TaxSettings.instance.enabled.removeListener(_onTaxChanged);
+    TaxSettings.instance.rate.removeListener(_onRateChanged);
     _rateController.dispose();
+    _rateFocus.dispose();
     super.dispose();
   }
 
@@ -29,10 +33,18 @@ class _TaxSectionState extends State<_TaxSection> {
     if (mounted) setState(() {});
   }
 
+  void _onRateChanged() {
+    if (!mounted) return;
+    if (_rateFocus.hasFocus) return;
+    _syncRateText();
+  }
+
   void _syncRateText() {
     final r = TaxSettings.instance.currentRate;
-    _rateController.text =
-        r == r.roundToDouble() ? r.toInt().toString() : r.toString();
+    final text = r == r.roundToDouble() ? r.toInt().toString() : r.toString();
+    if (_rateController.text != text) {
+      _rateController.text = text;
+    }
   }
 
   Future<void> _toggleTax(bool val) async {
@@ -110,6 +122,7 @@ class _TaxSectionState extends State<_TaxSection> {
                           Expanded(
                             child: TextField(
                               controller: _rateController,
+                              focusNode: _rateFocus,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                 decimal: true,

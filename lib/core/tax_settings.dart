@@ -1,9 +1,7 @@
-// lib/core/tax_settings.dart
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/app_settings.dart';
 
-/// Pengaturan pajak global (PPN). Disimpan di SharedPreferences.
-/// [rate] dipakai saat Payment Dialog dibuka, lalu di-snapshot ke transaksi.
 class TaxSettings {
   TaxSettings._();
   static final TaxSettings instance = TaxSettings._();
@@ -33,6 +31,7 @@ class TaxSettings {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_kEnabled, value);
+      await AppSettings.instance.markDirty();
     } catch (e) {
       debugPrint('TaxSettings setEnabled failed: $e');
     }
@@ -44,8 +43,24 @@ class TaxSettings {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_kRate, clamped);
+      await AppSettings.instance.markDirty();
     } catch (e) {
       debugPrint('TaxSettings setRate failed: $e');
+    }
+  }
+
+  Future<void> applyFromServer({
+    required bool enabled,
+    required double rate,
+  }) async {
+    this.enabled.value = enabled;
+    this.rate.value = rate;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kEnabled, enabled);
+      await prefs.setDouble(_kRate, rate);
+    } catch (e) {
+      debugPrint('TaxSettings applyFromServer failed: $e');
     }
   }
 }
