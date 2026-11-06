@@ -1,9 +1,9 @@
-// lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/breakpoints.dart';
 import '../core/theme.dart';
 import '../services/supabase_service.dart';
+import '../services/expense_service.dart';
 import '../widgets/common/main_menu_scope.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -16,8 +16,11 @@ class DashboardScreen extends StatefulWidget {
 
 class DashboardScreenState extends State<DashboardScreen> {
   final _service = SupabaseService();
+  final _expenseService = ExpenseService.instance;
+  
   int _totalSales = 0;
   int _transactionCount = 0;
+  int _totalExpenses = 0;
   bool _isLoading = true;
 
   @override
@@ -29,10 +32,12 @@ class DashboardScreenState extends State<DashboardScreen> {
   Future<void> _load() async {
     try {
       final summary = await _service.getTodaySummary();
+      final expenses = await _expenseService.getTodayExpenseTotal();
       if (!mounted) return;
       setState(() {
         _totalSales = summary['total'] ?? 0;
         _transactionCount = summary['count'] ?? 0;
+        _totalExpenses = expenses;
         _isLoading = false;
       });
     } catch (_) {
@@ -50,6 +55,8 @@ class DashboardScreenState extends State<DashboardScreen> {
     final formatCurrency = NumberFormat.decimalPattern('id');
     final size = Breakpoints.of(context);
     final isCompact = size.isCompact;
+    
+    final labaBersih = _totalSales - _totalExpenses;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -84,9 +91,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             if (isCompact) ...[
               _buildSummaryCard(
                 title: 'Total Penjualan',
-                value: _isLoading
-                    ? '—'
-                    : 'Rp ${formatCurrency.format(_totalSales)}',
+                value: _isLoading ? '—' : 'Rp ${formatCurrency.format(_totalSales)}',
                 icon: Icons.account_balance_wallet_outlined,
               ),
               const SizedBox(height: 16),
@@ -95,14 +100,27 @@ class DashboardScreenState extends State<DashboardScreen> {
                 value: _isLoading ? '—' : '$_transactionCount',
                 icon: Icons.receipt_outlined,
               ),
-            ] else
+              const SizedBox(height: 16),
+              _buildSummaryCard(
+                title: 'Pengeluaran',
+                value: _isLoading ? '—' : '- Rp ${formatCurrency.format(_totalExpenses)}',
+                icon: Icons.money_off,
+                isDanger: _totalExpenses > 0,
+              ),
+              const SizedBox(height: 16),
+              _buildSummaryCard(
+                title: 'Laba Bersih',
+                value: _isLoading ? '—' : 'Rp ${formatCurrency.format(labaBersih)}',
+                icon: Icons.trending_up,
+                isDanger: labaBersih < 0,
+                isPositive: labaBersih >= 0,
+              ),
+            ] else ...[
               Row(
                 children: [
                   _buildSummaryCard(
                     title: 'Total Penjualan',
-                    value: _isLoading
-                        ? '—'
-                        : 'Rp ${formatCurrency.format(_totalSales)}',
+                    value: _isLoading ? '—' : 'Rp ${formatCurrency.format(_totalSales)}',
                     icon: Icons.account_balance_wallet_outlined,
                     expanded: true,
                   ),
@@ -115,8 +133,29 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildSummaryCard(
+                    title: 'Pengeluaran',
+                    value: _isLoading ? '—' : '- Rp ${formatCurrency.format(_totalExpenses)}',
+                    icon: Icons.money_off,
+                    isDanger: _totalExpenses > 0,
+                    expanded: true,
+                  ),
+                  const SizedBox(width: 16),
+                  _buildSummaryCard(
+                    title: 'Laba Bersih',
+                    value: _isLoading ? '—' : 'Rp ${formatCurrency.format(labaBersih)}',
+                    icon: Icons.trending_up,
+                    isDanger: labaBersih < 0,
+                    isPositive: labaBersih >= 0,
+                    expanded: true,
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 24),
-            // PERUBAHAN DI SINI: Hanya tampil jika belum ada transaksi hari ini
             if (_transactionCount == 0) 
               _buildCallToAction(isCompact: isCompact),
           ],
@@ -155,8 +194,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: AppTheme.primaryColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
               ),
               onPressed: widget.onStartTransaction,
               child: const Text('MULAI TRANSAKSI'),
@@ -200,8 +238,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: AppTheme.primaryColor,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 32, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
             ),
             onPressed: widget.onStartTransaction,
             child: const Text('MULAI TRANSAKSI'),
@@ -216,6 +253,8 @@ class DashboardScreenState extends State<DashboardScreen> {
     required String value,
     required IconData icon,
     bool expanded = false,
+    bool isDanger = false,
+    bool isPositive = false,
   }) {
     final card = Container(
       width: double.infinity,
@@ -230,13 +269,13 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, color: AppTheme.textLightColor, size: 20),
+              Icon(icon, color: isDanger ? AppTheme.dangerColor : AppTheme.textLightColor, size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: AppTheme.textLightColor,
+                  color: isDanger ? AppTheme.dangerColor : AppTheme.textLightColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -245,10 +284,10 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textColor,
+              color: isDanger ? AppTheme.dangerColor : (isPositive ? Colors.green.shade700 : AppTheme.textColor),
             ),
           ),
         ],

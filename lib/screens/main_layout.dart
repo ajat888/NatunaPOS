@@ -6,6 +6,7 @@ import 'dashboard_screen.dart';
 import 'pos_screen.dart';
 import 'kelola_screen.dart';
 import 'history_screen.dart';
+import 'expenses_screen.dart';
 import 'login_screen.dart';
 import 'settings_screen.dart';
 import '../services/update_service.dart';
@@ -28,6 +29,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   final _posKey = GlobalKey<PosScreenState>();
   final _kelolaKey = GlobalKey<KelolaScreenState>();
   final _historyKey = GlobalKey<HistoryScreenState>();
+  final _expensesKey = GlobalKey<ExpensesScreenState>();
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _connectivity = Connectivity();
@@ -118,6 +120,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _posKey.currentState?.reloadData();
     _kelolaKey.currentState?.reloadData();
     _historyKey.currentState?.reloadData();
+    _expensesKey.currentState?.reloadData();
   }
 
   void _onSyncStateChanged() {
@@ -176,6 +179,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       _kelolaKey.currentState?.reloadData();
     } else if (index == 3) {
       _historyKey.currentState?.reloadData();
+    } else if (index == 4) {
+      _expensesKey.currentState?.reloadData();
     }
   }
 
@@ -201,8 +206,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 icon = Icons.cloud_upload_outlined;
                 color = Colors.orange.shade800;
                 label = '$pendingCount';
-                tooltip =
-                    '$pendingCount perubahan menunggu. Ketuk untuk sync.';
+                tooltip = '$pendingCount perubahan menunggu. Ketuk untuk sync.';
                 break;
               case SyncState.failed:
                 icon = Icons.cloud_off;
@@ -223,8 +227,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(4),
                 onTap: _trySync,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(4),
@@ -340,8 +343,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   _buildDrawerItem(1, Icons.point_of_sale_outlined, 'Kasir'),
                   _buildDrawerItem(2, Icons.inventory_2_outlined, 'Kelola'),
                   _buildDrawerItem(3, Icons.receipt_long_outlined, 'Riwayat'),
-                  _buildDrawerItem(
-                      4, Icons.settings_outlined, 'Pengaturan'),
+                  _buildDrawerItem(4, Icons.account_balance_wallet_outlined, 'Pengeluaran'),
+                  _buildDrawerItem(5, Icons.settings_outlined, 'Pengaturan'),
                 ],
               ),
             ),
@@ -355,8 +358,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.system_update,
-                  color: AppTheme.primaryColor),
+              leading: const Icon(Icons.system_update, color: AppTheme.primaryColor),
               title: const Text('Cek Update'),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
@@ -364,12 +366,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               },
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.logout, color: AppTheme.dangerColor),
-              title: const Text(
-                'Keluar',
-                style: TextStyle(color: AppTheme.dangerColor),
-              ),
+              leading: const Icon(Icons.logout, color: AppTheme.dangerColor),
+              title: const Text('Keluar', style: TextStyle(color: AppTheme.dangerColor)),
               onTap: _handleLogout,
             ),
             const SizedBox(height: 8),
@@ -389,6 +387,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       PosScreen(key: _posKey),
       KelolaScreen(key: _kelolaKey),
       HistoryScreen(key: _historyKey),
+      ExpensesScreen(key: _expensesKey),
       const SettingsScreen(),
     ];
 
