@@ -30,7 +30,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -42,6 +42,7 @@ class LocalDb with
     await LocalDbTransactions.createTableTransactions(db);
     await LocalDbAuth.createTableAuthCache(db);
     await LocalDbOpenOrders.createTableOpenOrders(db);
+    await LocalDbOpenOrders.createTableDeletedOpenOrderKeys(db);
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -90,6 +91,9 @@ class LocalDb with
     }
     if (oldVersion < 9) {
       await LocalDbTransactions.upgradeTransactionsV9(db);
+    }
+    if (oldVersion < 10) {
+      await LocalDbOpenOrders.createTableDeletedOpenOrderKeys(db);
     }
   }
 

@@ -29,6 +29,15 @@ mixin LocalDbOpenOrders {
         'CREATE INDEX IF NOT EXISTS idx_open_items_key ON open_order_items(order_key)');
   }
 
+  static Future<void> createTableDeletedOpenOrderKeys(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS deleted_open_order_keys (
+        order_key TEXT PRIMARY KEY,
+        deleted_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
   Future<List<OpenOrder>> getOpenOrders() async {
     final db = await database;
     final orders = await db.query('open_orders',
@@ -147,6 +156,7 @@ mixin LocalDbOpenOrders {
     }
   }
 
+  /// Hapus open order lokal DAN catat ke queue delete untuk di-push ke server.
   Future<void> deleteOpenOrder(String orderKey) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -154,6 +164,65 @@ mixin LocalDbOpenOrders {
           where: 'order_key = ?', whereArgs: [orderKey]);
       await txn
           .delete('open_orders', where: 'order_key = ?', whereArgs: [orderKey]);
+      await txn.insert(
+        'deleted_open_order_keys',
+        {
+          'order_key': orderKey,
+          'deleted_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<List<String>> getDeletedOpenOrderKeys() async {
+    final db = await database;
+    final maps = await db.query('deleted_open_order_keys');
+    return maps.map((m) => m['order_key'] as String).toList();
+  }
+
+  Future<void> removeDeletedOpenOrderKey(String orderKey) async {
+    final db = await database;
+    await db.delete('deleted_open_order_keys',
+        where: 'order_key = ?', whereArgs: [orderKey]);
+  }
+
+  /// Insert open order yang datang dari server (pull). Tidak mencatat ke
+  /// deleted_open_order_keys. Skip jika order_key sudah ada lokal atau
+  /// sedang dalam antrean delete (agar tidak dihidupkan kembali).
+  Future<void> insertPulledOpenOrder({
+    required String orderKey,
+    required String orderType,
+    int? tableNumber,
+    required DateTime createdAt,
+    required List<OpenOrderLine> lines,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final existing = await txn.query('open_orders',
+          where: 'order_key = ?', whereArgs: [orderKey], limit: 1);
+      if (existing.isNotEmpty) return;
+
+      final deleted = await txn.query('deleted_open_order_keys',
+          where: 'order_key = ?', whereArgs: [orderKey], limit: 1);
+      if (deleted.isNotEmpty) return;
+
+      await txn.insert('open_orders', {
+        'order_key': orderKey,
+        'order_type': orderType,
+        'table_number': tableNumber,
+        'created_at': createdAt.millisecondsSinceEpoch,
+      });
+      for (final line in lines) {
+        await txn.insert('open_order_items', {
+          'order_key': orderKey,
+          'product_id': line.productId,
+          'product_name': line.productName,
+          'price': line.price,
+          'hpp': line.hpp,
+          'qty': line.qty,
+        });
+      }
     });
   }
 

@@ -231,6 +231,14 @@ mixin LocalDbTransactions {
           where: 'order_key = ?', whereArgs: [orderKey]);
       await txn.delete('open_orders',
           where: 'order_key = ?', whereArgs: [orderKey]);
+      await txn.insert(
+        'deleted_open_order_keys',
+        {
+          'order_key': orderKey,
+          'deleted_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     });
   }
 

@@ -60,10 +60,56 @@ class _SyncPuller {
         offset += pageSize;
       }
       await _localDb.replaceAllProducts(all);
+      await _downloadMissingImages();
       return 0;
     } catch (e) {
       debugPrint('Pull products failed: $e');
       return 1;
+    }
+  }
+
+  /// Download gambar produk yang belum punya file lokal. Dijalankan setelah
+  /// `replaceAllProducts` supaya `local_image_path` yang sudah ada tidak hilang.
+  /// Kegagalan download tidak dihitung sebagai sync failure — akan dicoba lagi
+  /// pada sync berikutnya.
+  Future<void> _downloadMissingImages() async {
+    try {
+      final missing = await _localDb.getProductsNeedingImageDownload();
+      if (missing.isEmpty) return;
+
+      final dir = await getApplicationDocumentsDirectory();
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      for (final product in missing) {
+        try {
+          final url = product.imageUrl;
+          if (url == null || url.isEmpty) continue;
+
+          final response = await http
+              .get(Uri.parse(url))
+              .timeout(const Duration(seconds: 15));
+          if (response.statusCode != 200) {
+            debugPrint(
+                'Download image product ${product.id}: HTTP ${response.statusCode}');
+            continue;
+          }
+
+          final filename =
+              'img_${DateTime.now().microsecondsSinceEpoch}_${product.id}.jpg';
+          final file = File('${dir.path}/$filename');
+          await file.writeAsBytes(response.bodyBytes);
+
+          await _localDb
+              .updateProductLocalImagePath(product.id, file.path);
+          debugPrint('Downloaded image for product ${product.id}');
+        } catch (e) {
+          debugPrint('Download image product ${product.id} failed: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('_downloadMissingImages failed: $e');
     }
   }
 

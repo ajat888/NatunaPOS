@@ -92,6 +92,31 @@ mixin LocalDbProducts {
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
+  /// Produk yang punya image_url di server tapi belum punya file lokal
+  /// (atau file lokalnya sudah hilang). Dipakai SyncRunner untuk download.
+  Future<List<Product>> getProductsNeedingImageDownload() async {
+    final db = await database;
+    final maps = await db.query(
+      'products',
+      where: "is_deleted = 0 AND image_url IS NOT NULL AND image_url != ''",
+    );
+    final products = maps.map((m) => Product.fromDb(m)).toList();
+    return products.where((p) {
+      if (p.localImagePath == null || p.localImagePath!.isEmpty) return true;
+      return !File(p.localImagePath!).existsSync();
+    }).toList();
+  }
+
+  Future<void> updateProductLocalImagePath(int productId, String path) async {
+    final db = await database;
+    await db.update(
+      'products',
+      {'local_image_path': path},
+      where: 'id = ?',
+      whereArgs: [productId],
+    );
+  }
+
   Future<List<String>> getAllLocalImagePaths() async {
     final db = await database;
     final maps = await db.query(
