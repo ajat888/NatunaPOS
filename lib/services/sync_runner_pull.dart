@@ -10,14 +10,17 @@ class _SyncPuller {
         _localDb = r.localDb;
 
   Future<int> pullAll() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
     int failures = 0;
-    failures += await _pullCategories();
-    failures += await _pullProducts();
-    failures += await _pullTransactions();
+    failures += await _pullCategories(userId);
+    failures += await _pullProducts(userId);
+    failures += await _pullTransactions(userId);
     return failures;
   }
 
-  Future<int> _pullCategories() async {
+  Future<int> _pullCategories(String userId) async {
     try {
       final all = <Category>[];
       int offset = 0;
@@ -26,6 +29,7 @@ class _SyncPuller {
         final response = await _client
             .from('categories')
             .select()
+            .eq('user_id', userId)
             .order('id', ascending: true)
             .range(offset, offset + pageSize - 1);
         final list =
@@ -42,7 +46,7 @@ class _SyncPuller {
     }
   }
 
-  Future<int> _pullProducts() async {
+  Future<int> _pullProducts(String userId) async {
     try {
       final all = <Product>[];
       int offset = 0;
@@ -51,6 +55,7 @@ class _SyncPuller {
         final response = await _client
             .from('products')
             .select()
+            .eq('user_id', userId)
             .order('id', ascending: true)
             .range(offset, offset + pageSize - 1);
         final list =
@@ -109,7 +114,7 @@ class _SyncPuller {
     }
   }
 
-  Future<int> _pullTransactions() async {
+  Future<int> _pullTransactions(String userId) async {
     try {
       int offset = 0;
       const pageSize = 500;
@@ -120,6 +125,7 @@ class _SyncPuller {
               .from('transactions')
               .select(
                   'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)')
+              .eq('user_id', userId)
               .order('id', ascending: true)
               .range(offset, offset + pageSize - 1);
           list = response as List;
@@ -133,6 +139,7 @@ class _SyncPuller {
                 .from('transactions')
                 .select(
                     'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)')
+                .eq('user_id', userId)
                 .order('id', ascending: true)
                 .range(offset, offset + pageSize - 1);
             list = response as List;
@@ -145,6 +152,7 @@ class _SyncPuller {
                 .from('transactions')
                 .select(
                     'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)')
+                .eq('user_id', userId)
                 .order('id', ascending: true)
                 .range(offset, offset + pageSize - 1);
             list = response as List;

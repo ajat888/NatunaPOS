@@ -130,6 +130,10 @@ class SupabaseService {
     await _setOfflineSession(null);
     await _deleteSecurePassword();
     SyncStatusService.instance.reset();
+    
+    // HAPUS SELURUH DATABASE LOKAL KARENA BISA SAJA USER LAIN AKAN LOGIN
+    await _localDb.clearAllData();
+    
     try {
       await _client.auth.signOut();
     } catch (e) {

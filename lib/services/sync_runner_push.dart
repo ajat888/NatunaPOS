@@ -12,14 +12,17 @@ class _SyncPusher {
         _rng = r.rng;
 
   Future<int> pushAll() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
     int failures = 0;
     failures += await _pushDeletedCategories();
     failures += await _pushDeletedProducts();
-    final catRes = await _pushCategories();
+    final catRes = await _pushCategories(userId);
     failures += catRes.failures;
     failures += await _remapProductCategories(catRes.categoryIdMap);
-    failures += await _pushProducts(catRes.categoryIdMap);
-    failures += await _pushTransactions();
+    failures += await _pushProducts(userId, catRes.categoryIdMap);
+    failures += await _pushTransactions(userId);
     return failures;
   }
 
@@ -67,7 +70,7 @@ class _SyncPusher {
     return failures;
   }
 
-  Future<({int failures, Map<int, int> categoryIdMap})> _pushCategories() async {
+  Future<({int failures, Map<int, int> categoryIdMap})> _pushCategories(String userId) async {
     int failures = 0;
     final map = <int, int>{};
     final unsynced = await _localDb.getUnsyncedCategories();
@@ -79,6 +82,7 @@ class _SyncPusher {
             final probe = await _client
                 .from('categories')
                 .select('id')
+                .eq('user_id', userId)
                 .eq('name', c.name)
                 .limit(1);
             if ((probe as List).isNotEmpty) {
@@ -96,7 +100,7 @@ class _SyncPusher {
           } else {
             response = await _client
                 .from('categories')
-                .insert({'name': c.name, 'is_active': true})
+                .insert({'user_id': userId, 'name': c.name, 'is_active': true})
                 .select()
                 .single();
             newId = response['id'] as int;
@@ -116,6 +120,7 @@ class _SyncPusher {
               .select();
           if ((res as List).isEmpty) {
             payload['id'] = c.id;
+            payload['user_id'] = userId;
             await _client.from('categories').insert(payload);
           }
           await _localDb.upsertCategory(c.copyWith(isSynced: true));
@@ -141,9 +146,9 @@ class _SyncPusher {
     return failures;
   }
 
-  Future<Map<String, dynamic>> _sendProductInsert(
-      Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _sendProductInsert(String userId, Map<String, dynamic> payload) async {
     try {
+      payload['user_id'] = userId;
       return await _client.from('products').insert(payload).select().single();
     } on PostgrestException catch (e) {
       if (_isFkError(e) && payload['category_id'] != null) {
@@ -154,8 +159,7 @@ class _SyncPusher {
     }
   }
 
-  Future<void> _sendProductUpdate(
-      int id, Map<String, dynamic> payload) async {
+  Future<void> _sendProductUpdate(int id, Map<String, dynamic> payload) async {
     try {
       final res = await _client
           .from('products')
@@ -184,7 +188,7 @@ class _SyncPusher {
     }
   }
 
-  Future<int> _pushProducts(Map<int, int> categoryIdMap) async {
+  Future<int> _pushProducts(String userId, Map<int, int> categoryIdMap) async {
     int failures = 0;
     final unsynced = await _localDb.getUnsyncedProducts();
     for (final p in unsynced) {
@@ -225,6 +229,7 @@ class _SyncPusher {
             final probe = await _client
                 .from('products')
                 .select('id')
+                .eq('user_id', userId)
                 .eq('name', p.name)
                 .eq('price', p.price)
                 .limit(1);
@@ -258,7 +263,7 @@ class _SyncPusher {
               'image_url': finalImageUrl,
               'is_active': true,
             };
-            final response = await _sendProductInsert(payload);
+            final response = await _sendProductInsert(userId, payload);
             newId = (response['id'] as num).toInt();
             serverProduct = Product.fromJson(response)
                 .copyWith(localImagePath: remainingLocal);
@@ -320,7 +325,7 @@ class _SyncPusher {
     return failures;
   }
 
-  Future<int> _pushTransactions() async {
+  Future<int> _pushTransactions(String userId) async {
     int failures = 0;
 
     final pendingProductIds = <int>{};
@@ -354,6 +359,7 @@ class _SyncPusher {
         final localCreatedMs = tx.createdAt.millisecondsSinceEpoch;
 
         final Map<String, dynamic> payload = {
+          'user_id': userId,
           'total': tx.total,
           'subtotal': tx.subtotal,
           'bill_discount': tx.billDiscount,
@@ -376,6 +382,7 @@ class _SyncPusher {
           final probe = await _client
               .from('transactions')
               .select('id, total')
+              .eq('user_id', userId)
               .eq('created_at_local', localCreatedMs)
               .limit(5);
           final matches = (probe as List).where((e) {
@@ -417,6 +424,7 @@ class _SyncPusher {
 
           try {
             await _client.from('transaction_items').insert({
+              'user_id': userId,
               'transaction_id': serverTxId,
               'product_id': pushProductId,
               'product_name': item.productName,
@@ -427,6 +435,7 @@ class _SyncPusher {
           } on PostgrestException catch (e) {
             if (_isFkError(e) && pushProductId != null) {
               await _client.from('transaction_items').insert({
+                'user_id': userId,
                 'transaction_id': serverTxId,
                 'product_id': null,
                 'product_name': item.productName,

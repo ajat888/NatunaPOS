@@ -9,14 +9,20 @@ class _SyncSettings {
         _localDb = r.localDb;
 
   Future<int> sync() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
     final settings = AppSettings.instance;
     int failures = 0;
 
     bool shouldPush = settings.isDirty;
     if (!shouldPush) {
       try {
-        final existing =
-            await _client.from('store_settings').select('id').limit(1);
+        final existing = await _client
+            .from('store_settings')
+            .select('id')
+            .eq('user_id', userId)
+            .limit(1);
         if ((existing as List).isEmpty && _hasLocalData(settings)) {
           shouldPush = true;
         }
@@ -27,9 +33,9 @@ class _SyncSettings {
 
     if (shouldPush) {
       if (!settings.isDirty) await settings.markDirty();
-      failures += await _push();
+      failures += await _push(userId);
     }
-    failures += await _pull();
+    failures += await _pull(userId);
     return failures;
   }
 
@@ -44,7 +50,7 @@ class _SyncSettings {
         hasLogo;
   }
 
-  Future<int> _push() async {
+  Future<int> _push(String userId) async {
     final settings = AppSettings.instance;
     final tax = TaxSettings.instance;
     try {
@@ -73,12 +79,16 @@ class _SyncSettings {
 
       final payload = <String, dynamic>{
         ...settings.toServerJson(logoUrl: logoUrl),
+        'user_id': userId,
         'tax_enabled': tax.isEnabled,
         'tax_rate': tax.currentRate,
       };
 
-      final existing =
-          await _client.from('store_settings').select('id').limit(1);
+      final existing = await _client
+          .from('store_settings')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1);
       Map<String, dynamic> res;
       if ((existing as List).isEmpty) {
         res = await _client
@@ -105,12 +115,16 @@ class _SyncSettings {
     }
   }
 
-  Future<int> _pull() async {
+  Future<int> _pull(String userId) async {
     try {
       final settings = AppSettings.instance;
       if (settings.isDirty) return 0;
 
-      final res = await _client.from('store_settings').select().limit(1);
+      final res = await _client
+          .from('store_settings')
+          .select()
+          .eq('user_id', userId)
+          .limit(1);
       if ((res as List).isEmpty) return 0;
       final row = res.first as Map<String, dynamic>;
 

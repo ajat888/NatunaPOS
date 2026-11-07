@@ -9,16 +9,19 @@ class _SyncExpensesPusher {
         _localDb = r.localDb;
 
   Future<int> pushAll() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
     int failures = 0;
     failures += await pushDeletedCategories();
     failures += await pushDeletedItems();
     failures += await pushDeletedExpenses();
-    final catRes = await pushCategories();
+    final catRes = await pushCategories(userId);
     failures += catRes.failures;
     failures += await remapItems(catRes.categoryIdMap);
-    final itemRes = await pushItems(catRes.categoryIdMap);
+    final itemRes = await pushItems(userId, catRes.categoryIdMap);
     failures += itemRes.failures;
-    failures += await pushExpenses(catRes.categoryIdMap, itemRes.itemIdMap);
+    failures += await pushExpenses(userId, catRes.categoryIdMap, itemRes.itemIdMap);
     return failures;
   }
 
@@ -82,7 +85,7 @@ class _SyncExpensesPusher {
     return failures;
   }
 
-  Future<({int failures, Map<int, int> categoryIdMap})> pushCategories() async {
+  Future<({int failures, Map<int, int> categoryIdMap})> pushCategories(String userId) async {
     int failures = 0;
     final map = <int, int>{};
     final unsynced = await _localDb.getUnsyncedExpenseCategories();
@@ -94,6 +97,7 @@ class _SyncExpensesPusher {
             final probe = await _client
                 .from('expense_categories')
                 .select('id')
+                .eq('user_id', userId)
                 .eq('name', c.name)
                 .limit(1);
             if ((probe as List).isNotEmpty) {
@@ -111,7 +115,7 @@ class _SyncExpensesPusher {
           } else {
             response = await _client
                 .from('expense_categories')
-                .insert({'name': c.name, 'is_active': true})
+                .insert({'user_id': userId, 'name': c.name, 'is_active': true})
                 .select()
                 .single();
             newId = (response['id'] as num).toInt();
@@ -129,6 +133,7 @@ class _SyncExpensesPusher {
               .select();
           if ((res as List).isEmpty) {
             payload['id'] = c.id;
+            payload['user_id'] = userId;
             await _client.from('expense_categories').insert(payload);
           }
           await _localDb.upsertExpenseCategory(c.copyWith(isSynced: true));
@@ -155,8 +160,7 @@ class _SyncExpensesPusher {
     return failures;
   }
 
-  Future<({int failures, Map<int, int> itemIdMap})> pushItems(
-      Map<int, int> categoryIdMap) async {
+  Future<({int failures, Map<int, int> itemIdMap})> pushItems(String userId, Map<int, int> categoryIdMap) async {
     int failures = 0;
     final map = <int, int>{};
     final unsynced = await _localDb.getUnsyncedExpenseItems();
@@ -179,6 +183,7 @@ class _SyncExpensesPusher {
             final probe = await _client
                 .from('expense_items')
                 .select('id')
+                .eq('user_id', userId)
                 .eq('category_id', finalCategoryId)
                 .eq('name', it.name)
                 .limit(1);
@@ -203,6 +208,7 @@ class _SyncExpensesPusher {
             response = await _client
                 .from('expense_items')
                 .insert({
+                  'user_id': userId,
                   'category_id': finalCategoryId,
                   'name': it.name,
                   'is_active': true,
@@ -227,6 +233,7 @@ class _SyncExpensesPusher {
               .select();
           if ((res as List).isEmpty) {
             payload['id'] = it.id;
+            payload['user_id'] = userId;
             await _client.from('expense_items').insert(payload);
           }
           await _localDb.upsertExpenseItem(it.copyWith(isSynced: true));
@@ -239,8 +246,7 @@ class _SyncExpensesPusher {
     return (failures: failures, itemIdMap: map);
   }
 
-  Future<int> pushExpenses(
-      Map<int, int> categoryIdMap, Map<int, int> itemIdMap) async {
+  Future<int> pushExpenses(String userId, Map<int, int> categoryIdMap, Map<int, int> itemIdMap) async {
     int failures = 0;
     final unsynced = await _localDb.getUnsyncedExpenses();
     for (final e in unsynced) {
@@ -280,6 +286,7 @@ class _SyncExpensesPusher {
           final probe = await _client
               .from('expenses')
               .select('id')
+              .eq('user_id', userId)
               .eq('created_at_local', createdAtMs)
               .eq('amount', e.amount)
               .eq('created_by', e.createdBy)
@@ -298,6 +305,7 @@ class _SyncExpensesPusher {
           final response = await _client
               .from('expenses')
               .insert({
+                'user_id': userId,
                 'item_id':
                     (finalItemId != null && finalItemId > 0) ? finalItemId : null,
                 'item_name': e.itemName,

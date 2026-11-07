@@ -9,8 +9,6 @@ class _SyncOpenOrder {
       : _client = r.client,
         _localDb = r.localDb;
 
-  /// Push order_key yang sudah di-pay/void ke server (hapus dari server).
-  /// Kalau berhasil, hapus dari queue delete lokal agar tidak diulang.
   Future<int> pushDeletes() async {
     int failures = 0;
     final keys = await _localDb.getDeletedOpenOrderKeys();
@@ -38,9 +36,10 @@ class _SyncOpenOrder {
     return failures;
   }
 
-  /// Push semua open order lokal sebagai upsert (create/update). Item
-  /// di-replace total (delete + insert) untuk kesederhanaan.
   Future<int> pushUpserts() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
     int failures = 0;
     final orders = await _localDb.getOpenOrders();
     if (orders.isEmpty) return 0;
@@ -48,7 +47,7 @@ class _SyncOpenOrder {
     Map<String, int> serverIdByKey = {};
     try {
       final serverOrders =
-          await _client.from('open_orders').select('id, order_key');
+          await _client.from('open_orders').select('id, order_key').eq('user_id', userId);
       for (final row in (serverOrders as List)) {
         final m = row as Map<String, dynamic>;
         serverIdByKey[m['order_key'] as String] = (m['id'] as num).toInt();
@@ -75,6 +74,7 @@ class _SyncOpenOrder {
             final response = await _client
                 .from('open_orders')
                 .insert({
+                  'user_id': userId,
                   'order_key': order.orderKey,
                   'order_type': order.orderType,
                   'table_number': order.tableNumber,
@@ -88,6 +88,7 @@ class _SyncOpenOrder {
               final res = await _client
                   .from('open_orders')
                   .select('id')
+                  .eq('user_id', userId)
                   .eq('order_key', order.orderKey)
                   .single();
               serverOrderId = (res['id'] as num).toInt();
@@ -109,6 +110,7 @@ class _SyncOpenOrder {
                   : null;
           try {
             await _client.from('open_order_items').insert({
+              'user_id': userId,
               'open_order_id': serverOrderId,
               'product_id': pushProductId,
               'product_name': item.productName,
@@ -119,6 +121,7 @@ class _SyncOpenOrder {
           } on PostgrestException catch (e) {
             if (e.code == '23503' && pushProductId != null) {
               await _client.from('open_order_items').insert({
+                'user_id': userId,
                 'open_order_id': serverOrderId,
                 'product_id': null,
                 'product_name': item.productName,
@@ -139,13 +142,15 @@ class _SyncOpenOrder {
     return failures;
   }
 
-  /// Pull open order dari server. Insert ke lokal jika belum ada dan
-  /// tidak sedang dalam antrean delete.
   Future<int> pull() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
     try {
       final response = await _client.from('open_orders').select(
           'id, order_key, order_type, table_number, created_at_local, '
-          'open_order_items(product_id, product_name, price, hpp, qty)');
+          'open_order_items(product_id, product_name, price, hpp, qty)')
+          .eq('user_id', userId);
 
       for (final raw in (response as List)) {
         final m = raw as Map<String, dynamic>;

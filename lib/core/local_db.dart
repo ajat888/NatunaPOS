@@ -131,4 +131,23 @@ class LocalDb with
     if (v is num) return v.toInt();
     return 0;
   }
+
+  /// Menghapus seluruh data transaksional dan master saat logout
+  /// agar tidak terjadi kebocoran data antar akun di HP yang sama.
+  Future<void> clearAllData() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('transaction_items');
+      await txn.delete('transactions');
+      await txn.delete('open_order_items');
+      await txn.delete('open_orders');
+      await txn.delete('deleted_open_order_keys');
+      await txn.delete('expenses');
+      await txn.delete('expense_items');
+      await txn.delete('expense_categories');
+      await txn.delete('products');
+      await txn.delete('categories');
+      // auth_cache sengaja tidak dihapus agar fitur login offline tetap jalan
+    });
+  }
 }
