@@ -77,14 +77,18 @@ class _ProductDialogState extends State<_ProductDialog> {
 
   Future<void> _pickImage() async {
     if (_isPickingImage) return;
+
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+
     setState(() => _isPickingImage = true);
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 60,
-        maxWidth: 800,
-        maxHeight: 800,
+        imageQuality: 50,
+        maxWidth: 600,
+        maxHeight: 600,
         requestFullMetadata: false,
       );
       if (pickedFile == null) {
@@ -98,8 +102,8 @@ class _ProductDialogState extends State<_ProductDialog> {
       }
 
       final fileSize = await sourceFile.length();
-      if (fileSize > 5 * 1024 * 1024) {
-        throw Exception('Ukuran gambar terlalu besar (>5MB). Pilih yang lebih kecil.');
+      if (fileSize > 3 * 1024 * 1024) {
+        throw Exception('Ukuran gambar terlalu besar (>3MB). Pilih yang lebih kecil.');
       }
 
       final appDir = await getApplicationDocumentsDirectory();
@@ -115,18 +119,28 @@ class _ProductDialogState extends State<_ProductDialog> {
         _localImagePath = localFile.path;
         _isPickingImage = false;
       });
+    } on PlatformException catch (e) {
+      debugPrint('Pick image platform error: $e');
+      if (!mounted) return;
+      setState(() => _isPickingImage = false);
+      final msg = (e.message ?? e.code).toLowerCase();
+      final isPermission = msg.contains('permission') ||
+          msg.contains('denied') ||
+          msg.contains('access');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(isPermission
+            ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
+            : 'Gagal memilih gambar: ${e.message ?? e.code}'),
+        backgroundColor: AppTheme.dangerColor,
+        duration: const Duration(seconds: 6),
+      ));
     } catch (e) {
       debugPrint('Pick image failed: $e');
       if (!mounted) return;
       setState(() => _isPickingImage = false);
       final msg = e.toString().replaceAll('Exception: ', '');
-      final isPermission = msg.toLowerCase().contains('permission') ||
-          msg.toLowerCase().contains('denied') ||
-          msg.toLowerCase().contains('access');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(isPermission
-            ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
-            : 'Gagal memilih gambar: $msg'),
+        content: Text('Gagal memilih gambar: $msg'),
         backgroundColor: AppTheme.dangerColor,
         duration: const Duration(seconds: 6),
       ));
@@ -136,12 +150,12 @@ class _ProductDialogState extends State<_ProductDialog> {
   Future<void> _save() async {
     if (_nameError != null) return;
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _isSaving = true;
       _errorMessage = null;
     });
-    
+
     try {
       final name = _nameController.text.trim();
       final price =

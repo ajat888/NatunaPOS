@@ -1,4 +1,3 @@
-// lib/screens/pos/pos_menu_picker.dart
 part of '../pos_screen.dart';
 
 class _PosMenuPicker extends StatelessWidget {
@@ -45,12 +44,10 @@ class _PosMenuPicker extends StatelessWidget {
     final double maxExtent =
         size.isCompact ? 140.0 : (size.isMedium ? 170.0 : 200.0);
 
-    // Hanya tampilkan kategori yang memiliki setidaknya 1 produk aktif
     final availableCategories = categories.where((c) {
       return products.any((p) => p.categoryId == c.id);
     }).toList();
-    
-    // Cek apakah ada produk tanpa kategori
+
     final hasUncategorized = products.any((p) => p.categoryId == null);
 
     return Scaffold(
@@ -277,11 +274,17 @@ class _ProductCard extends StatelessWidget {
   Widget _buildImage() {
     if (product.localImagePath != null &&
         File(product.localImagePath!).existsSync()) {
-      return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
+      return Image.file(
+        File(product.localImagePath!),
+        fit: BoxFit.cover,
+        cacheWidth: 400,
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
     }
     if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
       return Image.network(product.imageUrl!,
           fit: BoxFit.cover,
+          cacheWidth: 400,
           errorBuilder: (_, __, ___) => _placeholder());
     }
     return _placeholder();

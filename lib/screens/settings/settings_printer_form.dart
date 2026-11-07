@@ -16,6 +16,10 @@ class _PrinterSectionState extends State<_PrinterSection> {
 
   Future<void> _pickLogo() async {
     if (_pickingLogo) return;
+
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+
     setState(() => _pickingLogo = true);
     try {
       final picker = ImagePicker();
@@ -38,8 +42,8 @@ class _PrinterSectionState extends State<_PrinterSection> {
       }
 
       final fileSize = await sourceFile.length();
-      if (fileSize > 5 * 1024 * 1024) {
-        throw Exception('Ukuran gambar terlalu besar (>5MB). Pilih yang lebih kecil.');
+      if (fileSize > 3 * 1024 * 1024) {
+        throw Exception('Ukuran gambar terlalu besar (>3MB). Pilih yang lebih kecil.');
       }
 
       final appDir = await getApplicationDocumentsDirectory();
@@ -52,19 +56,31 @@ class _PrinterSectionState extends State<_PrinterSection> {
 
       if (!mounted) return;
       setState(() => _pickingLogo = false);
+    } on PlatformException catch (e) {
+      debugPrint('Pick logo platform error: $e');
+      if (!mounted) return;
+      setState(() => _pickingLogo = false);
+      final msg = (e.message ?? e.code).toLowerCase();
+      final isPermission = msg.contains('permission') ||
+          msg.contains('denied') ||
+          msg.contains('access');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isPermission
+              ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
+              : 'Gagal memuat gambar: ${e.message ?? e.code}'),
+          backgroundColor: AppTheme.dangerColor,
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } catch (e) {
       debugPrint('Pick logo failed: $e');
       if (!mounted) return;
       setState(() => _pickingLogo = false);
       final msg = e.toString().replaceAll('Exception: ', '');
-      final isPermission = msg.toLowerCase().contains('permission') ||
-          msg.toLowerCase().contains('denied') ||
-          msg.toLowerCase().contains('access');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isPermission
-              ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
-              : 'Gagal memuat gambar: $msg'),
+          content: Text('Gagal memuat gambar: $msg'),
           backgroundColor: AppTheme.dangerColor,
           duration: const Duration(seconds: 6),
         ),
@@ -149,7 +165,8 @@ class _PrinterSectionState extends State<_PrinterSection> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2)))
                       : hasLogo
-                          ? Image.file(File(logoPath), fit: BoxFit.contain)
+                          ? Image.file(File(logoPath),
+                              fit: BoxFit.contain, cacheWidth: 120)
                           : const Icon(Icons.image, color: AppTheme.primaryColor),
                 ),
                 title: const Text('Logo Struk'),

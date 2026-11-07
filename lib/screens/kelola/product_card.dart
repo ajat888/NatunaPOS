@@ -1,4 +1,3 @@
-// lib/screens/kelola/product_card.dart
 part of '../kelola_screen.dart';
 
 class _ProductCard extends StatelessWidget {
@@ -91,11 +90,17 @@ class _ProductCard extends StatelessWidget {
   Widget _buildImage() {
     if (product.localImagePath != null &&
         File(product.localImagePath!).existsSync()) {
-      return Image.file(File(product.localImagePath!), fit: BoxFit.cover);
+      return Image.file(
+        File(product.localImagePath!),
+        fit: BoxFit.cover,
+        cacheWidth: 400,
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
     }
     if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
       return Image.network(product.imageUrl!,
           fit: BoxFit.cover,
+          cacheWidth: 400,
           errorBuilder: (_, __, ___) => _placeholder());
     }
     return _placeholder();
