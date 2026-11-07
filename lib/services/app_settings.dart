@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'auto_sync_scheduler.dart';
 
 class AppSettings {
   AppSettings._();
@@ -65,7 +66,7 @@ class AppSettings {
     }
   }
 
-  Future<void> markDirty() async {
+  Future<void> markDirty({bool triggerSync = true}) async {
     _isDirty = true;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -73,6 +74,7 @@ class AppSettings {
     } catch (e) {
       debugPrint('AppSettings markDirty failed: $e');
     }
+    if (triggerSync) AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> saveStoreInfo({

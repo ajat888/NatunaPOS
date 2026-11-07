@@ -13,6 +13,7 @@ import 'login_screen.dart';
 import 'settings_screen.dart';
 import 'reports_screen.dart';
 import 'closing_screen.dart';
+import '../services/auto_sync_scheduler.dart';
 import '../services/update_service.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
@@ -48,10 +49,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     SyncStatusService.instance.refreshPendingCount();
-    SyncStatusService.instance.state.addListener(_onSyncStateChanged);
+    SyncStatusService.instance.lastSyncedAt.addListener(_onSyncedData);
+    AutoSyncScheduler.instance.authFailureTick.addListener(_onAuthFailure);
     _initConnectivity();
     _runBackgroundCleanup();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPickerCrash());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AutoSyncScheduler.instance.start();
+      _checkPickerCrash();
+    });
   }
 
   Future<void> _checkPickerCrash() async {
@@ -107,7 +112,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    SyncStatusService.instance.state.removeListener(_onSyncStateChanged);
+    SyncStatusService.instance.lastSyncedAt.removeListener(_onSyncedData);
+    AutoSyncScheduler.instance.authFailureTick.removeListener(_onAuthFailure);
+    AutoSyncScheduler.instance.stop();
     _connSub?.cancel();
     _debounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -144,29 +151,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       results.any((r) => r != ConnectivityResult.none);
 
   void _scheduleSync({int delaySeconds = 3}) {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(Duration(seconds: delaySeconds), _trySync);
+    AutoSyncScheduler.instance
+        .scheduleSync(delay: Duration(seconds: delaySeconds));
   }
 
   Future<void> _trySync() async {
     if (!_service.isLoggedIn) return;
-
-    if (_service.isOfflineSession) {
-      final success = await _service.tryAutoLoginAndSync();
-      if (success && mounted) {
-        _refreshAllScreens();
-      }
-      return;
-    }
-
-    try {
-      await _service.syncData();
-      if (mounted) {
-        _refreshAllScreens();
-      }
-    } catch (e) {
-      debugPrint('Auto-sync failed: $e');
-    }
+    await AutoSyncScheduler.instance.triggerNow();
   }
 
   void _refreshAllScreens() {
@@ -177,30 +168,30 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _expensesKey.currentState?.reloadData();
   }
 
-  void _onSyncStateChanged() {
+  void _onSyncedData() {
     if (!mounted) return;
-    final state = SyncStatusService.instance.state.value;
-    if (state == SyncState.failed &&
-        SyncStatusService.instance.shouldNotifyFailure()) {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(SnackBar(
-        content: Text(
-          SyncStatusService.instance.lastErrorMessage ??
-              'Sinkronisasi gagal. Akan dicoba lagi otomatis.',
-        ),
-        backgroundColor: AppTheme.dangerColor,
-        duration: const Duration(seconds: 6),
-        action: SnackBarAction(
-          label: 'COBA',
-          textColor: Colors.white,
-          onPressed: _trySync,
-        ),
-      ));
-    }
+    _refreshAllScreens();
+  }
+
+  void _onAuthFailure() {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(SnackBar(
+      content: const Text(
+          'Sesi offline tidak dapat dipulihkan. Silakan login ulang untuk melanjutkan sinkronisasi.'),
+      backgroundColor: AppTheme.dangerColor,
+      duration: const Duration(seconds: 8),
+      action: SnackBarAction(
+        label: 'LOGIN',
+        textColor: Colors.white,
+        onPressed: _handleLogout,
+      ),
+    ));
   }
 
   Future<void> _handleLogout() async {
     _scaffoldKey.currentState?.closeDrawer();
+    AutoSyncScheduler.instance.stop();
     await _service.logout();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(

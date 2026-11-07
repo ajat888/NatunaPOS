@@ -32,7 +32,9 @@ class _SyncSettings {
     }
 
     if (shouldPush) {
-      if (!settings.isDirty) await settings.markDirty();
+      if (!settings.isDirty) {
+        await settings.markDirty(triggerSync: false);
+      }
       failures += await _push(userId);
     }
     failures += await _pull(userId);

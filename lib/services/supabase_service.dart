@@ -12,8 +12,9 @@ import '../models/category.dart';
 import '../models/transaction.dart';
 import '../models/open_order.dart';
 import '../models/auth_cache.dart';
-import '../models/voided_open_order.dart'; // <-- TAMBAHKAN IMPORT INI DI SINI
+import '../models/voided_open_order.dart';
 import '../core/local_db.dart';
+import 'auto_sync_scheduler.dart';
 import 'sync_runner.dart';
 import 'sync_status_service.dart';
 import 'app_settings.dart';
@@ -21,6 +22,14 @@ import 'app_settings.dart';
 part 'supabase_service_data.dart';
 
 enum LoginMode { online, offline }
+
+enum AutoLoginOutcome {
+  success,
+  notApplicable,
+  missingCredentials,
+  authRejected,
+  offlineError,
+}
 
 String _computePasswordHash(Map<String, String> args) {
   final password = args['password'] ?? '';
@@ -126,6 +135,7 @@ class SupabaseService {
   }
 
   Future<void> logout() async {
+    AutoSyncScheduler.instance.stop();
     await _setOfflineSession(null);
     await _deleteSecurePassword();
     SyncStatusService.instance.reset();
@@ -174,20 +184,36 @@ class SupabaseService {
     }
   }
 
-  Future<bool> tryAutoLoginAndSync() async {
-    if (!isOfflineSession) return false;
+  Future<AutoLoginOutcome> tryAutoLoginAndSync() async {
+    if (!isOfflineSession) {
+      if (_client.auth.currentSession != null) {
+        await syncData();
+        return AutoLoginOutcome.success;
+      }
+      return AutoLoginOutcome.notApplicable;
+    }
     final email = _cachedOfflineEmail;
-    if (email == null) return false;
+    if (email == null) return AutoLoginOutcome.notApplicable;
+    final password = await _secureStorage.read(key: _kSecurePasswordKey);
+    if (password == null) return AutoLoginOutcome.missingCredentials;
     try {
-      final password = await _secureStorage.read(key: _kSecurePasswordKey);
-      if (password == null) return false;
       await _client.auth.signInWithPassword(email: email, password: password);
       await _setOfflineSession(null);
       await syncData();
-      return true;
+      return AutoLoginOutcome.success;
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
+      final isNetwork = msg.contains('network') ||
+          msg.contains('connection') ||
+          msg.contains('socket') ||
+          msg.contains('timeout') ||
+          msg.contains('host lookup') ||
+          msg.contains('failed');
+      if (isNetwork) return AutoLoginOutcome.offlineError;
+      return AutoLoginOutcome.authRejected;
     } catch (e) {
-      debugPrint('Auto-login failed (mungkin password berubah di server): $e');
-      return false;
+      debugPrint('Auto-login failed: $e');
+      return AutoLoginOutcome.offlineError;
     }
   }
 

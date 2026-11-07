@@ -2,6 +2,7 @@ import '../core/local_db.dart';
 import '../models/expense.dart';
 import '../models/expense_category.dart';
 import '../models/expense_item.dart';
+import 'auto_sync_scheduler.dart';
 import 'sync_status_service.dart';
 
 class ExpenseService {
@@ -15,6 +16,7 @@ class ExpenseService {
     await _localDb.upsertExpenseCategory(
         ExpenseCategory(id: tempId, name: name.trim(), isSynced: false));
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> updateExpenseCategory(
@@ -22,16 +24,19 @@ class ExpenseService {
     await _localDb.upsertExpenseCategory(
         ExpenseCategory(id: id, name: name.trim(), isSynced: false));
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> deleteExpenseCategory(int id) async {
     await _localDb.markExpenseCategoryDeleted(id);
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> restoreExpenseCategory(int id) async {
     await _localDb.restoreExpenseCategory(id);
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> createExpenseItem(
@@ -44,6 +49,7 @@ class ExpenseService {
       isSynced: false,
     ));
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> updateExpenseItem(
@@ -57,16 +63,19 @@ class ExpenseService {
       isSynced: false,
     ));
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> deleteExpenseItem(int id) async {
     await _localDb.markExpenseItemDeleted(id);
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> restoreExpenseItem(int id) async {
     await _localDb.restoreExpenseItem(id);
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> createExpense({
@@ -95,11 +104,13 @@ class ExpenseService {
       isSynced: false,
     ));
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<void> voidExpense(int id) async {
     await _localDb.markExpenseDeleted(id);
     await SyncStatusService.instance.refreshPendingCount();
+    AutoSyncScheduler.instance.scheduleSync();
   }
 
   Future<List<Expense>> getLocalExpenses({int limit = 200}) =>
