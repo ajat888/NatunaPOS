@@ -14,22 +14,82 @@ class _PrinterSectionState extends State<_PrinterSection> {
   List<BluetoothInfo> _devices = [];
   String? _error;
 
-  Future<void> _pickLogo() async {
+  Future<void> _writePickerMarker(bool active) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      if (!await dir.exists()) {
+        if (active) await dir.create(recursive: true);
+      }
+      final marker = File('${dir.path}/.picker_in_progress');
+      if (active) {
+        await marker.writeAsString('1', flush: true);
+      } else if (await marker.exists()) {
+        await marker.delete();
+      }
+    } catch (e) {
+      debugPrint('Picker marker write failed: $e');
+    }
+  }
+
+  Future<void> _showSourcePicker() async {
+    if (_pickingLogo) return;
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Pilih Sumber Logo'),
+        children: [
+          SimpleDialogOption(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            onPressed: () => Navigator.pop(ctx, ImageSource.gallery),
+            child: const Row(
+              children: [
+                Icon(Icons.photo_library_outlined,
+                    color: AppTheme.primaryColor),
+                SizedBox(width: 12),
+                Text('Pilih dari Galeri'),
+              ],
+            ),
+          ),
+          SimpleDialogOption(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            onPressed: () => Navigator.pop(ctx, ImageSource.camera),
+            child: const Row(
+              children: [
+                Icon(Icons.photo_camera_outlined,
+                    color: AppTheme.primaryColor),
+                SizedBox(width: 12),
+                Text('Ambil Foto (Kamera)'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (source == null || !mounted) return;
+    await _pickLogo(source);
+  }
+
+  Future<void> _pickLogo(ImageSource source) async {
     if (_pickingLogo) return;
 
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
 
     setState(() => _pickingLogo = true);
+    await _writePickerMarker(true);
+
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         maxWidth: 400,
         maxHeight: 400,
-        imageQuality: 70,
+        imageQuality: 50,
         requestFullMetadata: false,
       );
+
+      await _writePickerMarker(false);
 
       if (picked == null) {
         if (mounted) setState(() => _pickingLogo = false);
@@ -43,7 +103,8 @@ class _PrinterSectionState extends State<_PrinterSection> {
 
       final fileSize = await sourceFile.length();
       if (fileSize > 3 * 1024 * 1024) {
-        throw Exception('Ukuran gambar terlalu besar (>3MB). Pilih yang lebih kecil.');
+        throw Exception(
+            'Ukuran gambar terlalu besar (>3MB). Pilih yang lebih kecil.');
       }
 
       final appDir = await getApplicationDocumentsDirectory();
@@ -57,23 +118,27 @@ class _PrinterSectionState extends State<_PrinterSection> {
       if (!mounted) return;
       setState(() => _pickingLogo = false);
     } on PlatformException catch (e) {
-      debugPrint('Pick logo platform error: $e');
+      await _writePickerMarker(false);
+      debugPrint('Pick logo platform error: ${e.code} / ${e.message}');
       if (!mounted) return;
       setState(() => _pickingLogo = false);
-      final msg = (e.message ?? e.code).toLowerCase();
+      final msg = (e.message ?? '').toLowerCase();
       final isPermission = msg.contains('permission') ||
           msg.contains('denied') ||
-          msg.contains('access');
+          msg.contains('access') ||
+          e.code == 'photo_access_denied' ||
+          e.code == 'camera_access_denied';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(isPermission
-              ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
-              : 'Gagal memuat gambar: ${e.message ?? e.code}'),
+              ? 'Izin ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto/Video/Kamera → Izinkan.'
+              : 'Gagal membuka ${source == ImageSource.camera ? "kamera" : "galeri"}.\nKode: ${e.code}\n${e.message ?? ""}'),
           backgroundColor: AppTheme.dangerColor,
-          duration: const Duration(seconds: 6),
+          duration: const Duration(seconds: 8),
         ),
       );
     } catch (e) {
+      await _writePickerMarker(false);
       debugPrint('Pick logo failed: $e');
       if (!mounted) return;
       setState(() => _pickingLogo = false);
@@ -172,7 +237,7 @@ class _PrinterSectionState extends State<_PrinterSection> {
                 title: const Text('Logo Struk'),
                 subtitle: Text(hasLogo ? 'Logo terpasang' : 'Belum ada logo'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: _pickingLogo ? null : _pickLogo,
+                onTap: _pickingLogo ? null : _showSourcePicker,
               ),
               const Divider(height: 1, color: Color(0xFFE2E8F0)),
               ListTile(

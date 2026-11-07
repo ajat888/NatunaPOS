@@ -75,22 +75,83 @@ class _ProductDialogState extends State<_ProductDialog> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _writePickerMarker(bool active) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      if (!await dir.exists()) {
+        if (active) await dir.create(recursive: true);
+      }
+      final marker = File('${dir.path}/.picker_in_progress');
+      if (active) {
+        await marker.writeAsString('1', flush: true);
+      } else if (await marker.exists()) {
+        await marker.delete();
+      }
+    } catch (e) {
+      debugPrint('Picker marker write failed: $e');
+    }
+  }
+
+  Future<void> _showSourcePicker() async {
+    if (_isPickingImage) return;
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Pilih Sumber Foto'),
+        children: [
+          SimpleDialogOption(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            onPressed: () => Navigator.pop(ctx, ImageSource.gallery),
+            child: const Row(
+              children: [
+                Icon(Icons.photo_library_outlined,
+                    color: AppTheme.primaryColor),
+                SizedBox(width: 12),
+                Text('Pilih dari Galeri'),
+              ],
+            ),
+          ),
+          SimpleDialogOption(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            onPressed: () => Navigator.pop(ctx, ImageSource.camera),
+            child: const Row(
+              children: [
+                Icon(Icons.photo_camera_outlined,
+                    color: AppTheme.primaryColor),
+                SizedBox(width: 12),
+                Text('Ambil Foto (Kamera)'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (source == null || !mounted) return;
+    await _pickImage(source);
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     if (_isPickingImage) return;
 
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
 
     setState(() => _isPickingImage = true);
+    await _writePickerMarker(true);
+
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 50,
-        maxWidth: 600,
-        maxHeight: 600,
+        source: source,
+        imageQuality: 40,
+        maxWidth: 500,
+        maxHeight: 500,
         requestFullMetadata: false,
       );
+
+      await _writePickerMarker(false);
+
       if (pickedFile == null) {
         if (mounted) setState(() => _isPickingImage = false);
         return;
@@ -103,7 +164,8 @@ class _ProductDialogState extends State<_ProductDialog> {
 
       final fileSize = await sourceFile.length();
       if (fileSize > 3 * 1024 * 1024) {
-        throw Exception('Ukuran gambar terlalu besar (>3MB). Pilih yang lebih kecil.');
+        throw Exception(
+            'Ukuran gambar terlalu besar (>3MB). Pilih yang lebih kecil.');
       }
 
       final appDir = await getApplicationDocumentsDirectory();
@@ -120,21 +182,25 @@ class _ProductDialogState extends State<_ProductDialog> {
         _isPickingImage = false;
       });
     } on PlatformException catch (e) {
-      debugPrint('Pick image platform error: $e');
+      await _writePickerMarker(false);
+      debugPrint('Pick image platform error: ${e.code} / ${e.message}');
       if (!mounted) return;
       setState(() => _isPickingImage = false);
-      final msg = (e.message ?? e.code).toLowerCase();
+      final msg = (e.message ?? '').toLowerCase();
       final isPermission = msg.contains('permission') ||
           msg.contains('denied') ||
-          msg.contains('access');
+          msg.contains('access') ||
+          e.code == 'photo_access_denied' ||
+          e.code == 'camera_access_denied';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(isPermission
-            ? 'Izin galeri ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto & Video → Izinkan.'
-            : 'Gagal memilih gambar: ${e.message ?? e.code}'),
+            ? 'Izin ditolak. Buka Setelan HP → Aplikasi → NatunaPOS → Izin → Foto/Video/Kamera → Izinkan.'
+            : 'Gagal membuka ${source == ImageSource.camera ? "kamera" : "galeri"}.\nKode: ${e.code}\n${e.message ?? ""}'),
         backgroundColor: AppTheme.dangerColor,
-        duration: const Duration(seconds: 6),
+        duration: const Duration(seconds: 8),
       ));
     } catch (e) {
+      await _writePickerMarker(false);
       debugPrint('Pick image failed: $e');
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -225,7 +291,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               ],
               Center(
                 child: GestureDetector(
-                  onTap: _isPickingImage ? null : _pickImage,
+                  onTap: _isPickingImage ? null : _showSourcePicker,
                   child: Container(
                     height: 120,
                     width: 120,

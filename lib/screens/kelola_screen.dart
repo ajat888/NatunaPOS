@@ -42,7 +42,7 @@ class KelolaScreenState extends State<KelolaScreen>
   List<Product> _inactiveProducts = [];
   List<Category> _categories = [];
   List<Category> _inactiveCategories = [];
-  
+
   List<ExpenseCategory> _expenseCategories = [];
   List<ExpenseItem> _expenseItems = [];
 
@@ -73,7 +73,7 @@ class KelolaScreenState extends State<KelolaScreen>
       final inactiveProducts = await _service.getLocalInactiveProducts();
       final categories = await _service.getLocalCategories();
       final inactiveCategories = await _service.getLocalInactiveCategories();
-      
+
       final expCats = await _expenseService.getLocalExpenseCategories();
       final expItems = await _expenseService.getLocalExpenseItems();
 
@@ -81,7 +81,7 @@ class KelolaScreenState extends State<KelolaScreen>
 
       final base = _showInactive ? inactiveProducts : products;
       if (_filterCategoryId != null && _filterCategoryId != -1) {
-        final hasCat = categories.any((c) => c.id == _filterCategoryId) && 
+        final hasCat = categories.any((c) => c.id == _filterCategoryId) &&
                        base.any((p) => p.categoryId == _filterCategoryId);
         if (!hasCat) _filterCategoryId = null;
       }
@@ -152,7 +152,7 @@ class KelolaScreenState extends State<KelolaScreen>
           indicatorColor: AppTheme.primaryColor,
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
           tabs: const [
-            Tab(text: 'PRODUK'), 
+            Tab(text: 'PRODUK'),
             Tab(text: 'KATEGORI'),
             Tab(text: 'PENGELUARAN'),
           ],

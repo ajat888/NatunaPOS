@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../core/theme.dart';
 import 'dashboard_screen.dart';
 import 'pos_screen.dart';
@@ -45,6 +47,51 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     SyncStatusService.instance.state.addListener(_onSyncStateChanged);
     _initConnectivity();
     _runBackgroundCleanup();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPickerCrash());
+  }
+
+  Future<void> _checkPickerCrash() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final marker = File('${dir.path}/.picker_in_progress');
+      if (!await marker.exists()) return;
+      await marker.delete();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor),
+              SizedBox(width: 8),
+              Expanded(child: Text('Deteksi Gangguan')),
+            ],
+          ),
+          content: const Text(
+            'Aplikasi sebelumnya berhenti saat membuka galeri foto.\n\n'
+            'Kemungkinan penyebab:\n'
+            '• Memori / RAM HP penuh\n'
+            '• Penyimpanan hampir habis\n'
+            '• Aplikasi galeri bermasalah\n\n'
+            'Solusi yang disarankan:\n'
+            '1. Restart HP\n'
+            '2. Tutup aplikasi lain yang berjalan\n'
+            '3. Kosongkan penyimpanan (min. 500 MB)\n'
+            '4. Saat tambah foto, gunakan opsi "Ambil Foto" (kamera) jika galeri terus crash',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('MENGERTI'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint('_checkPickerCrash failed: $e');
+    }
   }
 
   Future<void> _runBackgroundCleanup() async {
