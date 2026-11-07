@@ -19,6 +19,7 @@ class AppSettings {
   static const String _kLogoDirty = 'natunapos_logo_dirty';
   static const String _kSettingsUpdatedAtMs =
       'natunapos_settings_updated_at_ms';
+  static const String _kTableCount = 'natunapos_table_count';
 
   final ValueNotifier<String> storeName = ValueNotifier('');
   final ValueNotifier<String> storeSubtitle = ValueNotifier('');
@@ -29,6 +30,7 @@ class AppSettings {
   final ValueNotifier<String?> logoPath = ValueNotifier(null);
   final ValueNotifier<String?> printerMac = ValueNotifier(null);
   final ValueNotifier<String?> printerName = ValueNotifier(null);
+  final ValueNotifier<int> tableCount = ValueNotifier(20);
 
   String? _logoUrl;
   bool _isDirty = false;
@@ -56,6 +58,8 @@ class AppSettings {
       _isDirty = prefs.getBool(_kSettingsDirty) ?? false;
       _isLogoDirty = prefs.getBool(_kLogoDirty) ?? false;
       _updatedAtMs = prefs.getInt(_kSettingsUpdatedAtMs) ?? 0;
+      final loaded = prefs.getInt(_kTableCount) ?? 20;
+      tableCount.value = loaded.clamp(1, 200);
     } catch (e) {
       debugPrint('AppSettings load failed: $e');
     }
@@ -91,6 +95,18 @@ class AppSettings {
     storePhone.value = phone.trim();
     receiptFooter.value = footer.trim();
     await markDirty();
+  }
+
+  Future<void> saveTableCount(int count) async {
+    final clamped = count.clamp(1, 200).toInt();
+    tableCount.value = clamped;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kTableCount, clamped);
+      await markDirty();
+    } catch (e) {
+      debugPrint('AppSettings saveTableCount failed: $e');
+    }
   }
 
   Future<void> saveCashierName(String name) async {

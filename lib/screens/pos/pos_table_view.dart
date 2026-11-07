@@ -1,8 +1,8 @@
-// lib/screens/pos/pos_table_view.dart
 part of '../pos_screen.dart';
 
 class _PosTablesView extends StatelessWidget {
   final List<OpenOrder> openOrders;
+  final int tableCount;
   final void Function(int tableNumber) onTapEmptyTable;
   final void Function(OpenOrder order) onTapOpenOrder;
   final VoidCallback onTapTakeAway;
@@ -10,6 +10,7 @@ class _PosTablesView extends StatelessWidget {
 
   const _PosTablesView({
     required this.openOrders,
+    required this.tableCount,
     required this.onTapEmptyTable,
     required this.onTapOpenOrder,
     required this.onTapTakeAway,
@@ -30,8 +31,6 @@ class _PosTablesView extends StatelessWidget {
     if (size.isCompact) return _buildCompact(context);
     return _buildWide(context, panelWidth: size.isExpanded ? 280 : 240);
   }
-
-  // ---------- COMPACT (portrait HP) ----------
 
   Widget _buildCompact(BuildContext context) {
     return Stack(
@@ -69,8 +68,8 @@ class _PosTablesView extends StatelessWidget {
             label: Text('Pesanan (${openOrders.length})'),
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
       ],
@@ -104,8 +103,8 @@ class _PosTablesView extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -136,8 +135,6 @@ class _PosTablesView extends StatelessWidget {
       },
     );
   }
-
-  // ---------- WIDE (landscape / tablet) ----------
 
   Widget _buildWide(BuildContext context, {required double panelWidth}) {
     return Row(
@@ -181,8 +178,8 @@ class _PosTablesView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
-                  border: Border(
-                      bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                  border:
+                      Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -208,8 +205,6 @@ class _PosTablesView extends StatelessWidget {
     );
   }
 
-  // ---------- SHARED ----------
-
   Widget _buildTableGrid(BuildContext context,
       {required int crossAxisCount}) {
     return GridView.builder(
@@ -221,7 +216,7 @@ class _PosTablesView extends StatelessWidget {
         mainAxisSpacing: 8,
         childAspectRatio: 1,
       ),
-      itemCount: 70,
+      itemCount: tableCount,
       itemBuilder: (context, i) {
         final n = i + 1;
         final o = _orderForTable(n);

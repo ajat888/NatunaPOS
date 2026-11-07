@@ -13,14 +13,17 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
   late final TextEditingController _footerController;
+  late final TextEditingController _tableCountController;
 
   final _nameFocus = FocusNode();
   final _subtitleFocus = FocusNode();
   final _addressFocus = FocusNode();
   final _phoneFocus = FocusNode();
   final _footerFocus = FocusNode();
+  final _tableCountFocus = FocusNode();
 
   bool _saving = false;
+  bool _savingTableCount = false;
 
   @override
   void initState() {
@@ -31,12 +34,15 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
     _addressController = TextEditingController(text: s.storeAddress.value);
     _phoneController = TextEditingController(text: s.storePhone.value);
     _footerController = TextEditingController(text: s.receiptFooter.value);
+    _tableCountController =
+        TextEditingController(text: s.tableCount.value.toString());
 
     s.storeName.addListener(_syncName);
     s.storeSubtitle.addListener(_syncSubtitle);
     s.storeAddress.addListener(_syncAddress);
     s.storePhone.addListener(_syncPhone);
     s.receiptFooter.addListener(_syncFooter);
+    s.tableCount.addListener(_syncTableCount);
   }
 
   void _syncName() {
@@ -69,6 +75,14 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
     if (_footerController.text != v) _footerController.text = v;
   }
 
+  void _syncTableCount() {
+    if (!mounted) return;
+    setState(() {});
+    if (_tableCountFocus.hasFocus) return;
+    final v = AppSettings.instance.tableCount.value.toString();
+    if (_tableCountController.text != v) _tableCountController.text = v;
+  }
+
   @override
   void dispose() {
     final s = AppSettings.instance;
@@ -77,16 +91,19 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
     s.storeAddress.removeListener(_syncAddress);
     s.storePhone.removeListener(_syncPhone);
     s.receiptFooter.removeListener(_syncFooter);
+    s.tableCount.removeListener(_syncTableCount);
     _nameController.dispose();
     _subtitleController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
     _footerController.dispose();
+    _tableCountController.dispose();
     _nameFocus.dispose();
     _subtitleFocus.dispose();
     _addressFocus.dispose();
     _phoneFocus.dispose();
     _footerFocus.dispose();
+    _tableCountFocus.dispose();
     super.dispose();
   }
 
@@ -119,6 +136,100 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _saveTableCount() async {
+    final text = _tableCountController.text.trim();
+    final parsed = int.tryParse(text);
+    if (parsed == null || parsed < 1 || parsed > 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Jumlah meja harus 1 - 200'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+    setState(() => _savingTableCount = true);
+    await AppSettings.instance.saveTableCount(parsed);
+    if (!mounted) return;
+    setState(() => _savingTableCount = false);
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Jumlah meja disimpan: $parsed'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Widget _buildTableCountField() {
+    final current = AppSettings.instance.tableCount.value;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(height: 24, color: Color(0xFFE2E8F0)),
+        Row(
+          children: [
+            const Icon(Icons.table_restaurant_outlined,
+                size: 18, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Jumlah Meja',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textColor,
+                ),
+              ),
+            ),
+            Text(
+              '$current meja',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tableCountController,
+                focusNode: _tableCountFocus,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Jumlah Meja',
+                  helperText: 'Rentang 1 - 200',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              onPressed: _savingTableCount ? null : _saveTableCount,
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              ),
+              child: _savingTableCount
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('SIMPAN'),
+            ),
+          ],
+        ),
+        const Divider(height: 24, color: Color(0xFFE2E8F0)),
+      ],
+    );
   }
 
   @override
@@ -175,6 +286,7 @@ class _StoreInfoSectionState extends State<_StoreInfoSection> {
                   minLines: 2,
                   maxLines: 4,
                 ),
+                _buildTableCountField(),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _saving ? null : _save,

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/supabase_service.dart';
 import '../services/printer_service.dart';
+import '../services/app_settings.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
@@ -457,12 +458,16 @@ class PosScreenState extends State<PosScreen> {
               tooltip: 'Muat ulang'),
         ],
       ),
-      body: _PosTablesView(
-        openOrders: _openOrders,
-        onTapEmptyTable: _openEmptyTable,
-        onTapOpenOrder: _openOrderDetail,
-        onTapTakeAway: _openTakeAway,
-        onTapPay: _showPaymentFor,
+      body: ValueListenableBuilder<int>(
+        valueListenable: AppSettings.instance.tableCount,
+        builder: (context, tableCount, _) => _PosTablesView(
+          openOrders: _openOrders,
+          tableCount: tableCount,
+          onTapEmptyTable: _openEmptyTable,
+          onTapOpenOrder: _openOrderDetail,
+          onTapTakeAway: _openTakeAway,
+          onTapPay: _showPaymentFor,
+        ),
       ),
     );
   }
