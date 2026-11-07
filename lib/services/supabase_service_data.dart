@@ -1,5 +1,4 @@
 part of 'supabase_service.dart';
-import '../models/voided_open_order.dart';
 
 extension SupabaseServiceData on SupabaseService {
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();

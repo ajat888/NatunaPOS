@@ -1,4 +1,3 @@
-// lib/services/supabase_service.dart
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -13,6 +12,7 @@ import '../models/category.dart';
 import '../models/transaction.dart';
 import '../models/open_order.dart';
 import '../models/auth_cache.dart';
+import '../models/voided_open_order.dart'; // <-- TAMBAHKAN IMPORT INI DI SINI
 import '../core/local_db.dart';
 import 'sync_runner.dart';
 import 'sync_status_service.dart';
