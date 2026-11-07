@@ -6,7 +6,6 @@ import '../core/theme.dart';
 import '../models/expense.dart';
 import '../models/transaction.dart';
 import '../services/report_service.dart';
-import '../widgets/common/main_menu_scope.dart';
 
 part 'reports/reports_filter_card.dart';
 part 'reports/reports_summary_cards.dart';
@@ -133,9 +132,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.menu),
-          tooltip: 'Menu',
-          onPressed: () => MainMenuScope.of(context)?.openMenu(),
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Laporan'),
         actions: [

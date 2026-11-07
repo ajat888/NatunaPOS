@@ -8,7 +8,6 @@ import '../services/app_settings.dart';
 import '../services/report_service.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
-import '../widgets/common/main_menu_scope.dart';
 import '../widgets/common/thousand_formatter.dart';
 import 'login_screen.dart';
 import 'reports_screen.dart';
@@ -195,9 +194,9 @@ class _ClosingScreenState extends State<ClosingScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.menu),
-          tooltip: 'Menu',
-          onPressed: () => MainMenuScope.of(context)?.openMenu(),
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Closing Harian'),
         actions: [
