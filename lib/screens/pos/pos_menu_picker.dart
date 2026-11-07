@@ -30,11 +30,17 @@ class _PosMenuPicker extends StatelessWidget {
   });
 
   List<Product> get _filteredProducts {
-    if (filterCategoryId == null) return products;
-    if (filterCategoryId == -1) {
-      return products.where((p) => p.categoryId == null).toList();
+    List<Product> filtered;
+    if (filterCategoryId == null) {
+      filtered = List.from(products);
+    } else if (filterCategoryId == -1) {
+      filtered = products.where((p) => p.categoryId == null).toList();
+    } else {
+      filtered = products.where((p) => p.categoryId == filterCategoryId).toList();
     }
-    return products.where((p) => p.categoryId == filterCategoryId).toList();
+    
+    filtered.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return filtered;
   }
 
   @override
@@ -232,14 +238,18 @@ class _ProductCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(product.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textColor,
-                        fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
+                SizedBox(
+                  height: 36,
+                  child: Text(product.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textColor,
+                          fontSize: 13,
+                          height: 1.3),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(height: 2),
                 Text('Rp ${formatCurrency.format(product.price)}',
                     style: const TextStyle(
                         fontSize: 12,
