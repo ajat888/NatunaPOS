@@ -63,7 +63,7 @@ class _ReportsLists extends StatelessWidget {
           ),
           childrenPadding: const EdgeInsets.only(bottom: 8),
           children: [
-            for (final tx in items) _transactionTile(tx, fmt, dateFmt),
+            for (final tx in items) _transactionTile(context, tx, fmt, dateFmt),
           ],
         ),
       ),
@@ -71,71 +71,180 @@ class _ReportsLists extends StatelessWidget {
   }
 
   Widget _transactionTile(
+    BuildContext context,
     Transaction tx,
     NumberFormat fmt,
     DateFormat dateFmt,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: tx.isVoided ? Colors.grey.shade50 : AppTheme.surfaceColor,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        splashColor: Colors.transparent,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Rp ${fmt.format(tx.total)}',
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+        shape: const Border(), // Menghilangkan border default ExpansionTile
+        collapsedShape: const Border(),
+        title: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Rp ${fmt.format(tx.total)}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: tx.isVoided
+                            ? AppTheme.textLightColor
+                            : AppTheme.textColor,
+                        decoration: tx.isVoided
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                    ),
+                  ),
+                  if (tx.isVoided) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerColor,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'VOID',
                         style: TextStyle(
-                          fontSize: 13,
+                          color: Colors.white,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
-                          color: tx.isVoided
-                              ? AppTheme.textLightColor
-                              : AppTheme.textColor,
-                          decoration: tx.isVoided
-                              ? TextDecoration.lineThrough
-                              : null,
                         ),
                       ),
                     ),
-                    if (tx.isVoided) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.dangerColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'VOID',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '${tx.itemCount} item • ${dateFmt.format(tx.createdAt)}',
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppTheme.textLightColor,
+            ),
+          ),
+        ),
+        children: [
+          // List Item Produk
+          ...tx.items.map((item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${item.productName}  ×${item.qty}',
+                        style: const TextStyle(
+                            fontSize: 13, color: AppTheme.textColor),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
+                    ),
+                    Text(
+                      'Rp ${fmt.format(item.subtotal)}',
+                      style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textLightColor,
+                          fontWeight: FontWeight.w500),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 2),
+              )),
+          const Divider(height: 16, color: Color(0xFFE2E8F0)),
+
+          // Subtotal
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Subtotal',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+              Text('Rp ${fmt.format(tx.subtotal)}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textColor)),
+            ],
+          ),
+
+          // Diskon (jika ada)
+          if (tx.billDiscount > 0) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Diskon',
+                    style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
+                Text('- Rp ${fmt.format(tx.billDiscount)}',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.dangerColor)),
+              ],
+            ),
+          ],
+
+          // PPN (jika ada)
+          if (tx.taxAmount > 0) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('PPN ${tx.taxRate}%',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.textLightColor)),
+                Text('Rp ${fmt.format(tx.taxAmount)}',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.textColor)),
+              ],
+            ),
+          ],
+
+          // Total
+          if (tx.billDiscount > 0 || tx.taxAmount > 0) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Total',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textColor)),
+                Text('Rp ${fmt.format(tx.total)}',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor)),
+              ],
+            ),
+          ],
+
+          // Tunai / Kembali
+          if (tx.cashReceived > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Tunai / Kembali',
+                    style: TextStyle(
+                        fontSize: 11, color: AppTheme.textLightColor)),
                 Text(
-                  '${tx.itemCount} item • ${dateFmt.format(tx.createdAt)}',
+                  'Rp ${fmt.format(tx.cashReceived)} / Rp ${fmt.format(tx.changeAmount)}',
                   style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textLightColor,
-                  ),
+                      fontSize: 11, color: AppTheme.textLightColor),
                 ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
