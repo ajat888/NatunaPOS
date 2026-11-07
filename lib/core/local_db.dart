@@ -12,6 +12,7 @@ import 'local_db/local_db_expense_items.dart';
 import 'local_db/local_db_expenses.dart';
 import 'local_db/local_db_voided_open_orders.dart';
 import 'local_db/local_db_reports.dart';
+import 'local_db/local_db_closings.dart';
 
 class LocalDb with
     LocalDbProducts,
@@ -24,7 +25,8 @@ class LocalDb with
     LocalDbExpenseItems,
     LocalDbExpenses,
     LocalDbVoidedOpenOrders,
-    LocalDbReports {
+    LocalDbReports,
+    LocalDbClosings {
   static final LocalDb instance = LocalDb._init();
   static Future<Database>? _dbFuture;
 
@@ -41,7 +43,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -58,6 +60,7 @@ class LocalDb with
     await LocalDbExpenseItems.createTableExpenseItems(db);
     await LocalDbExpenses.createTableExpenses(db);
     await LocalDbVoidedOpenOrders.createTableVoidedOpenOrders(db);
+    await LocalDbClosings.createTableDailyClosings(db);
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -124,6 +127,9 @@ class LocalDb with
     if (oldVersion < 14) {
       await LocalDbVoidedOpenOrders.upgradeVoidedOpenOrdersV14(db);
     }
+    if (oldVersion < 15) {
+      await LocalDbClosings.upgradeDailyClosingsV15(db);
+    }
   }
 
   Future<int> countPendingSync() async {
@@ -158,6 +164,7 @@ class LocalDb with
       await txn.delete('expense_categories');
       await txn.delete('products');
       await txn.delete('categories');
+      await txn.delete('daily_closings');
     });
   }
 }
