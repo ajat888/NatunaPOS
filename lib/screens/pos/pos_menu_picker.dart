@@ -112,7 +112,7 @@ class _PosMenuPicker extends StatelessWidget {
                       maxCrossAxisExtent: maxExtent,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      childAspectRatio: 0.75,
+                      childAspectRatio: 0.68,
                     ),
                     itemCount: _filteredProducts.length,
                     itemBuilder: (context, i) {
@@ -237,9 +237,9 @@ class _ProductCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textColor,
                         fontSize: 13),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text('Rp ${formatCurrency.format(product.price)}',
                     style: const TextStyle(
                         fontSize: 12,
