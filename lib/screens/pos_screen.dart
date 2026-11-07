@@ -22,6 +22,7 @@ part 'pos/pos_payment_dialog.dart';
 part 'pos/pos_save_dialog.dart';
 part 'pos/pos_discount_dialog.dart';
 part 'pos/pos_split_view.dart';
+part 'pos/pos_void_open_order_dialog.dart';
 
 enum PosView { tables, menu, orderDetail, split }
 
@@ -505,11 +506,16 @@ class PosScreenState extends State<PosScreen> {
       onPay: () => _showPaymentFor(order),
       onSplit: _openSplitView,
       onAdjustQty: (item, delta) => _adjustOpenOrderItemQty(order, item, delta),
-      onVoid: () async {
-        await _localDb.deleteOpenOrder(order.orderKey);
+      onVoidSuccess: () async {
         await _reloadOpenOrders();
         if (!mounted) return;
         _backToTables();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pesanan di-void'),
+            backgroundColor: Colors.green,
+          ),
+        );
       },
     );
   }

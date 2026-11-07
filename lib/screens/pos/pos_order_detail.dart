@@ -1,4 +1,3 @@
-// lib/screens/pos/pos_order_detail.dart
 part of '../pos_screen.dart';
 
 class _PosOrderDetailView extends StatelessWidget {
@@ -8,7 +7,7 @@ class _PosOrderDetailView extends StatelessWidget {
   final VoidCallback onPay;
   final VoidCallback onSplit;
   final void Function(OpenOrderItem item, int delta) onAdjustQty;
-  final Future<void> Function() onVoid;
+  final Future<void> Function() onVoidSuccess;
 
   const _PosOrderDetailView({
     required this.order,
@@ -17,7 +16,7 @@ class _PosOrderDetailView extends StatelessWidget {
     required this.onPay,
     required this.onSplit,
     required this.onAdjustQty,
-    required this.onVoid,
+    required this.onVoidSuccess,
   });
 
   bool get _canSplit =>
@@ -42,30 +41,15 @@ class _PosOrderDetailView extends StatelessWidget {
   Widget _buildVoidAction(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor),
+      tooltip: 'Void Pesanan (dengan alasan)',
       onPressed: () async {
-        final confirm = await showDialog<bool>(
+        final result = await showDialog<bool>(
           context: context,
-          builder: (c) => AlertDialog(
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
-            title: const Text('Void Pesanan'),
-            content: Text('Hapus seluruh pesanan ${order.label}?'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(c, false),
-                  child: const Text('BATAL')),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.dangerColor),
-                onPressed: () => Navigator.pop(c, true),
-                child: const Text('VOID'),
-              ),
-            ],
-          ),
+          barrierDismissible: false,
+          builder: (_) => _VoidOpenOrderDialog(order: order),
         );
-        if (confirm == true) await onVoid();
+        if (result == true) await onVoidSuccess();
       },
-      tooltip: 'Void',
     );
   }
 

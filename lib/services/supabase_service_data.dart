@@ -1,5 +1,5 @@
-// lib/services/supabase_service_data.dart
 part of 'supabase_service.dart';
+import '../models/voided_open_order.dart';
 
 extension SupabaseServiceData on SupabaseService {
   Future<List<Product>> getLocalProducts() => _localDb.getProducts();
@@ -238,4 +238,20 @@ extension SupabaseServiceData on SupabaseService {
     await SyncStatusService.instance.refreshPendingCount();
     syncData();
   }
+
+  Future<void> voidOpenOrder({
+    required String orderKey,
+    required String reason,
+  }) async {
+    final cashier = AppSettings.instance.cashierName.value.trim();
+    final voidedBy = cashier.isEmpty ? 'Kasir' : cashier;
+    await _localDb.voidOpenOrderWithArchive(
+      orderKey: orderKey,
+      reason: reason.trim(),
+      voidedBy: voidedBy,
+    );
+  }
+
+  Future<List<VoidedOpenOrder>> getLocalVoidedOpenOrders({int limit = 200}) =>
+      _localDb.getVoidedOpenOrders(limit: limit);
 }

@@ -1,6 +1,6 @@
-// lib/core/local_db/local_db_open_orders.dart
 import 'package:sqflite/sqflite.dart';
 import '../../models/open_order.dart';
+import '../../models/voided_open_order.dart';
 
 mixin LocalDbOpenOrders {
   Future<Database> get database;
@@ -113,7 +113,6 @@ mixin LocalDbOpenOrders {
     });
   }
 
-  /// Merge: kalau product_id sama sudah ada, jumlahkan qty.
   Future<void> appendToOpenOrder({
     required String orderKey,
     required List<OpenOrderLine> lines,
@@ -156,7 +155,6 @@ mixin LocalDbOpenOrders {
     }
   }
 
-  /// Hapus open order lokal DAN catat ke queue delete untuk di-push ke server.
   Future<void> deleteOpenOrder(String orderKey) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -164,6 +162,57 @@ mixin LocalDbOpenOrders {
           where: 'order_key = ?', whereArgs: [orderKey]);
       await txn
           .delete('open_orders', where: 'order_key = ?', whereArgs: [orderKey]);
+      await txn.insert(
+        'deleted_open_order_keys',
+        {
+          'order_key': orderKey,
+          'deleted_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<void> voidOpenOrderWithArchive({
+    required String orderKey,
+    required String reason,
+    required String voidedBy,
+  }) async {
+    final db = await database;
+    final order = await getOpenOrder(orderKey);
+    if (order == null) {
+      throw Exception('Pesanan tidak ditemukan');
+    }
+
+    final voidedAt = DateTime.now();
+    final voided = VoidedOpenOrder(
+      id: 0,
+      orderKey: order.orderKey,
+      orderType: order.orderType,
+      tableNumber: order.tableNumber,
+      subtotal: order.subtotal,
+      itemCount: order.itemCount,
+      items: order.items
+          .map((it) => VoidedOpenOrderItem(
+                productId: it.productId,
+                productName: it.productName,
+                price: it.price,
+                hpp: it.hpp,
+                qty: it.qty,
+              ))
+          .toList(),
+      voidReason: reason.trim(),
+      voidedBy: voidedBy,
+      voidedAt: voidedAt,
+      createdAt: order.createdAt,
+    );
+
+    await db.transaction((txn) async {
+      await txn.insert('voided_open_orders', voided.toDb());
+      await txn.delete('open_order_items',
+          where: 'order_key = ?', whereArgs: [orderKey]);
+      await txn.delete('open_orders',
+          where: 'order_key = ?', whereArgs: [orderKey]);
       await txn.insert(
         'deleted_open_order_keys',
         {
@@ -187,9 +236,6 @@ mixin LocalDbOpenOrders {
         where: 'order_key = ?', whereArgs: [orderKey]);
   }
 
-  /// Insert open order yang datang dari server (pull). Tidak mencatat ke
-  /// deleted_open_order_keys. Skip jika order_key sudah ada lokal atau
-  /// sedang dalam antrean delete (agar tidak dihidupkan kembali).
   Future<void> insertPulledOpenOrder({
     required String orderKey,
     required String orderType,
@@ -226,10 +272,6 @@ mixin LocalDbOpenOrders {
     });
   }
 
-  /// Isu A: setelah produk lokal (id negatif) berhasil di-push ke server dan
-  /// mendapat ID positif, semua referensi di open_order_items harus di-remap
-  /// agar pesanan yang masih terbuka tetap punya link ke produk server ketika
-  /// akhirnya di-pay (menjadi transaction_items).
   Future<void> remapOpenOrderItemProductId(int oldId, int newId) async {
     final db = await database;
     await db.update(

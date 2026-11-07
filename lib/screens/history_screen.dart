@@ -5,6 +5,7 @@ import '../models/transaction.dart';
 import '../services/supabase_service.dart';
 import '../services/printer_service.dart';
 import '../widgets/common/main_menu_scope.dart';
+import 'voided_open_orders_screen.dart';
 
 part 'history/history_list_tile.dart';
 part 'history/void_dialog.dart';
@@ -108,6 +109,13 @@ class HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  void _openVoidedOpenOrders() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const VoidedOpenOrdersScreen()),
+    );
+  }
+
   List<Transaction> get _visibleTransactions {
     if (_showVoided) return _transactions;
     return _transactions.where((tx) => !tx.isVoided).toList();
@@ -125,6 +133,11 @@ class HistoryScreenState extends State<HistoryScreen> {
         ),
         title: const Text('Riwayat Transaksi'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.block),
+            tooltip: 'Void Open Order',
+            onPressed: _openVoidedOpenOrders,
+          ),
           IconButton(
             icon: Icon(_showVoided ? Icons.visibility : Icons.visibility_off),
             tooltip: _showVoided ? 'Sembunyikan VOID' : 'Tampilkan VOID',

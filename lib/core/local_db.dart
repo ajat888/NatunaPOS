@@ -1,4 +1,3 @@
-// lib/core/local_db.dart
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
@@ -11,6 +10,7 @@ import 'local_db/local_db_auth.dart';
 import 'local_db/local_db_expense_categories.dart';
 import 'local_db/local_db_expense_items.dart';
 import 'local_db/local_db_expenses.dart';
+import 'local_db/local_db_voided_open_orders.dart';
 
 class LocalDb with
     LocalDbProducts,
@@ -21,7 +21,8 @@ class LocalDb with
     LocalDbAuth,
     LocalDbExpenseCategories,
     LocalDbExpenseItems,
-    LocalDbExpenses {
+    LocalDbExpenses,
+    LocalDbVoidedOpenOrders {
   static final LocalDb instance = LocalDb._init();
   static Future<Database>? _dbFuture;
 
@@ -38,7 +39,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -54,6 +55,7 @@ class LocalDb with
     await LocalDbExpenseCategories.createTableExpenseCategories(db);
     await LocalDbExpenseItems.createTableExpenseItems(db);
     await LocalDbExpenses.createTableExpenses(db);
+    await LocalDbVoidedOpenOrders.createTableVoidedOpenOrders(db);
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -117,6 +119,9 @@ class LocalDb with
     if (oldVersion < 13) {
       await LocalDbTransactions.upgradeTransactionsV13(db);
     }
+    if (oldVersion < 14) {
+      await LocalDbVoidedOpenOrders.upgradeVoidedOpenOrdersV14(db);
+    }
   }
 
   Future<int> countPendingSync() async {
@@ -145,6 +150,7 @@ class LocalDb with
       await txn.delete('open_order_items');
       await txn.delete('open_orders');
       await txn.delete('deleted_open_order_keys');
+      await txn.delete('voided_open_orders');
       await txn.delete('expenses');
       await txn.delete('expense_items');
       await txn.delete('expense_categories');
