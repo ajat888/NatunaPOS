@@ -23,12 +23,16 @@ class _SyncPusher {
     failures += await _remapProductCategories(catRes.categoryIdMap);
     failures += await _pushProducts(userId, catRes.categoryIdMap);
     failures += await _pushTransactions(userId);
+    failures += await _pushVoidedTransactions(userId);
     return failures;
   }
 
   bool _isFkError(PostgrestException e) =>
       e.code == '23503' ||
       e.message.toLowerCase().contains('foreign key');
+
+  bool _isColumnError(PostgrestException e) =>
+      e.code == '42703' || e.message.toLowerCase().contains('column');
 
   Future<int> _pushDeletedCategories() async {
     int failures = 0;
@@ -70,7 +74,8 @@ class _SyncPusher {
     return failures;
   }
 
-  Future<({int failures, Map<int, int> categoryIdMap})> _pushCategories(String userId) async {
+  Future<({int failures, Map<int, int> categoryIdMap})> _pushCategories(
+      String userId) async {
     int failures = 0;
     final map = <int, int>{};
     final unsynced = await _localDb.getUnsyncedCategories();
@@ -146,7 +151,8 @@ class _SyncPusher {
     return failures;
   }
 
-  Future<Map<String, dynamic>> _sendProductInsert(String userId, Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _sendProductInsert(
+      String userId, Map<String, dynamic> payload) async {
     try {
       payload['user_id'] = userId;
       return await _client.from('products').insert(payload).select().single();
@@ -188,7 +194,8 @@ class _SyncPusher {
     }
   }
 
-  Future<int> _pushProducts(String userId, Map<int, int> categoryIdMap) async {
+  Future<int> _pushProducts(
+      String userId, Map<int, int> categoryIdMap) async {
     int failures = 0;
     final unsynced = await _localDb.getUnsyncedProducts();
     for (final p in unsynced) {
@@ -452,6 +459,42 @@ class _SyncPusher {
         await _localDb.replaceTransactionId(oldId: tx.id, newId: serverTxId);
       } catch (e) {
         debugPrint('Sync transaction ${tx.id} failed: $e');
+        failures++;
+      }
+    }
+    return failures;
+  }
+
+  Future<int> _pushVoidedTransactions(String userId) async {
+    int failures = 0;
+    final unsynced = await _localDb.getUnsyncedVoidedTransactions();
+    for (final tx in unsynced) {
+      try {
+        if (tx.id < 0) {
+          await _localDb.markTransactionVoidSynced(tx.id);
+          continue;
+        }
+        try {
+          await _client.from('transactions').update({
+            'is_voided': true,
+            'void_reason': tx.voidReason,
+            'voided_by': tx.voidedBy,
+            'voided_at':
+                (tx.voidedAt ?? DateTime.now()).toUtc().toIso8601String(),
+          }).eq('id', tx.id);
+          await _localDb.markTransactionVoidSynced(tx.id);
+        } on PostgrestException catch (e) {
+          if (_isColumnError(e)) {
+            debugPrint(
+                'Void columns missing on server; mark synced locally for tx ${tx.id}');
+            await _localDb.markTransactionVoidSynced(tx.id);
+          } else {
+            debugPrint('Push void tx ${tx.id} failed: $e');
+            failures++;
+          }
+        }
+      } catch (e) {
+        debugPrint('Push void tx ${tx.id} failed: $e');
         failures++;
       }
     }

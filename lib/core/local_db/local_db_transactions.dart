@@ -24,7 +24,11 @@ mixin LocalDbTransactions {
         change_amount INTEGER DEFAULT 0,
         table_number TEXT,
         order_type TEXT,
-        parent_order_key TEXT
+        parent_order_key TEXT,
+        is_voided INTEGER DEFAULT 0,
+        void_reason TEXT,
+        voided_by TEXT,
+        voided_at INTEGER
       )
     ''');
     await db.execute('''
@@ -143,6 +147,32 @@ mixin LocalDbTransactions {
     }
   }
 
+  static Future<void> upgradeTransactionsV13(Database db) async {
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN is_voided INTEGER DEFAULT 0');
+    } catch (e) {
+      debugPrint('transactions.is_voided already exists: $e');
+    }
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN void_reason TEXT');
+    } catch (e) {
+      debugPrint('transactions.void_reason already exists: $e');
+    }
+    try {
+      await db.execute('ALTER TABLE transactions ADD COLUMN voided_by TEXT');
+    } catch (e) {
+      debugPrint('transactions.voided_by already exists: $e');
+    }
+    try {
+      await db.execute(
+          'ALTER TABLE transactions ADD COLUMN voided_at INTEGER');
+    } catch (e) {
+      debugPrint('transactions.voided_at already exists: $e');
+    }
+  }
+
   Future<void> insertTransaction({
     required int transactionId,
     required int total,
@@ -178,6 +208,7 @@ mixin LocalDbTransactions {
         'table_number': tableNumber,
         'order_type': orderType,
         'parent_order_key': null,
+        'is_voided': 0,
       });
       for (final line in lines) {
         await txn.insert('transaction_items', {
@@ -192,154 +223,15 @@ mixin LocalDbTransactions {
     });
   }
 
-  Future<void> payOpenOrderAtomic({
-    required int transactionId,
-    required String orderKey,
-    required int total,
-    required int subtotal,
-    required int billDiscount,
-    required String discountType,
-    required int discountValue,
-    required double taxRate,
-    required int taxAmount,
-    required DateTime createdAt,
-    required List<TransactionLine> lines,
-    required int cashReceived,
-    required int changeAmount,
-    required String? tableNumber,
-    required String? orderType,
+  Future<List<Transaction>> getTransactions({
+    int limit = 200,
+    bool includeVoided = true,
   }) async {
     final db = await database;
-    await db.transaction((txn) async {
-      await txn.insert('transactions', {
-        'id': transactionId,
-        'total': total,
-        'subtotal': subtotal,
-        'bill_discount': billDiscount,
-        'discount_type': discountType,
-        'discount_value': discountValue,
-        'tax_rate': taxRate,
-        'tax_amount': taxAmount,
-        'created_at': createdAt.toUtc().millisecondsSinceEpoch,
-        'is_synced': 0,
-        'is_deleted': 0,
-        'cash_received': cashReceived,
-        'change_amount': changeAmount,
-        'table_number': tableNumber,
-        'order_type': orderType,
-        'parent_order_key': null,
-      });
-      for (final line in lines) {
-        await txn.insert('transaction_items', {
-          'transaction_id': transactionId,
-          'product_id': line.productId,
-          'product_name': line.productName,
-          'price': line.price,
-          'hpp': line.hpp,
-          'qty': line.qty,
-        });
-      }
-      await txn.delete('open_order_items',
-          where: 'order_key = ?', whereArgs: [orderKey]);
-      await txn.delete('open_orders',
-          where: 'order_key = ?', whereArgs: [orderKey]);
-      await txn.insert(
-        'deleted_open_order_keys',
-        {
-          'order_key': orderKey,
-          'deleted_at': DateTime.now().millisecondsSinceEpoch,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    });
-  }
-
-  Future<void> payPartialOpenOrderAtomic({
-    required int transactionId,
-    required String orderKey,
-    required int total,
-    required int subtotal,
-    required int billDiscount,
-    required String discountType,
-    required int discountValue,
-    required double taxRate,
-    required int taxAmount,
-    required DateTime createdAt,
-    required List<TransactionLine> lines,
-    required Map<int, int> selectionQtyByItemId,
-    required int cashReceived,
-    required int changeAmount,
-    required String? tableNumber,
-    required String? orderType,
-  }) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      await txn.insert('transactions', {
-        'id': transactionId,
-        'total': total,
-        'subtotal': subtotal,
-        'bill_discount': billDiscount,
-        'discount_type': discountType,
-        'discount_value': discountValue,
-        'tax_rate': taxRate,
-        'tax_amount': taxAmount,
-        'created_at': createdAt.toUtc().millisecondsSinceEpoch,
-        'is_synced': 0,
-        'is_deleted': 0,
-        'cash_received': cashReceived,
-        'change_amount': changeAmount,
-        'table_number': tableNumber,
-        'order_type': orderType,
-        'parent_order_key': orderKey,
-      });
-      for (final line in lines) {
-        await txn.insert('transaction_items', {
-          'transaction_id': transactionId,
-          'product_id': line.productId,
-          'product_name': line.productName,
-          'price': line.price,
-          'hpp': line.hpp,
-          'qty': line.qty,
-        });
-      }
-      for (final entry in selectionQtyByItemId.entries) {
-        final itemId = entry.key;
-        final paidQty = entry.value;
-        if (paidQty <= 0) continue;
-        final rows = await txn.query('open_order_items',
-            where: 'id = ?', whereArgs: [itemId], limit: 1);
-        if (rows.isEmpty) continue;
-        final currentQty = (rows.first['qty'] as num).toInt();
-        final newQty = currentQty - paidQty;
-        if (newQty <= 0) {
-          await txn.delete('open_order_items',
-              where: 'id = ?', whereArgs: [itemId]);
-        } else {
-          await txn.update('open_order_items', {'qty': newQty},
-              where: 'id = ?', whereArgs: [itemId]);
-        }
-      }
-      final remaining = await txn.query('open_order_items',
-          where: 'order_key = ?', whereArgs: [orderKey], limit: 1);
-      if (remaining.isEmpty) {
-        await txn.delete('open_orders',
-            where: 'order_key = ?', whereArgs: [orderKey]);
-        await txn.insert(
-          'deleted_open_order_keys',
-          {
-            'order_key': orderKey,
-            'deleted_at': DateTime.now().millisecondsSinceEpoch,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-    });
-  }
-
-  Future<List<Transaction>> getTransactions({int limit = 100}) async {
-    final db = await database;
+    final whereClause =
+        includeVoided ? 'is_deleted = 0' : 'is_deleted = 0 AND is_voided = 0';
     final txMaps = await db.query('transactions',
-        where: 'is_deleted = 0', orderBy: 'created_at DESC', limit: limit);
+        where: whereClause, orderBy: 'created_at DESC', limit: limit);
     if (txMaps.isEmpty) return [];
     final txIds = txMaps.map((m) => m['id'] as int).toList();
     final placeholders = List.filled(txIds.length, '?').join(',');
@@ -364,7 +256,8 @@ mixin LocalDbTransactions {
     final result = await db.rawQuery('''
       SELECT COUNT(*) AS c, COALESCE(SUM(total), 0) AS t
       FROM transactions
-      WHERE is_deleted = 0 AND created_at >= ? AND created_at < ?
+      WHERE is_deleted = 0 AND is_voided = 0
+        AND created_at >= ? AND created_at < ?
     ''', [
       startLocal.millisecondsSinceEpoch,
       endLocal.millisecondsSinceEpoch
@@ -379,7 +272,8 @@ mixin LocalDbTransactions {
   Future<List<Transaction>> getUnsyncedTransactions() async {
     final db = await database;
     final txMaps = await db.query('transactions',
-        where: 'is_synced = 0 AND is_deleted = 0', orderBy: 'created_at ASC');
+        where: 'is_synced = 0 AND is_deleted = 0 AND is_voided = 0',
+        orderBy: 'created_at ASC');
     if (txMaps.isEmpty) return [];
     final txIds = txMaps.map((m) => m['id'] as int).toList();
     final placeholders = List.filled(txIds.length, '?').join(',');
@@ -394,6 +288,53 @@ mixin LocalDbTransactions {
       final id = m['id'] as int;
       return Transaction.fromDb(m, itemsByTx[id] ?? []);
     }).toList();
+  }
+
+  Future<List<Transaction>> getUnsyncedVoidedTransactions() async {
+    final db = await database;
+    final txMaps = await db.query('transactions',
+        where: 'is_voided = 1 AND is_synced = 0 AND is_deleted = 0',
+        orderBy: 'created_at ASC');
+    if (txMaps.isEmpty) return [];
+    final txIds = txMaps.map((m) => m['id'] as int).toList();
+    final placeholders = List.filled(txIds.length, '?').join(',');
+    final itemMaps = await db.query('transaction_items',
+        where: 'transaction_id IN ($placeholders)', whereArgs: txIds);
+    final itemsByTx = <int, List<TransactionItem>>{};
+    for (final m in itemMaps) {
+      final item = TransactionItem.fromDb(m);
+      itemsByTx.putIfAbsent(item.transactionId, () => []).add(item);
+    }
+    return txMaps.map((m) {
+      final id = m['id'] as int;
+      return Transaction.fromDb(m, itemsByTx[id] ?? []);
+    }).toList();
+  }
+
+  Future<void> voidTransaction({
+    required int id,
+    required String reason,
+    required String voidedBy,
+  }) async {
+    final db = await database;
+    await db.update(
+      'transactions',
+      {
+        'is_voided': 1,
+        'void_reason': reason,
+        'voided_by': voidedBy,
+        'voided_at': DateTime.now().toUtc().millisecondsSinceEpoch,
+        'is_synced': 0,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markTransactionVoidSynced(int id) async {
+    final db = await database;
+    await db.update('transactions', {'is_synced': 1},
+        where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> replaceTransactionId({
@@ -456,6 +397,10 @@ mixin LocalDbTransactions {
     String? tableNumber,
     String? orderType,
     String? parentOrderKey,
+    bool isVoided = false,
+    String? voidReason,
+    String? voidedBy,
+    int? voidedAtMs,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -478,6 +423,10 @@ mixin LocalDbTransactions {
           'table_number': tableNumber,
           'order_type': orderType,
           'parent_order_key': parentOrderKey,
+          'is_voided': isVoided ? 1 : 0,
+          'void_reason': voidReason,
+          'voided_by': voidedBy,
+          'voided_at': voidedAtMs,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );

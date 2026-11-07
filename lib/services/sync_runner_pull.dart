@@ -102,8 +102,7 @@ class _SyncPuller {
           final file = File('${dir.path}/$filename');
           await file.writeAsBytes(response.bodyBytes);
 
-          await _localDb
-              .updateProductLocalImagePath(product.id, file.path);
+          await _localDb.updateProductLocalImagePath(product.id, file.path);
           debugPrint('Downloaded image for product ${product.id}');
         } catch (e) {
           debugPrint('Download image product ${product.id} failed: $e');
@@ -112,6 +111,12 @@ class _SyncPuller {
     } catch (e) {
       debugPrint('_downloadMissingImages failed: $e');
     }
+  }
+
+  int? _parseTimestamp(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toInt();
+    return DateTime.tryParse(v.toString())?.millisecondsSinceEpoch;
   }
 
   Future<int> _pullTransactions(String userId) async {
@@ -124,7 +129,7 @@ class _SyncPuller {
           final response = await _client
               .from('transactions')
               .select(
-                  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)')
+                  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, transaction_items(product_id, product_name, price, hpp, qty)')
               .eq('user_id', userId)
               .order('id', ascending: true)
               .range(offset, offset + pageSize - 1);
@@ -138,7 +143,7 @@ class _SyncPuller {
             final response = await _client
                 .from('transactions')
                 .select(
-                    'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)')
+                    'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)')
                 .eq('user_id', userId)
                 .order('id', ascending: true)
                 .range(offset, offset + pageSize - 1);
@@ -148,19 +153,35 @@ class _SyncPuller {
                 e2.message.toLowerCase().contains('column'))) {
               rethrow;
             }
-            final response = await _client
-                .from('transactions')
-                .select(
-                    'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)')
-                .eq('user_id', userId)
-                .order('id', ascending: true)
-                .range(offset, offset + pageSize - 1);
-            list = response as List;
+            try {
+              final response = await _client
+                  .from('transactions')
+                  .select(
+                      'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)')
+                  .eq('user_id', userId)
+                  .order('id', ascending: true)
+                  .range(offset, offset + pageSize - 1);
+              list = response as List;
+            } on PostgrestException catch (e3) {
+              if (!(e3.code == '42703' ||
+                  e3.message.toLowerCase().contains('column'))) {
+                rethrow;
+              }
+              final response = await _client
+                  .from('transactions')
+                  .select(
+                      'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)')
+                  .eq('user_id', userId)
+                  .order('id', ascending: true)
+                  .range(offset, offset + pageSize - 1);
+              list = response as List;
+            }
           }
         }
 
         if (list.isEmpty) break;
-        final ids = list.map((e) => ((e as Map)['id'] as num).toInt()).toList();
+        final ids =
+            list.map((e) => ((e as Map)['id'] as num).toInt()).toList();
         final existing = await _localDb.existingTransactionIds(ids);
 
         for (final raw in list) {
@@ -215,6 +236,10 @@ class _SyncPuller {
             tableNumber: m['table_number'] as String?,
             orderType: m['order_type'] as String?,
             parentOrderKey: m['parent_order_key'] as String?,
+            isVoided: (m['is_voided'] as bool?) ?? false,
+            voidReason: m['void_reason'] as String?,
+            voidedBy: m['voided_by'] as String?,
+            voidedAtMs: _parseTimestamp(m['voided_at']),
           );
         }
         if (list.length < pageSize) break;

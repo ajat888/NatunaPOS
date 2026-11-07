@@ -9,6 +9,20 @@ extension _ReceiptGenerator on PrinterService {
 
     bytes.addAll(generator.reset());
 
+    if (tx.isVoided) {
+      bytes.addAll(generator.text(
+        '*** VOID ***',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ));
+      if (tx.voidReason != null && tx.voidReason!.isNotEmpty) {
+        bytes.addAll(generator.text(
+          'Alasan: ${tx.voidReason}',
+          styles: const PosStyles(align: PosAlign.center),
+        ));
+      }
+      bytes.addAll(generator.feed(1));
+    }
+
     final logoPath = settings.logoPath.value;
     if (logoPath != null && File(logoPath).existsSync()) {
       try {
@@ -98,12 +112,16 @@ extension _ReceiptGenerator on PrinterService {
     bytes.addAll(generator.hr());
 
     for (final item in tx.items) {
-      bytes.addAll(generator.text(item.productName, styles: const PosStyles(bold: true)));
+      bytes.addAll(
+          generator.text(item.productName, styles: const PosStyles(bold: true)));
       final sub = NumberFormat.decimalPattern('id').format(item.subtotal);
       final prc = NumberFormat.decimalPattern('id').format(item.price);
       bytes.addAll(generator.row([
         PosColumn(text: '${item.qty} x Rp $prc', width: 6),
-        PosColumn(text: 'Rp $sub', width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+            text: 'Rp $sub',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right)),
       ]));
     }
 
@@ -111,37 +129,61 @@ extension _ReceiptGenerator on PrinterService {
 
     final fmt = NumberFormat.decimalPattern('id');
     bytes.addAll(generator.row([
-      PosColumn(text: 'Subtotal', width: 6, styles: const PosStyles(bold: true)),
-      PosColumn(text: 'Rp ${fmt.format(tx.subtotal)}', width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+          text: 'Subtotal', width: 6, styles: const PosStyles(bold: true)),
+      PosColumn(
+          text: 'Rp ${fmt.format(tx.subtotal)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right)),
     ]));
 
     if (tx.billDiscount > 0) {
       bytes.addAll(generator.row([
-        PosColumn(text: 'Diskon', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(text: '-Rp ${fmt.format(tx.billDiscount)}', width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+            text: 'Diskon', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(
+            text: '-Rp ${fmt.format(tx.billDiscount)}',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right)),
       ]));
     }
 
     if (tx.taxAmount > 0) {
       bytes.addAll(generator.row([
-        PosColumn(text: 'PPN ${tx.taxRate}%', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(text: 'Rp ${fmt.format(tx.taxAmount)}', width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+            text: 'PPN ${tx.taxRate}%',
+            width: 6,
+            styles: const PosStyles(bold: true)),
+        PosColumn(
+            text: 'Rp ${fmt.format(tx.taxAmount)}',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right)),
       ]));
     }
 
     bytes.addAll(generator.row([
       PosColumn(text: 'TOTAL', width: 6, styles: const PosStyles(bold: true)),
-      PosColumn(text: 'Rp ${fmt.format(tx.total)}', width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+      PosColumn(
+          text: 'Rp ${fmt.format(tx.total)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true)),
     ]));
 
     bytes.addAll(generator.row([
       PosColumn(text: 'BAYAR', width: 6, styles: const PosStyles(bold: true)),
-      PosColumn(text: 'Rp ${fmt.format(tx.cashReceived)}', width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+          text: 'Rp ${fmt.format(tx.cashReceived)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right)),
     ]));
 
     bytes.addAll(generator.row([
-      PosColumn(text: 'KEMBALI', width: 6, styles: const PosStyles(bold: true)),
-      PosColumn(text: 'Rp ${fmt.format(tx.changeAmount)}', width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+          text: 'KEMBALI', width: 6, styles: const PosStyles(bold: true)),
+      PosColumn(
+          text: 'Rp ${fmt.format(tx.changeAmount)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right)),
     ]));
 
     bytes.addAll(generator.hr());

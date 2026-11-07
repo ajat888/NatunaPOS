@@ -6,6 +6,9 @@ import '../services/supabase_service.dart';
 import '../services/printer_service.dart';
 import '../widgets/common/main_menu_scope.dart';
 
+part 'history/history_list_tile.dart';
+part 'history/void_dialog.dart';
+
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -17,6 +20,7 @@ class HistoryScreenState extends State<HistoryScreen> {
   final _service = SupabaseService();
   List<Transaction> _transactions = [];
   bool _isLoading = true;
+  bool _showVoided = true;
   String? _errorMessage;
 
   @override
@@ -61,12 +65,52 @@ class HistoryScreenState extends State<HistoryScreen> {
   Future<void> _reprint(Transaction tx) async {
     final ok = await PrinterService.instance.printReceipt(tx);
     if (!mounted) return;
+    final msg = !ok
+        ? 'Gagal cetak struk. Periksa printer.'
+        : (tx.isVoided ? 'Struk VOID dicetak' : 'Struk berhasil dicetak');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? 'Struk berhasil dicetak' : 'Gagal cetak struk. Periksa printer.'),
+        content: Text(msg),
         backgroundColor: ok ? Colors.green : AppTheme.dangerColor,
       ),
     );
+  }
+
+  Future<void> _openVoidDialog(Transaction tx) async {
+    if (tx.isVoided) return;
+    final reason = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _VoidDialog(transaction: tx),
+    );
+    if (reason == null) return;
+    final trimmed = reason.trim();
+    if (trimmed.length < 5) return;
+    try {
+      await _service.voidTransaction(id: tx.id, reason: trimmed);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Transaksi di-void'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await reloadData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Gagal void: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+    }
+  }
+
+  List<Transaction> get _visibleTransactions {
+    if (_showVoided) return _transactions;
+    return _transactions.where((tx) => !tx.isVoided).toList();
   }
 
   @override
@@ -82,9 +126,15 @@ class HistoryScreenState extends State<HistoryScreen> {
         title: const Text('Riwayat Transaksi'),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: reloadData,
-              tooltip: 'Muat ulang'),
+            icon: Icon(_showVoided ? Icons.visibility : Icons.visibility_off),
+            tooltip: _showVoided ? 'Sembunyikan VOID' : 'Tampilkan VOID',
+            onPressed: () => setState(() => _showVoided = !_showVoided),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: reloadData,
+            tooltip: 'Muat ulang',
+          ),
         ],
       ),
       body: _isLoading
@@ -94,15 +144,19 @@ class HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor)),
+                      Text(_errorMessage!,
+                          style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
-                      TextButton(onPressed: reloadData, child: const Text('Coba Lagi')),
+                      TextButton(
+                          onPressed: reloadData,
+                          child: const Text('Coba Lagi')),
                     ],
                   ),
                 )
-              : _transactions.isEmpty
+              : _visibleTransactions.isEmpty
                   ? const Center(
-                      child: Text('Belum ada riwayat transaksi.', style: TextStyle(color: AppTheme.textLightColor)),
+                      child: Text('Belum ada riwayat transaksi.',
+                          style: TextStyle(color: AppTheme.textLightColor)),
                     )
                   : _buildList(),
     );
@@ -111,86 +165,20 @@ class HistoryScreenState extends State<HistoryScreen> {
   Widget _buildList() {
     final formatCurrency = NumberFormat.decimalPattern('id');
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-
+    final items = _visibleTransactions;
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      itemCount: _transactions.length,
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final tx = _transactions[index];
-        return Container(
-          decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE2E8F0))),
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              dividerColor: Colors.transparent,
-              splashColor: Colors.transparent,
-            ),
-            child: ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Rp ${formatCurrency.format(tx.total)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.print, size: 20, color: AppTheme.primaryColor),
-                    onPressed: () => _reprint(tx),
-                    tooltip: 'Cetak Ulang',
-                  ),
-                ],
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '${_displayTable(tx)} • ${dateFormat.format(tx.createdAt)} • ${tx.itemCount} item',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textLightColor),
-                ),
-              ),
-              children: [
-                ...tx.items.map((item) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${item.productName}  ×${item.qty}',
-                            style: const TextStyle(fontSize: 13, color: AppTheme.textColor),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          'Rp ${formatCurrency.format(item.subtotal)}',
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textLightColor, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                if (tx.cashReceived > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Tunai / Kembali', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
-                        Text(
-                          'Rp ${formatCurrency.format(tx.cashReceived)} / Rp ${formatCurrency.format(tx.changeAmount)}',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textLightColor),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        final tx = items[index];
+        return _HistoryListTile(
+          transaction: tx,
+          formatCurrency: formatCurrency,
+          dateFormat: dateFormat,
+          displayTable: _displayTable(tx),
+          onReprint: () => _reprint(tx),
+          onVoid: () => _openVoidDialog(tx),
         );
       },
     );

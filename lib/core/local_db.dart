@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'local_db/local_db_products.dart';
 import 'local_db/local_db_categories.dart';
 import 'local_db/local_db_transactions.dart';
+import 'local_db/local_db_transactions_pay.dart';
 import 'local_db/local_db_open_orders.dart';
 import 'local_db/local_db_auth.dart';
 import 'local_db/local_db_expense_categories.dart';
@@ -15,6 +16,7 @@ class LocalDb with
     LocalDbProducts,
     LocalDbCategories,
     LocalDbTransactions,
+    LocalDbTransactionsPay,
     LocalDbOpenOrders,
     LocalDbAuth,
     LocalDbExpenseCategories,
@@ -36,7 +38,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -112,6 +114,9 @@ class LocalDb with
       await LocalDbExpenseItems.createTableExpenseItems(db);
       await LocalDbExpenses.createTableExpenses(db);
     }
+    if (oldVersion < 13) {
+      await LocalDbTransactions.upgradeTransactionsV13(db);
+    }
   }
 
   Future<int> countPendingSync() async {
@@ -132,8 +137,6 @@ class LocalDb with
     return 0;
   }
 
-  /// Menghapus seluruh data transaksional dan master saat logout
-  /// agar tidak terjadi kebocoran data antar akun di HP yang sama.
   Future<void> clearAllData() async {
     final db = await database;
     await db.transaction((txn) async {
@@ -147,7 +150,6 @@ class LocalDb with
       await txn.delete('expense_categories');
       await txn.delete('products');
       await txn.delete('categories');
-      // auth_cache sengaja tidak dihapus agar fitur login offline tetap jalan
     });
   }
 }
