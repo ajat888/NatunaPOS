@@ -28,8 +28,7 @@ extension SupabaseServiceData on SupabaseService {
       localImagePath: localImagePath,
       isSynced: false,
     ));
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> updateProduct({
@@ -51,47 +50,40 @@ extension SupabaseServiceData on SupabaseService {
       localImagePath: localImagePath,
       isSynced: false,
     ));
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> deleteProduct(int id) async {
     await _localDb.markProductDeleted(id);
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> restoreProduct(int id) async {
     await _localDb.restoreProduct(id);
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> createCategory(String name) async {
     final tempId = -DateTime.now().millisecondsSinceEpoch;
     await _localDb
         .upsertCategory(Category(id: tempId, name: name, isSynced: false));
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> updateCategory({required int id, required String name}) async {
     await _localDb
         .upsertCategory(Category(id: id, name: name, isSynced: false));
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> deleteCategory(int id) async {
     await _localDb.markCategoryDeleted(id);
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> restoreCategory(int id) async {
     await _localDb.restoreCategory(id);
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> saveTransaction({
@@ -107,8 +99,7 @@ extension SupabaseServiceData on SupabaseService {
       createdAt: now,
       lines: lines,
     );
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> payOpenOrder({
@@ -159,8 +150,7 @@ extension SupabaseServiceData on SupabaseService {
       orderType: order.orderType,
     );
 
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> payPartialOpenOrder({
@@ -222,8 +212,7 @@ extension SupabaseServiceData on SupabaseService {
       orderType: order.orderType,
     );
 
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<List<Transaction>> getLocalTransactions({int limit = 100}) async {
@@ -245,8 +234,7 @@ extension SupabaseServiceData on SupabaseService {
       reason: reason.trim(),
       voidedBy: voidedBy,
     );
-    await SyncStatusService.instance.refreshPendingCount();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<void> voidOpenOrder({
@@ -260,7 +248,7 @@ extension SupabaseServiceData on SupabaseService {
       reason: reason.trim(),
       voidedBy: voidedBy,
     );
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
   }
 
   Future<List<VoidedOpenOrder>> getLocalVoidedOpenOrders({int limit = 200}) =>

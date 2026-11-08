@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import '../services/auto_sync_scheduler.dart';
 import '../services/supabase_service.dart';
+import '../services/write_notifier.dart';
 import '../services/printer_service.dart';
 import '../services/app_settings.dart';
 import '../models/product.dart';
@@ -304,7 +304,7 @@ class PosScreenState extends State<PosScreen> {
     }
 
     _cart.clear();
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
 
     await _reloadOpenOrders();
     if (!mounted) return;
@@ -393,7 +393,7 @@ class PosScreenState extends State<PosScreen> {
       OpenOrder order, OpenOrderItem item, int delta) async {
     final newQty = item.qty + delta;
     await _localDb.updateOpenOrderItemQty(item.id, newQty);
-    AutoSyncScheduler.instance.scheduleSync();
+    await WriteNotifier.notify();
     final updated = await _localDb.getOpenOrder(order.orderKey);
     if (updated != null && updated.items.isEmpty) {
       await _localDb.deleteOpenOrder(order.orderKey);
