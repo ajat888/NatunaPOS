@@ -12,7 +12,7 @@
 - Butuh dependensi baru? Suruh edit `pubspec.yaml` manual via Acode.
   GitHub Actions yang mengunduh saat build.
 - Saat mengeksekusi perubahan, JANGAN sentuh file di luar `lib/` kecuali
-  benar-benar perlu (misal `.md`, `pubspec.yaml`).
+  benar-benar perlu (misal `.md`, `pubspec.yaml`, `.yaml`).
 
 ## 2. FOLDER `android/`
 
@@ -20,14 +20,16 @@
   benar-benar mendesak (build error) dan sudah memperingatkan user.
 - Jika terpaksa: sintaks 100% benar, jelaskan alasannya.
 
-## 3. BATAS 500 BARIS
+## 3. BATAS 500 BARIS & LINTER
 
 - File Dart maksimal 500 baris. Wajib split via `part`/`part of`.
 - Jika membuat `part 'x.dart'`, WAJIB kirim file `x.dart` juga dengan
   `part of '...'` di respons yang sama.
 - Jika `import 'y.dart'`, WAJIB pastikan file ada di repo atau buat di
   respons yang sama.
-- Jangan memecah file < 300 baris hanya demi kerapian.
+- **WAJIB BERSIH DARI LINTER:** Dilarang meninggalkan `unused_import`, 
+  `unused_local_variable`, `unused_field`, `unnecessary_cast`, atau 
+  `unnecessary_null_comparison`. Pastikan kode lulus `flutter analyze`.
 
 ## 4. ARSITEKTUR: OFFLINE-FIRST
 
@@ -40,7 +42,7 @@
 
 ## 5. 🔴 KONTRAK SINKRONISASI OTOMATIS (KRITIS — WAJIB)
 
-Sinkronisasi sekarang ditangani secara **otomatis di dalam `LocalDb`**. 
+Sinkronisasi ditangani secara **otomatis di dalam `LocalDb`**. 
 Setiap method write di `LocalDb` (misal `upsertProduct`, `insertExpense`) memiliki parameter `bool skipSync = false`. Jika `skipSync` false, `LocalDb` akan otomatis memanggil `WriteNotifier.notify()`.
 
 ### Aturan Turunan
@@ -63,6 +65,7 @@ Setiap method write di `LocalDb` (misal `upsertProduct`, `insertExpense`) memili
 - [ ] Tidak ada `.withValues()` (Flutter 3.24 pakai `.withOpacity()`).
 - [ ] Semua file `part`/`part of` dikirim lengkap.
 - [ ] Tidak ada file > 500 baris.
+- [ ] Tidak ada kode yang memicu error linter (unused import, dll).
 
 ## 6. DESAIN UI/UX
 
@@ -96,11 +99,12 @@ Setiap method write di `LocalDb` (misal `upsertProduct`, `insertExpense`) memili
 6. Beri perintah git push paling akhir (TANPA `cd`):
    `git add . && git commit -m "..." && git push origin main`
 
-## 9. ALUR KERJA
+## 9. ALUR KERJA & UNIT TEST
 
 - Jika permintaan ambigu atau menyentuh file banyak: KONFIRMASI dulu.
 - Setelah konfirmasi, kirim semua file yang dibutuhkan sekaligus.
 - Jangan tanya "mau saya lanjut?" di tengah jawaban — selesaikan.
+- **PEMBARUAN TEST:** Jika AI mengubah model data (di folder `lib/models`), WAJIB memastikan file unit test (di folder `test/`) tidak error dan ikut diperbarui jika perlu.
 
 ## 10. 🔴 ATURAN ANTI-LUPA (JANGAN HAPUS FUNGSI YANG TIDAK BERKAITAN)
 
@@ -108,3 +112,9 @@ Setiap method write di `LocalDb` (misal `upsertProduct`, `insertExpense`) memili
 - Jika tugasnya hanya memperbaiki 1 bug kecil, fokus HANYA pada bug tersebut. Jangan merombak kode yang tidak berkaitan.
 - Jika AI merasa file terlalu panjang dan berisiko terpotong, AI WAJIB memecah file tersebut menjadi `part`/`part of` sebelum melakukan perbaikan.
 - Ingat: Kehilangan 1 fungsi kecil (misal fungsi cetak struk atau validasi form) bisa merusak aplikasi secara keseluruhan.
+
+## 11. 🔄 ATURAN PEMBARUAN `AI_RULES.md` (META-RULE)
+
+- AI **HANYA BOLEH** mengupdate `AI_RULES.md` jika user secara eksplisit memerintahkan, ATAU jika ada perubahan arsitektur fundamental (misal: ganti database, ubah pola sinkronisasi, dsb).
+- AI **DILARANG** mengupdate `AI_RULES.md` untuk perubahan kecil (tambah UI, fix bug, ganti teks).
+- Jika mengupdate, AI **WAJIB** memberikan isi file `AI_RULES.md` secara **UTUH (full file)**. DILARANG memberikan instruksi seperti "tambahkan di baris sekian" atau memberikan potongan kode (snippet) saja. User akan melakukan copy-paste seluruh file.
