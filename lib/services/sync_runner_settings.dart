@@ -20,7 +20,7 @@ class _SyncSettings {
             .select('id')
             .eq('user_id', userId)
             .limit(1);
-        if ((existing as List).isEmpty && _hasLocalData(settings)) {
+        if (existing.isEmpty && _hasLocalData(settings)) {
           shouldPush = true;
         }
       } catch (e) {
@@ -89,7 +89,7 @@ class _SyncSettings {
           .eq('user_id', userId)
           .limit(1);
       Map<String, dynamic> res;
-      if ((existing as List).isEmpty) {
+      if (existing.isEmpty) {
         res = await _client
             .from('store_settings')
             .insert(payload)
@@ -124,7 +124,7 @@ class _SyncSettings {
           .select()
           .eq('user_id', userId)
           .limit(1);
-      if ((res as List).isEmpty) return 0;
+      if (res.isEmpty) return 0;
       final row = res.first as Map<String, dynamic>;
 
       final rawUpdated = row['updated_at'];
