@@ -96,7 +96,7 @@ class _SyncSettings {
             .select()
             .single();
       } else {
-        final id = (existing.first as Map)['id'] as int;
+        final id = existing.first['id'] as int;
         res = await _client
             .from('store_settings')
             .update(payload)
@@ -125,7 +125,7 @@ class _SyncSettings {
           .eq('user_id', userId)
           .limit(1);
       if (res.isEmpty) return 0;
-      final row = res.first as Map<String, dynamic>;
+      final row = res.first;
 
       final rawUpdated = row['updated_at'];
       if (rawUpdated == null) return 0;
