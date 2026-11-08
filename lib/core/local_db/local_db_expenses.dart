@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../models/expense.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbExpenses {
   Future<Database> get database;
@@ -24,10 +25,11 @@ mixin LocalDbExpenses {
         'CREATE INDEX IF NOT EXISTS idx_expenses_created ON expenses(created_at)');
   }
 
-  Future<void> insertExpense(Expense expense) async {
+  Future<void> insertExpense(Expense expense, {bool skipSync = false}) async {
     final db = await database;
     await db.insert('expenses', expense.toDb(),
         conflictAlgorithm: ConflictAlgorithm.replace);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<List<Expense>> getExpenses({int limit = 200}) async {
@@ -74,16 +76,18 @@ mixin LocalDbExpenses {
     return maps.map((m) => m['id'] as int).toSet();
   }
 
-  Future<void> markExpenseDeleted(int id) async {
+  Future<void> markExpenseDeleted(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('expenses', {'is_deleted': 1, 'is_synced': 0},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markExpenseSyncedAndDeleted(int id) async {
+  Future<void> markExpenseSyncedAndDeleted(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('expenses', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> replaceExpenseId({
@@ -91,17 +95,20 @@ mixin LocalDbExpenses {
     required int newId,
     int? newItemId,
     int? newCategoryId,
+    bool skipSync = false,
   }) async {
     final db = await database;
     final values = <String, dynamic>{'id': newId, 'is_synced': 1};
     if (newItemId != null) values['item_id'] = newItemId;
     if (newCategoryId != null) values['category_id'] = newCategoryId;
     await db.update('expenses', values, where: 'id = ?', whereArgs: [oldId]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> upsertPulledExpense(Expense expense) async {
+  Future<void> upsertPulledExpense(Expense expense, {bool skipSync = false}) async {
     final db = await database;
     await db.insert('expenses', expense.copyWith(isSynced: true).toDb(),
         conflictAlgorithm: ConflictAlgorithm.replace);
+    if (!skipSync) await WriteNotifier.notify();
   }
 }

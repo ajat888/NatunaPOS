@@ -38,7 +38,7 @@ class _SyncExpensesPuller {
         if (list.length < pageSize) break;
         offset += pageSize;
       }
-      await _localDb.replaceAllExpenseCategories(all);
+      await _localDb.replaceAllExpenseCategories(all, skipSync: true);
       return 0;
     } catch (e) {
       debugPrint('Pull expense categories failed: $e');
@@ -64,7 +64,7 @@ class _SyncExpensesPuller {
         if (list.length < pageSize) break;
         offset += pageSize;
       }
-      await _localDb.replaceAllExpenseItems(all);
+      await _localDb.replaceAllExpenseItems(all, skipSync: true);
       return 0;
     } catch (e) {
       debugPrint('Pull expense items failed: $e');
@@ -91,7 +91,7 @@ class _SyncExpensesPuller {
           final m = raw as Map<String, dynamic>;
           final id = (m['id'] as num).toInt();
           if (unsyncedIds.contains(id)) continue;
-          await _localDb.upsertPulledExpense(Expense.fromJson(m));
+          await _localDb.upsertPulledExpense(Expense.fromJson(m), skipSync: true);
         }
         if (list.length < pageSize) break;
         offset += pageSize;

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import '../../models/product.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbProducts {
   Future<Database> get database;
@@ -21,7 +22,7 @@ mixin LocalDbProducts {
     ''');
   }
 
-  Future<void> replaceAllProducts(List<Product> serverProducts) async {
+  Future<void> replaceAllProducts(List<Product> serverProducts, {bool skipSync = false}) async {
     final db = await database;
     await db.transaction((txn) async {
       final unsyncedMaps = await txn.query('products', where: 'is_synced = 0');
@@ -62,6 +63,7 @@ mixin LocalDbProducts {
       }
       await batch.commit(noResult: true);
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<List<Product>> getProducts() async {
@@ -92,8 +94,6 @@ mixin LocalDbProducts {
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
-  /// Produk yang punya image_url di server tapi belum punya file lokal
-  /// (atau file lokalnya sudah hilang). Dipakai SyncRunner untuk download.
   Future<List<Product>> getProductsNeedingImageDownload() async {
     final db = await database;
     final maps = await db.query(
@@ -107,7 +107,7 @@ mixin LocalDbProducts {
     }).toList();
   }
 
-  Future<void> updateProductLocalImagePath(int productId, String path) async {
+  Future<void> updateProductLocalImagePath(int productId, String path, {bool skipSync = false}) async {
     final db = await database;
     await db.update(
       'products',
@@ -115,6 +115,7 @@ mixin LocalDbProducts {
       where: 'id = ?',
       whereArgs: [productId],
     );
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<List<String>> getAllLocalImagePaths() async {
@@ -148,43 +149,48 @@ mixin LocalDbProducts {
     return maps.isNotEmpty;
   }
 
-  Future<void> upsertProduct(Product product) async {
+  Future<void> upsertProduct(Product product, {bool skipSync = false}) async {
     final db = await database;
     await db.insert('products', product.toDb(),
         conflictAlgorithm: ConflictAlgorithm.replace);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> deleteProduct(int id) async {
+  Future<void> deleteProduct(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markProductDeleted(int id) async {
+  Future<void> markProductDeleted(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('products', {'is_deleted': 1, 'is_synced': 0},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> restoreProduct(int id) async {
+  Future<void> restoreProduct(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('products', {'is_deleted': 0, 'is_synced': 0},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markProductSyncedAndDeleted(int id) async {
+  Future<void> markProductSyncedAndDeleted(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('products', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markProductSynced(int id) async {
+  Future<void> markProductSynced(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('products', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> remapProductCategory(
-      int oldCategoryId, int newCategoryId) async {
+  Future<void> remapProductCategory(int oldCategoryId, int newCategoryId, {bool skipSync = false}) async {
     final db = await database;
     await db.update(
       'products',
@@ -192,12 +198,14 @@ mixin LocalDbProducts {
       where: 'category_id = ?',
       whereArgs: [oldCategoryId],
     );
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> transactionalReplaceProduct({
     required int oldId,
     required Product newProduct,
     required int newServerId,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -217,5 +225,6 @@ mixin LocalDbProducts {
       );
       await txn.delete('products', where: 'id = ?', whereArgs: [oldId]);
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 }

@@ -36,7 +36,7 @@ class _SyncExpensesPusher {
               .update({'is_active': false})
               .eq('id', c.id);
         }
-        await _localDb.markExpenseCategorySynced(c.id);
+        await _localDb.markExpenseCategorySynced(c.id, skipSync: true);
       } catch (err) {
         debugPrint('Deactivate expense category ${c.id} failed: $err');
         failures++;
@@ -56,7 +56,7 @@ class _SyncExpensesPusher {
               .update({'is_active': false})
               .eq('id', it.id);
         }
-        await _localDb.markExpenseItemSynced(it.id);
+        await _localDb.markExpenseItemSynced(it.id, skipSync: true);
       } catch (err) {
         debugPrint('Deactivate expense item ${it.id} failed: $err');
         failures++;
@@ -76,7 +76,7 @@ class _SyncExpensesPusher {
               .update({'is_active': false})
               .eq('id', e.id);
         }
-        await _localDb.markExpenseSyncedAndDeleted(e.id);
+        await _localDb.markExpenseSyncedAndDeleted(e.id, skipSync: true);
       } catch (err) {
         debugPrint('Deactivate expense ${e.id} failed: $err');
         failures++;
@@ -121,9 +121,8 @@ class _SyncExpensesPusher {
             newId = (response['id'] as num).toInt();
           }
           map[c.id] = newId;
-          await _localDb.deleteExpenseCategoryLocal(c.id);
-          await _localDb
-              .upsertExpenseCategory(ExpenseCategory.fromJson(response));
+          await _localDb.deleteExpenseCategoryLocal(c.id, skipSync: true);
+          await _localDb.upsertExpenseCategory(ExpenseCategory.fromJson(response), skipSync: true);
         } else {
           final payload = <String, dynamic>{'name': c.name, 'is_active': true};
           final res = await _client
@@ -136,7 +135,7 @@ class _SyncExpensesPusher {
             payload['user_id'] = userId;
             await _client.from('expense_categories').insert(payload);
           }
-          await _localDb.upsertExpenseCategory(c.copyWith(isSynced: true));
+          await _localDb.upsertExpenseCategory(c.copyWith(isSynced: true), skipSync: true);
         }
       } catch (err) {
         debugPrint('Push expense category ${c.id} failed: $err');
@@ -150,10 +149,9 @@ class _SyncExpensesPusher {
     int failures = 0;
     for (final entry in categoryIdMap.entries) {
       try {
-        await _localDb.remapExpenseItemCategory(entry.key, entry.value);
+        await _localDb.remapExpenseItemCategory(entry.key, entry.value, skipSync: true);
       } catch (err) {
-        debugPrint(
-            'Remap expense category ${entry.key} -> ${entry.value} failed: $err');
+        debugPrint('Remap expense category ${entry.key} -> ${entry.value} failed: $err');
         failures++;
       }
     }
@@ -170,8 +168,7 @@ class _SyncExpensesPusher {
         if (finalCategoryId < 0) {
           final mapped = categoryIdMap[finalCategoryId];
           if (mapped == null) {
-            debugPrint(
-                'Defer expense item ${it.id}: category $finalCategoryId belum sync');
+            debugPrint('Defer expense item ${it.id}: category $finalCategoryId belum sync');
             continue;
           }
           finalCategoryId = mapped;
@@ -218,8 +215,8 @@ class _SyncExpensesPusher {
             newId = (response['id'] as num).toInt();
           }
           map[it.id] = newId;
-          await _localDb.deleteExpenseItemLocal(it.id);
-          await _localDb.upsertExpenseItem(ExpenseItem.fromJson(response));
+          await _localDb.deleteExpenseItemLocal(it.id, skipSync: true);
+          await _localDb.upsertExpenseItem(ExpenseItem.fromJson(response), skipSync: true);
         } else {
           final payload = <String, dynamic>{
             'category_id': finalCategoryId,
@@ -236,7 +233,7 @@ class _SyncExpensesPusher {
             payload['user_id'] = userId;
             await _client.from('expense_items').insert(payload);
           }
-          await _localDb.upsertExpenseItem(it.copyWith(isSynced: true));
+          await _localDb.upsertExpenseItem(it.copyWith(isSynced: true), skipSync: true);
         }
       } catch (err) {
         debugPrint('Push expense item ${it.id} failed: $err');
@@ -252,7 +249,7 @@ class _SyncExpensesPusher {
     for (final e in unsynced) {
       try {
         if (e.id >= 0) {
-          await _localDb.replaceExpenseId(oldId: e.id, newId: e.id);
+          await _localDb.replaceExpenseId(oldId: e.id, newId: e.id, skipSync: true);
           continue;
         }
 
@@ -262,8 +259,7 @@ class _SyncExpensesPusher {
         if (finalItemId != null && finalItemId < 0) {
           final mapped = itemIdMap[finalItemId];
           if (mapped == null) {
-            debugPrint(
-                'Defer expense ${e.id}: item $finalItemId belum sync');
+            debugPrint('Defer expense ${e.id}: item $finalItemId belum sync');
             continue;
           }
           finalItemId = mapped;
@@ -272,8 +268,7 @@ class _SyncExpensesPusher {
         if (finalCategoryId != null && finalCategoryId < 0) {
           final mapped = categoryIdMap[finalCategoryId];
           if (mapped == null) {
-            debugPrint(
-                'Defer expense ${e.id}: category $finalCategoryId belum sync');
+            debugPrint('Defer expense ${e.id}: category $finalCategoryId belum sync');
             continue;
           }
           finalCategoryId = mapped;
@@ -306,12 +301,9 @@ class _SyncExpensesPusher {
               .from('expenses')
               .insert({
                 'user_id': userId,
-                'item_id':
-                    (finalItemId != null && finalItemId > 0) ? finalItemId : null,
+                'item_id': (finalItemId != null && finalItemId > 0) ? finalItemId : null,
                 'item_name': e.itemName,
-                'category_id': (finalCategoryId != null && finalCategoryId > 0)
-                    ? finalCategoryId
-                    : null,
+                'category_id': (finalCategoryId != null && finalCategoryId > 0) ? finalCategoryId : null,
                 'category_name': e.categoryName,
                 'amount': e.amount,
                 'description': e.description,
@@ -329,6 +321,7 @@ class _SyncExpensesPusher {
           newId: newId,
           newItemId: finalItemId,
           newCategoryId: finalCategoryId,
+          skipSync: true,
         );
       } catch (err) {
         debugPrint('Push expense ${e.id} failed: $err');

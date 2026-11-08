@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../models/expense_item.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbExpenseItems {
   Future<Database> get database;
@@ -18,7 +19,7 @@ mixin LocalDbExpenseItems {
         'CREATE INDEX IF NOT EXISTS idx_expense_items_category ON expense_items(category_id)');
   }
 
-  Future<void> replaceAllExpenseItems(List<ExpenseItem> items) async {
+  Future<void> replaceAllExpenseItems(List<ExpenseItem> items, {bool skipSync = false}) async {
     final db = await database;
     await db.transaction((txn) async {
       final unsyncedMaps = await txn.query('expense_items', where: 'is_synced = 0');
@@ -39,6 +40,7 @@ mixin LocalDbExpenseItems {
       }
       await batch.commit(noResult: true);
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<List<ExpenseItem>> getExpenseItems() async {
@@ -80,36 +82,41 @@ mixin LocalDbExpenseItems {
     return maps.map((m) => ExpenseItem.fromDb(m)).toList();
   }
 
-  Future<void> upsertExpenseItem(ExpenseItem item) async {
+  Future<void> upsertExpenseItem(ExpenseItem item, {bool skipSync = false}) async {
     final db = await database;
     await db.insert('expense_items', item.toDb(),
         conflictAlgorithm: ConflictAlgorithm.replace);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> deleteExpenseItemLocal(int id) async {
+  Future<void> deleteExpenseItemLocal(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.delete('expense_items', where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markExpenseItemDeleted(int id) async {
+  Future<void> markExpenseItemDeleted(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('expense_items', {'is_deleted': 1, 'is_synced': 0},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> restoreExpenseItem(int id) async {
+  Future<void> restoreExpenseItem(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('expense_items', {'is_deleted': 0, 'is_synced': 0},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markExpenseItemSynced(int id) async {
+  Future<void> markExpenseItemSynced(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('expense_items', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> remapExpenseItemCategory(int oldCategoryId, int newCategoryId) async {
+  Future<void> remapExpenseItemCategory(int oldCategoryId, int newCategoryId, {bool skipSync = false}) async {
     final db = await database;
     await db.update(
       'expense_items',
@@ -117,10 +124,10 @@ mixin LocalDbExpenseItems {
       where: 'category_id = ?',
       whereArgs: [oldCategoryId],
     );
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<bool> isExpenseItemNameDuplicate(String name, int categoryId,
-      {int? excludeId}) async {
+  Future<bool> isExpenseItemNameDuplicate(String name, int categoryId, {int? excludeId}) async {
     final db = await database;
     final whereClause = excludeId != null
         ? 'LOWER(name) = ? AND category_id = ? AND is_deleted = 0 AND id != ?'

@@ -1,4 +1,3 @@
-// lib/services/sync_runner_pull.dart
 part of 'sync_runner.dart';
 
 class _SyncPuller {
@@ -38,7 +37,7 @@ class _SyncPuller {
         if (list.length < pageSize) break;
         offset += pageSize;
       }
-      await _localDb.replaceAllCategories(all);
+      await _localDb.replaceAllCategories(all, skipSync: true);
       return 0;
     } catch (e) {
       debugPrint('Pull categories failed: $e');
@@ -64,7 +63,7 @@ class _SyncPuller {
         if (list.length < pageSize) break;
         offset += pageSize;
       }
-      await _localDb.replaceAllProducts(all);
+      await _localDb.replaceAllProducts(all, skipSync: true);
       await _downloadMissingImages();
       return 0;
     } catch (e) {
@@ -92,8 +91,7 @@ class _SyncPuller {
               .get(Uri.parse(url))
               .timeout(const Duration(seconds: 15));
           if (response.statusCode != 200) {
-            debugPrint(
-                'Download image product ${product.id}: HTTP ${response.statusCode}');
+            debugPrint('Download image product ${product.id}: HTTP ${response.statusCode}');
             continue;
           }
 
@@ -102,7 +100,7 @@ class _SyncPuller {
           final file = File('${dir.path}/$filename');
           await file.writeAsBytes(response.bodyBytes);
 
-          await _localDb.updateProductLocalImagePath(product.id, file.path);
+          await _localDb.updateProductLocalImagePath(product.id, file.path, skipSync: true);
           debugPrint('Downloaded image for product ${product.id}');
         } catch (e) {
           debugPrint('Download image product ${product.id} failed: $e');
@@ -240,6 +238,7 @@ class _SyncPuller {
             voidReason: m['void_reason'] as String?,
             voidedBy: m['voided_by'] as String?,
             voidedAtMs: _parseTimestamp(m['voided_at']),
+            skipSync: true,
           );
         }
         if (list.length < pageSize) break;

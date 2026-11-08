@@ -1,6 +1,6 @@
-// lib/core/local_db/local_db_transactions_pay.dart
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import '../../models/transaction.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbTransactionsPay {
   Future<Database> get database;
@@ -21,6 +21,7 @@ mixin LocalDbTransactionsPay {
     required int changeAmount,
     required String? tableNumber,
     required String? orderType,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -66,6 +67,7 @@ mixin LocalDbTransactionsPay {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> payPartialOpenOrderAtomic({
@@ -85,6 +87,7 @@ mixin LocalDbTransactionsPay {
     required int changeAmount,
     required String? tableNumber,
     required String? orderType,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -149,5 +152,6 @@ mixin LocalDbTransactionsPay {
         );
       }
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 }

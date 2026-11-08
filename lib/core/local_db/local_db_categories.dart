@@ -1,6 +1,6 @@
-// lib/core/local_db/local_db_categories.dart
 import 'package:sqflite/sqflite.dart';
 import '../../models/category.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbCategories {
   Future<Database> get database;
@@ -21,7 +21,7 @@ mixin LocalDbCategories {
         'CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
   }
 
-  Future<void> replaceAllCategories(List<Category> categories) async {
+  Future<void> replaceAllCategories(List<Category> categories, {bool skipSync = false}) async {
     final db = await database;
     await db.transaction((txn) async {
       final unsyncedMaps =
@@ -43,6 +43,7 @@ mixin LocalDbCategories {
       }
       await batch.commit(noResult: true);
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<List<Category>> getCategories() async {
@@ -73,18 +74,20 @@ mixin LocalDbCategories {
     return maps.map((m) => Category.fromDb(m)).toList();
   }
 
-  Future<void> upsertCategory(Category category) async {
+  Future<void> upsertCategory(Category category, {bool skipSync = false}) async {
     final db = await database;
     await db.insert('categories', category.toDb(),
         conflictAlgorithm: ConflictAlgorithm.replace);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> deleteCategory(int id) async {
+  Future<void> deleteCategory(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.delete('categories', where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markCategoryDeleted(int id) async {
+  Future<void> markCategoryDeleted(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.update(
@@ -100,23 +103,27 @@ mixin LocalDbCategories {
         whereArgs: [id],
       );
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> restoreCategory(int id) async {
+  Future<void> restoreCategory(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('categories', {'is_deleted': 0, 'is_synced': 0},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markCategorySyncedAndDeleted(int id) async {
+  Future<void> markCategorySyncedAndDeleted(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('categories', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markCategorySynced(int id) async {
+  Future<void> markCategorySynced(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('categories', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 }

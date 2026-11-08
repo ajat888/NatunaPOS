@@ -1,7 +1,7 @@
-// lib/core/local_db/local_db_transactions.dart
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import '../../models/transaction.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbTransactions {
   Future<Database> get database;
@@ -188,6 +188,7 @@ mixin LocalDbTransactions {
     int changeAmount = 0,
     String? tableNumber,
     String? orderType,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -221,6 +222,7 @@ mixin LocalDbTransactions {
         });
       }
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<List<Transaction>> getTransactions({
@@ -315,6 +317,7 @@ mixin LocalDbTransactions {
     required int id,
     required String reason,
     required String voidedBy,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.update(
@@ -329,17 +332,20 @@ mixin LocalDbTransactions {
       where: 'id = ?',
       whereArgs: [id],
     );
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> markTransactionVoidSynced(int id) async {
+  Future<void> markTransactionVoidSynced(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('transactions', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> replaceTransactionId({
     required int oldId,
     required int newId,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -356,6 +362,7 @@ mixin LocalDbTransactions {
         whereArgs: [oldId],
       );
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<Set<int>> existingTransactionIds(List<int> ids) async {
@@ -371,7 +378,7 @@ mixin LocalDbTransactions {
     return maps.map((m) => m['id'] as int).toSet();
   }
 
-  Future<void> remapTransactionItemProductId(int oldId, int newId) async {
+  Future<void> remapTransactionItemProductId(int oldId, int newId, {bool skipSync = false}) async {
     final db = await database;
     await db.update(
       'transaction_items',
@@ -379,6 +386,7 @@ mixin LocalDbTransactions {
       where: 'product_id = ?',
       whereArgs: [oldId],
     );
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> insertPulledTransaction({
@@ -401,6 +409,7 @@ mixin LocalDbTransactions {
     String? voidReason,
     String? voidedBy,
     int? voidedAtMs,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -442,5 +451,6 @@ mixin LocalDbTransactions {
         });
       }
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 }

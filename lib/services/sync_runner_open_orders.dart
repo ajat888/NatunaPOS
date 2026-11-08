@@ -1,4 +1,3 @@
-// lib/services/sync_runner_open_orders.dart
 part of 'sync_runner.dart';
 
 class _SyncOpenOrder {
@@ -27,7 +26,7 @@ class _SyncOpenOrder {
           await _client.from('open_orders').delete().eq('id', serverId);
         }
 
-        await _localDb.removeDeletedOpenOrderKey(key);
+        await _localDb.removeDeletedOpenOrderKey(key, skipSync: true);
       } catch (e) {
         debugPrint('Push delete open order $key failed: $e');
         failures++;
@@ -156,8 +155,7 @@ class _SyncOpenOrder {
         final m = raw as Map<String, dynamic>;
         final orderKey = m['order_key'] as String;
 
-        final rawItems =
-            (m['open_order_items'] as List?) ?? const <dynamic>[];
+        final rawItems = (m['open_order_items'] as List?) ?? const <dynamic>[];
         final lines = rawItems.map<OpenOrderLine>((i) {
           final im = i as Map<String, dynamic>;
           return OpenOrderLine(
@@ -178,6 +176,7 @@ class _SyncOpenOrder {
           tableNumber: (m['table_number'] as num?)?.toInt(),
           createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMs),
           lines: lines,
+          skipSync: true,
         );
       }
       return 0;

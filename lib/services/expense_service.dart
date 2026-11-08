@@ -2,7 +2,6 @@ import '../core/local_db.dart';
 import '../models/expense.dart';
 import '../models/expense_category.dart';
 import '../models/expense_item.dart';
-import 'write_notifier.dart';
 
 class ExpenseService {
   ExpenseService._();
@@ -14,28 +13,22 @@ class ExpenseService {
     final tempId = -DateTime.now().millisecondsSinceEpoch;
     await _localDb.upsertExpenseCategory(
         ExpenseCategory(id: tempId, name: name.trim(), isSynced: false));
-    await WriteNotifier.notify();
   }
 
-  Future<void> updateExpenseCategory(
-      {required int id, required String name}) async {
+  Future<void> updateExpenseCategory({required int id, required String name}) async {
     await _localDb.upsertExpenseCategory(
         ExpenseCategory(id: id, name: name.trim(), isSynced: false));
-    await WriteNotifier.notify();
   }
 
   Future<void> deleteExpenseCategory(int id) async {
     await _localDb.markExpenseCategoryDeleted(id);
-    await WriteNotifier.notify();
   }
 
   Future<void> restoreExpenseCategory(int id) async {
     await _localDb.restoreExpenseCategory(id);
-    await WriteNotifier.notify();
   }
 
-  Future<void> createExpenseItem(
-      {required int categoryId, required String name}) async {
+  Future<void> createExpenseItem({required int categoryId, required String name}) async {
     final tempId = -DateTime.now().millisecondsSinceEpoch;
     await _localDb.upsertExpenseItem(ExpenseItem(
       id: tempId,
@@ -43,30 +36,27 @@ class ExpenseService {
       name: name.trim(),
       isSynced: false,
     ));
-    await WriteNotifier.notify();
   }
 
-  Future<void> updateExpenseItem(
-      {required int id,
-      required int categoryId,
-      required String name}) async {
+  Future<void> updateExpenseItem({
+    required int id,
+    required int categoryId,
+    required String name,
+  }) async {
     await _localDb.upsertExpenseItem(ExpenseItem(
       id: id,
       categoryId: categoryId,
       name: name.trim(),
       isSynced: false,
     ));
-    await WriteNotifier.notify();
   }
 
   Future<void> deleteExpenseItem(int id) async {
     await _localDb.markExpenseItemDeleted(id);
-    await WriteNotifier.notify();
   }
 
   Future<void> restoreExpenseItem(int id) async {
     await _localDb.restoreExpenseItem(id);
-    await WriteNotifier.notify();
   }
 
   Future<void> createExpense({
@@ -94,12 +84,10 @@ class ExpenseService {
       createdBy: createdBy,
       isSynced: false,
     ));
-    await WriteNotifier.notify();
   }
 
   Future<void> voidExpense(int id) async {
     await _localDb.markExpenseDeleted(id);
-    await WriteNotifier.notify();
   }
 
   Future<List<Expense>> getLocalExpenses({int limit = 200}) =>
@@ -125,8 +113,6 @@ class ExpenseService {
   Future<bool> isExpenseCategoryNameDuplicate(String name, {int? excludeId}) =>
       _localDb.isExpenseCategoryNameDuplicate(name, excludeId: excludeId);
 
-  Future<bool> isExpenseItemNameDuplicate(String name, int categoryId,
-          {int? excludeId}) =>
-      _localDb.isExpenseItemNameDuplicate(name, categoryId,
-          excludeId: excludeId);
+  Future<bool> isExpenseItemNameDuplicate(String name, int categoryId, {int? excludeId}) =>
+      _localDb.isExpenseItemNameDuplicate(name, categoryId, excludeId: excludeId);
 }

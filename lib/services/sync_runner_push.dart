@@ -1,4 +1,3 @@
-// lib/services/sync_runner_push.dart
 part of 'sync_runner.dart';
 
 class _SyncPusher {
@@ -45,7 +44,7 @@ class _SyncPusher {
               .update({'is_active': false})
               .eq('id', c.id);
         }
-        await _localDb.markCategorySyncedAndDeleted(c.id);
+        await _localDb.markCategorySyncedAndDeleted(c.id, skipSync: true);
       } catch (e) {
         debugPrint('Sync deactivate category ${c.id} failed: $e');
         failures++;
@@ -65,7 +64,7 @@ class _SyncPusher {
               .update({'is_active': false})
               .eq('id', p.id);
         }
-        await _localDb.markProductSyncedAndDeleted(p.id);
+        await _localDb.markProductSyncedAndDeleted(p.id, skipSync: true);
       } catch (e) {
         debugPrint('Sync deactivate product ${p.id} failed: $e');
         failures++;
@@ -111,8 +110,8 @@ class _SyncPusher {
             newId = response['id'] as int;
           }
           map[c.id] = newId;
-          await _localDb.deleteCategory(c.id);
-          await _localDb.upsertCategory(Category.fromJson(response));
+          await _localDb.deleteCategory(c.id, skipSync: true);
+          await _localDb.upsertCategory(Category.fromJson(response), skipSync: true);
         } else {
           final payload = <String, dynamic>{
             'name': c.name,
@@ -128,7 +127,7 @@ class _SyncPusher {
             payload['user_id'] = userId;
             await _client.from('categories').insert(payload);
           }
-          await _localDb.upsertCategory(c.copyWith(isSynced: true));
+          await _localDb.upsertCategory(c.copyWith(isSynced: true), skipSync: true);
         }
       } catch (e) {
         debugPrint('Sync category ${c.id} failed: $e');
@@ -142,7 +141,7 @@ class _SyncPusher {
     int failures = 0;
     for (final entry in map.entries) {
       try {
-        await _localDb.remapProductCategory(entry.key, entry.value);
+        await _localDb.remapProductCategory(entry.key, entry.value, skipSync: true);
       } catch (e) {
         debugPrint('Remap category ${entry.key} -> ${entry.value} failed: $e');
         failures++;
@@ -281,6 +280,7 @@ class _SyncPusher {
             oldId: p.id,
             newProduct: serverProduct,
             newServerId: newId,
+            skipSync: true,
           );
         } else {
           final payload = <String, dynamic>{
@@ -303,7 +303,7 @@ class _SyncPusher {
             imageUrl: finalImageUrl,
             localImagePath: remainingLocal,
             isSynced: true,
-          ));
+          ), skipSync: true);
         }
       } catch (e) {
         debugPrint('Sync product ${p.id} failed: $e');
@@ -320,7 +320,7 @@ class _SyncPusher {
 
         if (e is PostgrestException) {
           if (e.code == '23505' || e.code == '23502') {
-            await _localDb.markProductSynced(p.id);
+            await _localDb.markProductSynced(p.id, skipSync: true);
           } else {
             failures++;
           }
@@ -456,7 +456,7 @@ class _SyncPusher {
           }
         }
 
-        await _localDb.replaceTransactionId(oldId: tx.id, newId: serverTxId);
+        await _localDb.replaceTransactionId(oldId: tx.id, newId: serverTxId, skipSync: true);
       } catch (e) {
         debugPrint('Sync transaction ${tx.id} failed: $e');
         failures++;
@@ -471,7 +471,7 @@ class _SyncPusher {
     for (final tx in unsynced) {
       try {
         if (tx.id < 0) {
-          await _localDb.markTransactionVoidSynced(tx.id);
+          await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
           continue;
         }
         try {
@@ -482,12 +482,12 @@ class _SyncPusher {
             'voided_at':
                 (tx.voidedAt ?? DateTime.now()).toUtc().toIso8601String(),
           }).eq('id', tx.id);
-          await _localDb.markTransactionVoidSynced(tx.id);
+          await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
         } on PostgrestException catch (e) {
           if (_isColumnError(e)) {
             debugPrint(
                 'Void columns missing on server; mark synced locally for tx ${tx.id}');
-            await _localDb.markTransactionVoidSynced(tx.id);
+            await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
           } else {
             debugPrint('Push void tx ${tx.id} failed: $e');
             failures++;

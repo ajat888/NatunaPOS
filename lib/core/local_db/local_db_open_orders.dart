@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import '../../models/open_order.dart';
 import '../../models/voided_open_order.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbOpenOrders {
   Future<Database> get database;
@@ -91,6 +92,7 @@ mixin LocalDbOpenOrders {
     required String orderType,
     int? tableNumber,
     required List<OpenOrderLine> lines,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -111,11 +113,13 @@ mixin LocalDbOpenOrders {
         });
       }
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> appendToOpenOrder({
     required String orderKey,
     required List<OpenOrderLine> lines,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -143,9 +147,10 @@ mixin LocalDbOpenOrders {
         });
       }
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> updateOpenOrderItemQty(int itemId, int qty) async {
+  Future<void> updateOpenOrderItemQty(int itemId, int qty, {bool skipSync = false}) async {
     final db = await database;
     if (qty <= 0) {
       await db.delete('open_order_items', where: 'id = ?', whereArgs: [itemId]);
@@ -153,9 +158,10 @@ mixin LocalDbOpenOrders {
       await db.update('open_order_items', {'qty': qty},
           where: 'id = ?', whereArgs: [itemId]);
     }
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> deleteOpenOrder(String orderKey) async {
+  Future<void> deleteOpenOrder(String orderKey, {bool skipSync = false}) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete('open_order_items',
@@ -171,12 +177,14 @@ mixin LocalDbOpenOrders {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> voidOpenOrderWithArchive({
     required String orderKey,
     required String reason,
     required String voidedBy,
+    bool skipSync = false,
   }) async {
     final db = await database;
     final order = await getOpenOrder(orderKey);
@@ -222,6 +230,7 @@ mixin LocalDbOpenOrders {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<List<String>> getDeletedOpenOrderKeys() async {
@@ -230,10 +239,11 @@ mixin LocalDbOpenOrders {
     return maps.map((m) => m['order_key'] as String).toList();
   }
 
-  Future<void> removeDeletedOpenOrderKey(String orderKey) async {
+  Future<void> removeDeletedOpenOrderKey(String orderKey, {bool skipSync = false}) async {
     final db = await database;
     await db.delete('deleted_open_order_keys',
         where: 'order_key = ?', whereArgs: [orderKey]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<void> insertPulledOpenOrder({
@@ -242,6 +252,7 @@ mixin LocalDbOpenOrders {
     int? tableNumber,
     required DateTime createdAt,
     required List<OpenOrderLine> lines,
+    bool skipSync = false,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -270,9 +281,10 @@ mixin LocalDbOpenOrders {
         });
       }
     });
+    if (!skipSync) await WriteNotifier.notify();
   }
 
-  Future<void> remapOpenOrderItemProductId(int oldId, int newId) async {
+  Future<void> remapOpenOrderItemProductId(int oldId, int newId, {bool skipSync = false}) async {
     final db = await database;
     await db.update(
       'open_order_items',
@@ -280,6 +292,7 @@ mixin LocalDbOpenOrders {
       where: 'product_id = ?',
       whereArgs: [oldId],
     );
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<String> nextTakeAwayKey() async {
