@@ -18,6 +18,7 @@ import 'auto_sync_scheduler.dart';
 import 'sync_runner.dart';
 import 'sync_status_service.dart';
 import 'app_settings.dart';
+import 'write_notifier.dart';
 
 part 'supabase_service_data.dart';
 
