@@ -23,13 +23,14 @@ dependencies:
   esc_pos_utils_plus: ^2.0.4
   print_bluetooth_thermal: ^1.1.1
   image: ^4.2.0
-  
-  # Gunakan ini untuk offline mode
   sqflite: ^2.3.3+1
   path: ^1.9.0
   connectivity_plus: ^6.0.4
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
   app_links: 6.3.0
 
 flutter:
