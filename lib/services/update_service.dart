@@ -1,7 +1,5 @@
-// lib/services/update_service.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,23 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../models/app_update_info.dart';
 
-/// Service pengecekan update. Prinsip: OFFLINE-FIRST, JANGAN PERNAH
-/// memblokir UI. Semua kegagalan (offline, HTTP error, JSON invalid)
-/// di-silent; user tetap bisa pakai aplikasi.
-///
-/// URL manifest dibaca dari --dart-define=UPDATE_MANIFEST_URL.
-/// Format JSON:
-///   {
-///     "latest_version": "1.0.1",
-///     "download_url": "https://github.com/USER/REPO/releases/download/v1.0.1/app-release.apk",
-///     "release_notes": "Perbaikan bug ...",
-///     "force_update": false
-///   }
 class UpdateService {
   UpdateService._();
   static final UpdateService instance = UpdateService._();
 
-  /// Key navigator global — di-mount ke MaterialApp di main.dart.
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
@@ -37,8 +22,6 @@ class UpdateService {
 
   bool _isChecking = false;
 
-  /// Entry point. [force] = true melewati throttle (dipakai tombol
-  /// "Cek Update" di drawer).
   Future<void> checkAndNotify({bool force = false}) async {
     if (_isChecking) return;
     if (_manifestUrl.isEmpty) {
@@ -47,7 +30,6 @@ class UpdateService {
       return;
     }
 
-    // Throttle (hanya untuk auto-check).
     if (!force) {
       final prefs = await SharedPreferences.getInstance();
       final last = prefs.getInt(_kLastCheckKey) ?? 0;
@@ -68,8 +50,6 @@ class UpdateService {
         return;
       }
 
-      // Mark success timestamp HANYA setelah fetch berhasil, agar saat
-      // offline retry lebih cepat (tidak menunggu 6 jam).
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(
           _kLastCheckKey, DateTime.now().millisecondsSinceEpoch);
@@ -91,7 +71,6 @@ class UpdateService {
       if (ctx == null || !ctx.mounted) return;
       await _showUpdateDialog(ctx, info, current);
     } catch (e) {
-      // Silent di auto-check; beri feedback hanya saat manual.
       debugPrint('Update check failed (silent): $e');
       if (force) _showSnack('Gagal memeriksa pembaruan.');
     } finally {

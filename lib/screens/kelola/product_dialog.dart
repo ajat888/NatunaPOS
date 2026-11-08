@@ -16,7 +16,6 @@ class _ProductDialogState extends State<_ProductDialog> {
   late final TextEditingController _priceController;
   late final TextEditingController _hppController;
   int? _selectedCategoryId;
-  File? _imageFile;
   String? _existingImageUrl;
   String? _localImagePath;
   bool _isSaving = false;
@@ -177,7 +176,6 @@ class _ProductDialogState extends State<_ProductDialog> {
 
       if (!mounted) return;
       setState(() {
-        _imageFile = localFile;
         _localImagePath = localFile.path;
         _isPickingImage = false;
       });

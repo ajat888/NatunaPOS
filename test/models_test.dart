@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:natunapos/models/product.dart';
-import 'package:natunapos/models/category.dart';
 import 'package:natunapos/models/transaction.dart';
 
 void main() {

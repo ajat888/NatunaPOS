@@ -91,9 +91,7 @@ class _ProductsTab extends StatelessWidget {
                                 label: Text(c.name),
                                 selected: state._filterCategoryId == c.id,
                                 onSelected: (val) {
-                                  state.setState(() {
-                                    state._filterCategoryId = state._filterCategoryId == c.id ? null : c.id;
-                                  });
+                                  state.setFilterCategory(state._filterCategoryId == c.id ? null : c.id);
                                 }))),
                         if (hasUncategorized)
                           Padding(
@@ -102,19 +100,14 @@ class _ProductsTab extends StatelessWidget {
                                 label: const Text('Tanpa Kategori'),
                                 selected: state._filterCategoryId == -1,
                                 onSelected: (val) {
-                                  state.setState(() {
-                                    state._filterCategoryId = state._filterCategoryId == -1 ? null : -1;
-                                  });
+                                  state.setFilterCategory(state._filterCategoryId == -1 ? null : -1);
                                 })),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: () => state.setState(() {
-                      state._showInactive = !state._showInactive;
-                      state._filterCategoryId = null; 
-                    }),
+                    onTap: state.toggleShowInactive,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

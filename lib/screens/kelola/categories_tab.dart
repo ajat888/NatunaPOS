@@ -68,9 +68,7 @@ class _CategoriesTab extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   InkWell(
-                    onTap: () => state.setState(() {
-                      state._showInactiveCategories = !state._showInactiveCategories;
-                    }),
+                    onTap: state.toggleShowInactiveCategories,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

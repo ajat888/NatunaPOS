@@ -10,7 +10,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
-import '../models/open_order.dart';
 import '../models/auth_cache.dart';
 import '../models/voided_open_order.dart';
 import '../core/local_db.dart';
@@ -18,7 +17,6 @@ import 'auto_sync_scheduler.dart';
 import 'sync_runner.dart';
 import 'sync_status_service.dart';
 import 'app_settings.dart';
-import 'write_notifier.dart';
 
 part 'supabase_service_data.dart';
 

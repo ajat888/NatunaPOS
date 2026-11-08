@@ -2,11 +2,8 @@ part of 'sync_runner.dart';
 
 class _SyncSettings {
   final SupabaseClient _client;
-  final LocalDb _localDb;
 
-  _SyncSettings(SyncRunner r)
-      : _client = r.client,
-        _localDb = r.localDb;
+  _SyncSettings(SyncRunner r) : _client = r.client;
 
   Future<int> sync() async {
     final userId = _client.auth.currentUser?.id;

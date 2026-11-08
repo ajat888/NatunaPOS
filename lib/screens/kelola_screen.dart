@@ -65,6 +65,25 @@ class KelolaScreenState extends State<KelolaScreen>
     super.dispose();
   }
 
+  void toggleShowInactive() {
+    setState(() {
+      _showInactive = !_showInactive;
+      _filterCategoryId = null;
+    });
+  }
+
+  void toggleShowInactiveCategories() {
+    setState(() {
+      _showInactiveCategories = !_showInactiveCategories;
+    });
+  }
+
+  void setFilterCategory(int? id) {
+    setState(() {
+      _filterCategoryId = id;
+    });
+  }
+
   Future<void> reloadData() async {
     if (mounted) setState(() { _isLoading = true; _errorMessage = null; });
 

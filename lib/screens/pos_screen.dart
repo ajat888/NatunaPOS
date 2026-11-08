@@ -7,7 +7,6 @@ import '../services/printer_service.dart';
 import '../services/app_settings.dart';
 import '../models/product.dart';
 import '../models/category.dart';
-import '../models/transaction.dart';
 import '../models/open_order.dart';
 import '../core/local_db.dart';
 import '../core/theme.dart';
