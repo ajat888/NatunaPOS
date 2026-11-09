@@ -20,6 +20,13 @@ import 'app_settings.dart';
 
 part 'supabase_service_data.dart';
 
+class PendingSyncException implements Exception {
+  final int pendingCount;
+  const PendingSyncException(this.pendingCount);
+  @override
+  String toString() => 'Masih ada $pendingCount perubahan belum tersinkron.';
+}
+
 enum LoginMode { online, offline }
 
 enum AutoLoginOutcome {
@@ -133,23 +140,39 @@ if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
     }
   }
 
-  Future<void> logout() async {
-    AutoSyncScheduler.instance.stop();
-    await _setOfflineSession(null);
-    await _deleteSecurePassword();
-    SyncStatusService.instance.reset();
-    await _localDb.clearAllData();
-    try {
-      await _client.auth.signOut();
-    } catch (e) {
-      debugPrint('Logout global failed (likely offline): $e');
+  Future<void> logout({bool force = false}) async {
+  AutoSyncScheduler.instance.stop();
+
+  if (!force) {
+    if (_client.auth.currentSession != null) {
       try {
-        await _client.auth.signOut(scope: SignOutScope.local);
-      } catch (e2) {
-        debugPrint('Local signout also failed: $e2');
+        await syncData();
+      } catch (e) {
+        debugPrint('Pre-logout sync failed: $e');
       }
     }
+    final pending = await _localDb.countPendingSync();
+    if (pending > 0) {
+      AutoSyncScheduler.instance.start();
+      throw PendingSyncException(pending);
+    }
   }
+
+  await _setOfflineSession(null);
+  await _deleteSecurePassword();
+  SyncStatusService.instance.reset();
+  await _localDb.clearAllData();
+  try {
+    await _client.auth.signOut();
+  } catch (e) {
+    debugPrint('Logout global failed (likely offline): $e');
+    try {
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } catch (e2) {
+      debugPrint('Local signout also failed: $e2');
+    }
+  }
+}
 
   bool get isLoggedIn =>
       _client.auth.currentSession != null || _cachedOfflineEmail != null;

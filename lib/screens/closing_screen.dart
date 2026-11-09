@@ -7,6 +7,7 @@ import '../models/daily_closing.dart';
 import '../services/app_settings.dart';
 import '../services/report_service.dart';
 import '../services/supabase_service.dart';
+import '../services/auto_sync_scheduler.dart';
 import '../services/sync_status_service.dart';
 import '../widgets/common/thousand_formatter.dart';
 import 'login_screen.dart';
@@ -104,56 +105,57 @@ class _ClosingScreenState extends State<ClosingScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSaving) return;
-    final summary = _todaySummary;
-    if (summary == null) return;
+  if (_isSaving) return;
+  final summary = _todaySummary;
+  if (summary == null) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _ClosingConfirmationDialog(
-        totalSales: summary.totalSales,
-        cashActual: _cashActual,
-        cashDifference: _cashDifference,
-      ),
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _ClosingConfirmationDialog(
+      totalSales: summary.totalSales,
+      cashActual: _cashActual,
+      cashDifference: _cashDifference,
+    ),
+  );
+  if (confirmed != true) return;
+  if (!mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  setState(() => _isSaving = true);
+
+  try {
+    final cashier = AppSettings.instance.cashierName.value.trim();
+    final closedBy = cashier.isEmpty ? 'Kasir' : cashier;
+    final closing = DailyClosing(
+      id: 0,
+      closingDate: _todayKey(),
+      totalSales: summary.totalSales,
+      totalTransactions: summary.totalTransactions,
+      totalHpp: summary.totalHpp,
+      totalExpenses: summary.totalExpenses,
+      totalVoidAmount:
+          summary.totalVoidAmount + summary.totalVoidOpenOrderAmount,
+      voidCount: summary.totalVoidCount,
+      cashExpected: summary.cashExpected,
+      cashActual: _cashActual,
+      cashDifference: _cashDifference,
+      closingNote: _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim(),
+      closedBy: closedBy,
+      closedAt: DateTime.now(),
     );
-    if (confirmed != true) return;
-    if (!mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    setState(() => _isSaving = true);
+    await LocalDb.instance.insertDailyClosing(closing);
+    SupabaseService().syncData().catchError((Object e) {
+      debugPrint('Background sync after closing failed: $e');
+      return;
+    });
 
-    try {
-      final cashier = AppSettings.instance.cashierName.value.trim();
-      final closedBy = cashier.isEmpty ? 'Kasir' : cashier;
-      final closing = DailyClosing(
-        id: 0,
-        closingDate: _todayKey(),
-        totalSales: summary.totalSales,
-        totalTransactions: summary.totalTransactions,
-        totalHpp: summary.totalHpp,
-        totalExpenses: summary.totalExpenses,
-        totalVoidAmount:
-            summary.totalVoidAmount + summary.totalVoidOpenOrderAmount,
-        voidCount: summary.totalVoidCount,
-        cashExpected: summary.cashExpected,
-        cashActual: _cashActual,
-        cashDifference: _cashDifference,
-        closingNote: _noteController.text.trim().isEmpty
-            ? null
-            : _noteController.text.trim(),
-        closedBy: closedBy,
-        closedAt: DateTime.now(),
-      );
-
-      await LocalDb.instance.insertDailyClosing(closing);
-      SupabaseService().syncData().catchError((Object e) {
-        debugPrint('Background sync after closing failed: $e');
-        return;
-      });
-
-      if (_logoutAfter) {
+    if (_logoutAfter) {
+      try {
         await SupabaseService().logout();
         messenger.showSnackBar(
           const SnackBar(
@@ -166,27 +168,99 @@ class _ClosingScreenState extends State<ClosingScreen> {
           MaterialPageRoute(builder: (_) => const LoginScreen()),
           (route) => false,
         );
-      } else {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Closing berhasil disimpan.'),
-            backgroundColor: Colors.green,
+      } on PendingSyncException catch (e) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        final forceLogout = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: AppTheme.dangerColor),
+                SizedBox(width: 8),
+                Expanded(child: Text('Data Belum Tersinkron')),
+              ],
+            ),
+            content: Text(
+              'Ada ${e.pendingCount} perubahan yang belum terkirim ke server.\n\n'
+              'Logout paksa akan MENGHILANGKAN data tersebut dari HP ini, '
+              'termasuk catatan closing hari ini.\n\n'
+              'Saran: sambungkan internet, tunggu sinkronisasi, lalu logout.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('BATAL'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.dangerColor,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('LOGOUT PAKSA'),
+              ),
+            ],
           ),
         );
-        await _load();
+        if (forceLogout != true) {
+          await _load();
+          return;
+        }
+        if (!mounted) return;
+        setState(() => _isSaving = true);
+        try {
+          await SupabaseService().logout(force: true);
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Logout paksa berhasil. Sebagian data mungkin belum terkirim.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          navigator.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        } catch (err) {
+          debugPrint('Forced logout failed: $err');
+          AutoSyncScheduler.instance.start();
+          if (!mounted) return;
+          setState(() => _isSaving = false);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Gagal logout: ${err.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
+    } else {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-              'Gagal menyimpan closing: ${e.toString().replaceAll('Exception: ', '')}'),
-          backgroundColor: AppTheme.dangerColor,
+        const SnackBar(
+          content: Text('Closing berhasil disimpan.'),
+          backgroundColor: Colors.green,
         ),
       );
+      await _load();
     }
+  } catch (e) {
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+            'Gagal menyimpan closing: ${e.toString().replaceAll('Exception: ', '')}'),
+        backgroundColor: AppTheme.dangerColor,
+      ),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {

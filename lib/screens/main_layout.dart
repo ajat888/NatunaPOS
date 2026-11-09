@@ -188,16 +188,84 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   Future<void> _handleLogout() async {
-    _scaffoldKey.currentState?.closeDrawer();
-    AutoSyncScheduler.instance.stop();
+  _scaffoldKey.currentState?.closeDrawer();
+
+  try {
     await _service.logout();
+  } on PendingSyncException catch (e) {
     if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor),
+            SizedBox(width: 8),
+            Expanded(child: Text('Data Belum Tersinkron')),
+          ],
+        ),
+        content: Text(
+          'Ada ${e.pendingCount} perubahan yang belum terkirim ke server '
+          '(kemungkinan karena tidak ada internet).\n\n'
+          'Jika Anda tetap logout, data tersebut akan hilang permanen '
+          'dari HP ini.\n\n'
+          'Saran: sambungkan internet, tunggu hingga sinkronisasi selesai, '
+          'lalu logout lagi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('BATAL'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerColor,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('LOGOUT PAKSA'),
+          ),
+        ],
+      ),
     );
+    if (confirmed != true) return;
+    if (!mounted) return;
+    try {
+      await _service.logout(force: true);
+    } catch (err) {
+      debugPrint('Forced logout failed: $err');
+      AutoSyncScheduler.instance.start();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal logout. Coba lagi.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+  } catch (e) {
+    debugPrint('Logout failed: $e');
+    AutoSyncScheduler.instance.start();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Gagal logout. Coba lagi.'),
+        backgroundColor: AppTheme.dangerColor,
+      ),
+    );
+    return;
   }
+
+  if (!mounted) return;
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => const LoginScreen()),
+    (route) => false,
+  );
+}
 
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
