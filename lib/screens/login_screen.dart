@@ -238,15 +238,15 @@ TextField(
 ),
         const SizedBox(height: 32),
         ElevatedButton(
-          onPressed: _isLoading ? null : _handleLogin,
-          child: _isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2))
-              : const Text('MASUK'),
-        ),
+  onPressed: _isLoading ? null : _handleLogin,
+  child: _isLoading
+      ? const SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(
+              color: Colors.white, strokeWidth: 2)) // <--- Tambahkan 'const' sebelum CircularProgressIndicator
+      : const Text('MASUK'),
+),
       ],
     );
   }

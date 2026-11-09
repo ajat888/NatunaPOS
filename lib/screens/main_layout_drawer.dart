@@ -134,14 +134,14 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
               ),
             ),
             const Divider(height: 1),
-            Padding(
+Padding(
   padding:
       const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
   child: Row(
     children: [
       const Text(
         'STATUS SYNC',
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 11,
           color: AppTheme.textLightColor,
           fontWeight: FontWeight.w600,
