@@ -134,25 +134,25 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
               ),
             ),
             const Divider(height: 1),
-Padding(
-  padding:
-      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-  child: Row(
-    children: [
-      const Text(
-        'STATUS SYNC',
-        style: const TextStyle(
-          fontSize: 11,
-          color: AppTheme.textLightColor,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        ),
-      ),
-      const Spacer(),
-      _buildSyncBadge(),
-    ],
-  ),
-),
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: [
+                  const Text(
+                    'STATUS SYNC',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textLightColor,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  _buildSyncBadge(),
+                ],
+              ),
+            ),
             const Divider(height: 1),
             Expanded(
               child: ListView(

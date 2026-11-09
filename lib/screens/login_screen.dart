@@ -1,10 +1,10 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ← IMPORT BARU
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/breakpoints.dart';
 import '../services/supabase_service.dart';
 import '../core/theme.dart';
-import '../core/breakpoints.dart';
 import 'main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,10 +17,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _passwordFocusNode = FocusNode(); // ← FOKUS BARU
+  final _passwordFocusNode = FocusNode();
   final _service = SupabaseService();
 
-  static const String _kLastEmailKey = 'natunapos_last_email'; // ← KEY BARU
+  static const String _kLastEmailKey = 'natunapos_last_email';
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -29,18 +29,17 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSavedEmail(); // ← PANGGIL FUNGSI SAAT DIBUKA
+    _loadSavedEmail();
   }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _passwordFocusNode.dispose(); // ← DISPOSE FOCUS NODE
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
-  // ← FUNGSI BARU UNTUK MEMBACA EMAIL
   Future<void> _loadSavedEmail() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -49,7 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _emailController.text = savedEmail;
         });
-        // Pindahkan kursor langsung ke password agar user tinggal ketik
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _passwordFocusNode.requestFocus();
         });
@@ -59,7 +57,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ← FUNGSI BARU UNTUK MENYIMPAN EMAIL
   Future<void> _saveEmail(String email) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -87,7 +84,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
       
-      // ← SIMPAN EMAIL SETELAH BERHASIL LOGIN
       await _saveEmail(email); 
 
       if (!mounted) return;
@@ -202,51 +198,51 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 16),
         ],
         TextField(
-  controller: _emailController,
-  keyboardType: TextInputType.emailAddress,
-  textInputAction: TextInputAction.next,
-  onSubmitted: (_) => _passwordFocusNode.requestFocus(),
-  decoration: const InputDecoration(
-    labelText: 'Email',
-    prefixIcon: Icon(Icons.email_outlined),
-  ),
-),
-const SizedBox(height: 16),
-TextField(
-  controller: _passwordController,
-  focusNode: _passwordFocusNode,
-  obscureText: _obscurePassword,
-  textInputAction: TextInputAction.done,
-  onSubmitted: (_) => _handleLogin(),
-  decoration: InputDecoration(
-    labelText: 'Kata Sandi',
-    prefixIcon: const Icon(Icons.lock_outline),
-    suffixIcon: IconButton(
-      icon: Icon(
-        _obscurePassword
-            ? Icons.visibility_off_outlined
-            : Icons.visibility_outlined,
-        color: AppTheme.textLightColor,
-      ),
-      onPressed: () {
-        setState(() {
-          _obscurePassword = !_obscurePassword;
-        });
-      },
-    ),
-  ),
-),
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => _passwordFocusNode.requestFocus(),
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            prefixIcon: Icon(Icons.email_outlined),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _passwordController,
+          focusNode: _passwordFocusNode,
+          obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _handleLogin(),
+          decoration: InputDecoration(
+            labelText: 'Kata Sandi',
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: AppTheme.textLightColor,
+              ),
+              onPressed: () {
+                setState(() {
+                  _obscurePassword = !_obscurePassword;
+                });
+              },
+            ),
+          ),
+        ),
         const SizedBox(height: 32),
         ElevatedButton(
-  onPressed: _isLoading ? null : _handleLogin,
-  child: _isLoading
-      ? const SizedBox(
-          height: 20,
-          width: 20,
-          child: CircularProgressIndicator(
-              color: Colors.white, strokeWidth: 2)) // <--- Tambahkan 'const' sebelum CircularProgressIndicator
-      : const Text('MASUK'),
-),
+          onPressed: _isLoading ? null : _handleLogin,
+          child: _isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2))
+              : const Text('MASUK'),
+        ),
       ],
     );
   }
