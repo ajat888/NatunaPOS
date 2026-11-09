@@ -1,3 +1,4 @@
+import '../core/file_utils.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -83,18 +84,19 @@ class SupabaseService {
       if (entity is File) {
         final filename = entity.path.split('/').last;
         if (filename.startsWith('img_') && filename.endsWith('.jpg')) {
-          if (validPaths.contains(entity.path)) continue;
-          try {
-            final stat = await entity.stat();
-            if (now.difference(stat.modified) <
-                const Duration(minutes: 10)) {
-              continue;
-            }
-            await entity.delete();
-          } catch (e) {
-            debugPrint('Failed to delete orphaned image: $e');
-          }
-        }
+  try {
+    final stat = await entity.stat();
+    final keep = FileUtils.shouldKeepOrphanedFile(
+      now: now,
+      fileModified: stat.modified,
+      isValidPath: validPaths.contains(entity.path),
+    );
+    if (keep) continue;
+    await entity.delete();
+  } catch (e) {
+    debugPrint('Failed to delete orphaned image: $e');
+  }
+}
       }
     }
   } catch (e) {
