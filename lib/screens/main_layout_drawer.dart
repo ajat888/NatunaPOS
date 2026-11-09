@@ -110,12 +110,12 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
               child: Row(
-                children: const [
-                  Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
-                  SizedBox(width: 12),
+                children: [
+                  const Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
+                  const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    children: const [
                       Text(
                         'NatunaPOS',
                         style: TextStyle(
@@ -141,8 +141,8 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
-                children: const [
-                  Text(
+                children: [
+                  const Text(
                     'STATUS SYNC',
                     style: TextStyle(
                       fontSize: 11,
@@ -151,8 +151,8 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Spacer(),
-                  _SyncBadge(onTap: _trySync), // Widget baru, aman dari error linter
+                  const Spacer(),
+                  _SyncBadge(onTap: _trySync),
                 ],
               ),
             ),
@@ -190,8 +190,8 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
               },
             ),
             ListTile(
-              leading: Icon(Icons.logout, color: AppTheme.dangerColor), // 'const' dihapus karena dianggap unnecessary
-              title: Text('Keluar', style: TextStyle(color: AppTheme.dangerColor)), // 'const' dihapus
+              leading: const Icon(Icons.logout, color: AppTheme.dangerColor),
+              title: const Text('Keluar', style: TextStyle(color: AppTheme.dangerColor)),
               onTap: _handleLogout,
             ),
             const SizedBox(height: 8),

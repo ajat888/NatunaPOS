@@ -163,14 +163,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildBranding() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(
+      children: const [
+        Icon(
           Icons.account_balance_wallet_outlined,
           size: 80,
           color: AppTheme.primaryColor,
         ),
-        const SizedBox(height: 32),
-        const Text(
+        SizedBox(height: 32),
+        Text(
           'Selamat Datang',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -179,8 +179,8 @@ class _LoginScreenState extends State<LoginScreen> {
             color: AppTheme.textColor,
           ),
         ),
-        const SizedBox(height: 12),
-        const Text(
+        SizedBox(height: 12),
+        Text(
           'Silakan masuk untuk mengakses NatunaPOS',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, color: AppTheme.textLightColor),
@@ -198,7 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppTheme.dangerColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
             ),
             child: Text(
               _errorMessage!,
