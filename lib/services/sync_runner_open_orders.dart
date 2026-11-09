@@ -9,31 +9,46 @@ class _SyncOpenOrder {
         _localDb = r.localDb;
 
   Future<int> pushDeletes() async {
-    int failures = 0;
-    final keys = await _localDb.getDeletedOpenOrderKeys();
-    if (keys.isEmpty) return 0;
+  final userId = _client.auth.currentUser?.id;
+  if (userId == null) return 0;
 
-    for (final key in keys) {
-      try {
-        final existing = await _client
+  int failures = 0;
+  final keys = await _localDb.getDeletedOpenOrderKeys();
+  if (keys.isEmpty) return 0;
+
+  for (final key in keys) {
+    try {
+      final existing = await _client
+          .from('open_orders')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('order_key', key)
+          .limit(1);
+
+      if ((existing as List).isNotEmpty) {
+        final serverId = ((existing.first as Map)['id'] as num).toInt();
+        final deleted = await _client
             .from('open_orders')
-            .select('id')
-            .eq('order_key', key)
-            .limit(1);
-
-        if ((existing as List).isNotEmpty) {
-          final serverId = ((existing.first as Map)['id'] as num).toInt();
-          await _client.from('open_orders').delete().eq('id', serverId);
+            .delete()
+            .eq('id', serverId)
+            .eq('user_id', userId)
+            .select();
+        if ((deleted as List).isEmpty) {
+          debugPrint(
+              'Push delete open order $key: 0 rows deleted (RLS block?). Akan dicoba lagi.');
+          failures++;
+          continue;
         }
-
-        await _localDb.removeDeletedOpenOrderKey(key, skipSync: true);
-      } catch (e) {
-        debugPrint('Push delete open order $key failed: $e');
-        failures++;
       }
+
+      await _localDb.removeDeletedOpenOrderKey(key, skipSync: true);
+    } catch (e) {
+      debugPrint('Push delete open order $key failed: $e');
+      failures++;
     }
-    return failures;
   }
+  return failures;
+}
 
   Future<int> pushUpserts() async {
     final userId = _client.auth.currentUser?.id;
