@@ -185,7 +185,20 @@ class _SyncPuller {
         for (final raw in list) {
           final m = raw as Map<String, dynamic>;
           final id = (m['id'] as num).toInt();
-          if (existing.contains(id)) continue;
+          if (existing.contains(id)) {
+  final isVoided = (m['is_voided'] as bool?) ?? false;
+  if (isVoided) {
+    await _localDb.updateVoidedTransactionFromPull(
+      id: id,
+      isVoided: isVoided,
+      voidReason: m['void_reason'] as String?,
+      voidedBy: m['voided_by'] as String?,
+      voidedAtMs: _parseTimestamp(m['voided_at']),
+      skipSync: true,
+    );
+  }
+  continue;
+}
 
           final rawItems =
               (m['transaction_items'] as List?) ?? const <dynamic>[];

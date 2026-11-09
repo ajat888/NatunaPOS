@@ -342,6 +342,31 @@ mixin LocalDbTransactions {
     if (!skipSync) await WriteNotifier.notify();
   }
 
+  Future<void> updateVoidedTransactionFromPull({
+  required int id,
+  required bool isVoided,
+  String? voidReason,
+  String? voidedBy,
+  int? voidedAtMs,
+  bool skipSync = false,
+}) async {
+  if (!isVoided) return;
+  final db = await database;
+  await db.update(
+    'transactions',
+    {
+      'is_voided': 1,
+      'void_reason': voidReason,
+      'voided_by': voidedBy,
+      'voided_at': voidedAtMs,
+      'is_synced': 1,
+    },
+    where: 'id = ? AND is_voided = 0',
+    whereArgs: [id],
+  );
+  if (!skipSync) await WriteNotifier.notify();
+}
+
   Future<void> replaceTransactionId({
     required int oldId,
     required int newId,
