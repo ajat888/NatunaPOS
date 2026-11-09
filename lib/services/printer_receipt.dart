@@ -31,7 +31,7 @@ if (logoPath != null && File(logoPath).existsSync()) {
     
     if (rawImage != null) {
       // 1. Resize gambar agar pas di kertas thermal
-      final resized = img.copyResize(rawImage, width: 160);
+final resized = img.copyResize(rawImage, width: 240);
       
       // 2. Buat kanvas putih murni (RGB, tanpa alpha)
       final whiteBg = img.Image(
@@ -49,12 +49,11 @@ if (logoPath != null && File(logoPath).existsSync()) {
       final grayscale = img.grayscale(flattened);
       
       // 5. Kirim ke printer
-      bytes.addAll(generator.imageRaster(
-        grayscale,
-        align: PosAlign.center,
-      ));
-      bytes.addAll(generator.feed(1));
-    } else {
+        bytes.addAll(generator.imageRaster(
+    grayscale,
+    align: PosAlign.center,
+  ));
+} else {
       debugPrint('Render logo gagal: Format gambar tidak didukung');
     }
   } catch (e) {
@@ -63,12 +62,14 @@ if (logoPath != null && File(logoPath).existsSync()) {
 }
 
     bytes.addAll(generator.text(
-      settings.storeName.value.toUpperCase(),
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
-      ),
-    ));
+  settings.storeName.value.toUpperCase(),
+  styles: const PosStyles(
+    align: PosAlign.center,
+    bold: true,
+    height: PosTextSize.size2,
+    width: PosTextSize.size2,
+  ),
+));
 
     if (settings.storeSubtitle.value.isNotEmpty) {
       bytes.addAll(generator.text(
@@ -204,20 +205,14 @@ if (logoPath != null && File(logoPath).existsSync()) {
     bytes.addAll(generator.hr());
 
     if (settings.receiptFooter.value.isNotEmpty) {
-      bytes.addAll(generator.text(
-        settings.receiptFooter.value,
-        styles: const PosStyles(align: PosAlign.center),
-      ));
-      bytes.addAll(generator.feed(1));
-    }
+  bytes.addAll(generator.text(
+    settings.receiptFooter.value,
+    styles: const PosStyles(align: PosAlign.center),
+  ));
+}
 
-    bytes.addAll(generator.text(
-      'Terima Kasih',
-      styles: const PosStyles(align: PosAlign.center, bold: true),
-    ));
-
-    bytes.addAll(generator.feed(2));
-    bytes.addAll(generator.cut());
+bytes.addAll(generator.feed(2));
+bytes.addAll(generator.cut());
 
     return bytes;
   }
