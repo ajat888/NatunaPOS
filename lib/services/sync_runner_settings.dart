@@ -134,6 +134,7 @@ class _SyncSettings {
           : DateTime.parse(rawUpdated.toString()).millisecondsSinceEpoch;
 
       if (settings.updatedAtMs >= serverMs) return 0;
+      if (settings.isDirty) return 0;
 
       final logoUrl = row['logo_url'] as String?;
       final currentLocal = settings.logoPath.value;
