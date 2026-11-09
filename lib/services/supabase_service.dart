@@ -249,6 +249,10 @@ if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
   Future<void> syncData() async {
   if (_client.auth.currentSession == null) {
     await SyncStatusService.instance.refreshPendingCount();
+    if (SyncStatusService.instance.pendingCount.value > 0) {
+      SyncStatusService.instance.markFailed(
+          'Sesi tidak aktif. Silakan login untuk sinkronisasi.');
+    }
     return;
   }
   final existing = _activeSync;

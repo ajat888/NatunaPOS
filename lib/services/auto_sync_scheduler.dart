@@ -62,34 +62,50 @@ class AutoSyncScheduler {
   }
 
   Future<void> _runSync() async {
-    if (!_started) return;
-    if (_inFlight) {
-      _queuedAgain = true;
-      return;
-    }
-    _inFlight = true;
-    try {
-      final service = SupabaseService();
-      if (!service.isLoggedIn) return;
-      if (service.isOfflineSession) {
-        final result = await service.tryAutoLoginAndSync();
-        if (result == AutoLoginOutcome.authRejected) {
-          _notifyAuthFailureOnce();
-        }
+  if (!_started) return;
+  if (_inFlight) {
+    _queuedAgain = true;
+    return;
+  }
+  _inFlight = true;
+  try {
+    final service = SupabaseService();
+    if (!service.isLoggedIn) return;
+    if (service.isOfflineSession) {
+      final result = await service.tryAutoLoginAndSync();
+      if (result == AutoLoginOutcome.authRejected ||
+          result == AutoLoginOutcome.missingCredentials) {
+        _notifyAuthFailureOnce();
+        SyncStatusService.instance.markFailed(
+            'Sesi offline tidak dapat dipulihkan. Silakan login ulang.');
         return;
       }
-      await service.syncData();
-    } catch (e) {
-      debugPrint('AutoSyncScheduler run failed: $e');
-    } finally {
-      _inFlight = false;
-      if (_queuedAgain && _started) {
-        _queuedAgain = false;
-        _debounce?.cancel();
-        _debounce = Timer(_followUpDelay, _runSync);
+      if (result == AutoLoginOutcome.offlineError) {
+        SyncStatusService.instance
+            .markFailed('Tidak dapat terhubung ke server.');
+        return;
       }
+      if (result == AutoLoginOutcome.notApplicable) {
+        SyncStatusService.instance
+            .markFailed('Sesi tidak valid. Silakan login ulang.');
+        return;
+      }
+      return;
+    }
+    await service.syncData();
+  } catch (e) {
+    debugPrint('AutoSyncScheduler run failed: $e');
+    SyncStatusService.instance
+        .markFailed('Sinkronisasi gagal: ${e.toString()}');
+  } finally {
+    _inFlight = false;
+    if (_queuedAgain && _started) {
+      _queuedAgain = false;
+      _debounce?.cancel();
+      _debounce = Timer(_followUpDelay, _runSync);
     }
   }
+}
 
   void _notifyAuthFailureOnce() {
     if (_authFailureNotified) return;
