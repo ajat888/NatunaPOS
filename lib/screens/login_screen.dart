@@ -202,40 +202,40 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 16),
         ],
         TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => _passwordFocusNode.requestFocus(), // Lanjut ke password
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.email_outlined),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _passwordController,
-          focusNode: _passwordFocusNode, // ← GUNAKAN FOCUS NODE
-          obscureText: _obscurePassword,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _handleLogin(),
-          decoration: InputDecoration(
-            labelText: 'Kata Sandi',
-            prefixIcon: const Icon(Icons.lock_outline),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: AppTheme.textLightColor,
-              ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassword = !_obscurePassword;
-                });
-              },
-            ),
-          ),
-        ),
+  controller: _emailController,
+  keyboardType: TextInputType.emailAddress,
+  textInputAction: TextInputAction.next,
+  onSubmitted: (_) => _passwordFocusNode.requestFocus(),
+  decoration: const InputDecoration(
+    labelText: 'Email',
+    prefixIcon: Icon(Icons.email_outlined),
+  ),
+),
+const SizedBox(height: 16),
+TextField(
+  controller: _passwordController,
+  focusNode: _passwordFocusNode,
+  obscureText: _obscurePassword,
+  textInputAction: TextInputAction.done,
+  onSubmitted: (_) => _handleLogin(),
+  decoration: InputDecoration(
+    labelText: 'Kata Sandi',
+    prefixIcon: const Icon(Icons.lock_outline),
+    suffixIcon: IconButton(
+      icon: Icon(
+        _obscurePassword
+            ? Icons.visibility_off_outlined
+            : Icons.visibility_outlined,
+        color: AppTheme.textLightColor,
+      ),
+      onPressed: () {
+        setState(() {
+          _obscurePassword = !_obscurePassword;
+        });
+      },
+    ),
+  ),
+),
         const SizedBox(height: 32),
         ElevatedButton(
           onPressed: _isLoading ? null : _handleLogin,

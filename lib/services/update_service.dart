@@ -124,13 +124,13 @@ class UpdateService {
         child: AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          title: Row(
-            children: const [
-              Icon(Icons.system_update, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
-              Expanded(child: Text('Update Tersedia')),
-            ],
-          ),
+          title: const Row(
+  children: [
+    Icon(Icons.system_update, color: AppTheme.primaryColor),
+    SizedBox(width: 8),
+    Expanded(child: Text('Update Tersedia')),
+  ],
+),
           content: SizedBox(
             width: 400,
             child: SingleChildScrollView(

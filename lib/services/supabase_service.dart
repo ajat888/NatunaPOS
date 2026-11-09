@@ -116,17 +116,17 @@ class SupabaseService {
     } catch (onlineErr) {
       final cache = await _localDb.getAuthCache(email);
       if (cache == null) {
-        if (onlineErr is AuthException) rethrow;
-        throw AuthException(
-            'Login gagal. Login pertama kali memerlukan internet.');
-      }
-      if (!await _hashMatches(password, cache.salt, cache.passwordHash)) {
-        throw AuthException('Email atau password salah.');
-      }
-      if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
-        throw AuthException(
-            'Password Anda telah berubah di server. Login online untuk memperbarui.');
-      }
+  if (onlineErr is AuthException) rethrow;
+  throw const AuthException(
+      'Login gagal. Login pertama kali memerlukan internet.');
+}
+if (!await _hashMatches(password, cache.salt, cache.passwordHash)) {
+  throw const AuthException('Email atau password salah.');
+}
+if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
+  throw const AuthException(
+      'Password Anda telah berubah di server. Login online untuk memperbarui.');
+}
       await _saveSecurePassword(password);
       await _setOfflineSession(email);
       return LoginMode.offline;

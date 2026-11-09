@@ -18,13 +18,13 @@ class _ClosingConfirmationDialog extends StatelessWidget {
     final contentW = screenW < 528 ? screenW - 88 : 400.0;
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      title: Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor),
-          const SizedBox(width: 8),
-          const Expanded(child: Text('Konfirmasi Closing')),
-        ],
-      ),
+      title: const Row(
+  children: [
+    Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor),
+    SizedBox(width: 8),
+    Expanded(child: Text('Konfirmasi Closing')),
+  ],
+),
       content: SizedBox(
         width: contentW,
         child: Column(
