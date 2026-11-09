@@ -55,7 +55,7 @@ class SupabaseService {
 
   SupabaseClient get _client => Supabase.instance.client;
   final LocalDb _localDb = LocalDb.instance;
-  static bool _isSyncing = false;
+  static Future<void>? _activeSync;
   static final Random _rng = Random();
 
   final _secureStorage = const FlutterSecureStorage();
@@ -240,33 +240,46 @@ if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
   }
 
   Future<void> syncData() async {
-    if (_client.auth.currentSession == null) {
-      await SyncStatusService.instance.refreshPendingCount();
-      return;
-    }
-    if (_isSyncing) return;
-    _isSyncing = true;
-    SyncStatusService.instance.markSyncing();
-    try {
-      final failures = await SyncRunner(
-        client: _client,
-        localDb: _localDb,
-        rng: _rng,
-      ).run();
-      if (failures > 0) {
-        SyncStatusService.instance.markFailed(
-            'Sinkronisasi gagal ($failures operasi). Akan dicoba lagi otomatis.');
-      } else {
-        await SyncStatusService.instance.markSynced();
-      }
-    } catch (e) {
-      debugPrint('syncData unexpected error: $e');
-      SyncStatusService.instance
-          .markFailed('Sinkronisasi gagal: ${e.toString()}');
-    } finally {
-      _isSyncing = false;
+  if (_client.auth.currentSession == null) {
+    await SyncStatusService.instance.refreshPendingCount();
+    return;
+  }
+  final existing = _activeSync;
+  if (existing != null) {
+    await existing;
+    return;
+  }
+  final run = _performSync();
+  _activeSync = run;
+  try {
+    await run;
+  } finally {
+    if (identical(_activeSync, run)) {
+      _activeSync = null;
     }
   }
+}
+
+Future<void> _performSync() async {
+  SyncStatusService.instance.markSyncing();
+  try {
+    final failures = await SyncRunner(
+      client: _client,
+      localDb: _localDb,
+      rng: _rng,
+    ).run();
+    if (failures > 0) {
+      SyncStatusService.instance.markFailed(
+          'Sinkronisasi gagal ($failures operasi). Akan dicoba lagi otomatis.');
+    } else {
+      await SyncStatusService.instance.markSynced();
+    }
+  } catch (e) {
+    debugPrint('syncData unexpected error: $e');
+    SyncStatusService.instance
+        .markFailed('Sinkronisasi gagal: ${e.toString()}');
+  }
+}
 
   Future<void> _saveAuthCache(String email, String password) async {
     final salt = _generateSalt();

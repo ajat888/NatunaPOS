@@ -149,12 +149,10 @@ class _ClosingScreenState extends State<ClosingScreen> {
     );
 
     await LocalDb.instance.insertDailyClosing(closing);
-    SupabaseService().syncData().catchError((Object e) {
-      debugPrint('Background sync after closing failed: $e');
-      return;
-    });
+AutoSyncScheduler.instance
+    .scheduleSync(delay: const Duration(seconds: 1));
 
-    if (_logoutAfter) {
+if (_logoutAfter) {
       try {
         await SupabaseService().logout();
         messenger.showSnackBar(
