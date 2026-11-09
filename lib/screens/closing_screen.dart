@@ -162,10 +162,10 @@ if (_logoutAfter) {
             duration: Duration(seconds: 3),
           ),
         );
-        navigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
+        await navigator.pushAndRemoveUntil(
+  MaterialPageRoute(builder: (_) => const LoginScreen()),
+  (route) => false,
+);
       } on PendingSyncException catch (e) {
         if (!mounted) return;
         setState(() => _isSaving = false);
@@ -220,10 +220,10 @@ if (_logoutAfter) {
               duration: Duration(seconds: 4),
             ),
           );
-          navigator.pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (route) => false,
-          );
+          await navigator.pushAndRemoveUntil(
+  MaterialPageRoute(builder: (_) => const LoginScreen()),
+  (route) => false,
+);
         } catch (err) {
           debugPrint('Forced logout failed: $err');
           AutoSyncScheduler.instance.start();

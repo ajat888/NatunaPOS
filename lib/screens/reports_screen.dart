@@ -101,13 +101,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final newFrom = DateTime(picked.year, picked.month, picked.day);
     var newTo = _to;
     if (newFrom.isAfter(newTo)) newTo = newFrom;
-    setState(() {
-      _from = newFrom;
-      _to = newTo;
-      _preset = ReportPreset.custom;
-    });
-    _load();
-  }
+      setState(() {
+    _from = newFrom;
+    _to = newTo;
+    _preset = ReportPreset.custom;
+  });
+  await _load();
+}
 
   Future<void> _pickTo() async {
     final picked = await showDatePicker(
@@ -117,12 +117,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
       lastDate: DateTime.now(),
     );
     if (picked == null) return;
-    setState(() {
-      _to = DateTime(picked.year, picked.month, picked.day);
-      _preset = ReportPreset.custom;
-    });
-    _load();
-  }
+      setState(() {
+    _to = DateTime(picked.year, picked.month, picked.day);
+    _preset = ReportPreset.custom;
+  });
+  await _load();
+}
 
   @override
   Widget build(BuildContext context) {

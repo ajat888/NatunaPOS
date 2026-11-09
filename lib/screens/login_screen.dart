@@ -88,10 +88,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainLayout()),
-      );
+      await Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(builder: (_) => const MainLayout()),
+);
       if (mode == LoginMode.offline) {
         messenger.showSnackBar(
           const SnackBar(
