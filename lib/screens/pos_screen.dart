@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -55,7 +56,7 @@ class PosScreenState extends State<PosScreen> {
   @override
   void initState() {
     super.initState();
-    reloadData();
+    unawaited(reloadData());
   }
 
 Future<void> reloadData() async {
@@ -319,7 +320,7 @@ Future<void> reloadData() async {
 }
 
   void _showPaymentFor(OpenOrder order) {
-    showDialog(
+    unawaited(showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _PaymentDialog(
@@ -327,7 +328,7 @@ Future<void> reloadData() async {
         service: _service,
         onSuccess: () => _handlePaySuccess(order.orderKey),
       ),
-    );
+    ));
   }
 
   Future<void> _handleSplitPay(Map<int, int> selection) async {
@@ -359,7 +360,7 @@ Future<void> reloadData() async {
       items: virtualItems,
     );
 
-    showDialog(
+    unawaited(showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _PaymentDialog(
@@ -368,7 +369,7 @@ Future<void> reloadData() async {
         splitSelection: selection,
         onSuccess: () => _handlePaySuccess(realOrder.orderKey),
       ),
-    );
+    ));
   }
 
   Future<void> _adjustOpenOrderItemQty(
