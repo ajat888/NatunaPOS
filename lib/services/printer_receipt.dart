@@ -30,16 +30,32 @@ if (logoPath != null && File(logoPath).existsSync()) {
     final rawImage = img.decodeImage(imageBytes);
     
     if (rawImage != null) {
+      // 1. Resize gambar agar pas di kertas thermal
       final resized = img.copyResize(rawImage, width: 160);
-      final grayscale = img.grayscale(resized);
       
+      // 2. Buat kanvas putih murni (RGB, tanpa alpha)
+      final whiteBg = img.Image(
+        width: resized.width, 
+        height: resized.height, 
+        numChannels: 3,
+      );
+      img.fill(whiteBg, color: img.ColorRgb8(255, 255, 255));
+      
+      // 3. Tempelkan gambar logo ke kanvas putih
+      // Ini akan mengubah area transparan menjadi putih
+      final flattened = img.compositeImage(whiteBg, resized);
+      
+      // 4. Konversi ke Grayscale (Hitam-Putih)
+      final grayscale = img.grayscale(flattened);
+      
+      // 5. Kirim ke printer
       bytes.addAll(generator.imageRaster(
         grayscale,
         align: PosAlign.center,
       ));
       bytes.addAll(generator.feed(1));
     } else {
-      debugPrint('Render logo gagal: Decoder mengembalikan null (format gambar tidak didukung)');
+      debugPrint('Render logo gagal: Format gambar tidak didukung');
     }
   } catch (e) {
     debugPrint('Render logo gagal: $e');
