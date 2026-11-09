@@ -43,7 +43,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -130,6 +130,9 @@ class LocalDb with
     if (oldVersion < 15) {
       await LocalDbClosings.upgradeDailyClosingsV15(db);
     }
+    if (oldVersion < 16) {
+  await LocalDbClosings.upgradeDailyClosingsV16(db);
+}
   }
 
   Future<int> countPendingSync() async {
@@ -142,6 +145,7 @@ class LocalDb with
       + (SELECT COUNT(*) FROM expense_categories  WHERE is_synced = 0)
       + (SELECT COUNT(*) FROM expense_items       WHERE is_synced = 0)
       + (SELECT COUNT(*) FROM expenses            WHERE is_synced = 0)
+      + (SELECT COUNT(*) FROM daily_closings      WHERE is_synced = 0)            WHERE is_synced = 0)
       AS total
     ''');
     final v = result.first['total'];

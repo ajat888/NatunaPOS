@@ -14,6 +14,7 @@ class DailyClosing {
   final String? closingNote;
   final String closedBy;
   final DateTime closedAt;
+  final bool isSynced;
 
   DailyClosing({
     required this.id,
@@ -30,6 +31,7 @@ class DailyClosing {
     this.closingNote,
     required this.closedBy,
     required this.closedAt,
+    this.isSynced = false,
   });
 
   factory DailyClosing.fromDb(Map<String, dynamic> m) => DailyClosing(
@@ -50,6 +52,7 @@ class DailyClosing {
           (m['closed_at'] as num).toInt(),
           isUtc: true,
         ).toLocal(),
+        isSynced: (m['is_synced'] as int? ?? 1) == 1,
       );
 
   Map<String, dynamic> toDb() => {
@@ -66,5 +69,6 @@ class DailyClosing {
         'closing_note': closingNote,
         'closed_by': closedBy,
         'closed_at': closedAt.toUtc().millisecondsSinceEpoch,
+        'is_synced': isSynced ? 1 : 0,
       };
 }

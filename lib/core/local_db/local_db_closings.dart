@@ -1,6 +1,7 @@
 // lib/core/local_db/local_db_closings.dart
 import 'package:sqflite/sqflite.dart';
 import '../../models/daily_closing.dart';
+import '../../services/write_notifier.dart';
 
 mixin LocalDbClosings {
   Future<Database> get database;
@@ -21,7 +22,8 @@ mixin LocalDbClosings {
         cash_difference INTEGER NOT NULL,
         closing_note TEXT,
         closed_by TEXT NOT NULL,
-        closed_at INTEGER NOT NULL
+        closed_at INTEGER NOT NULL,
+        is_synced INTEGER DEFAULT 0
       )
     ''');
     await db.execute(
@@ -32,10 +34,20 @@ mixin LocalDbClosings {
     await createTableDailyClosings(db);
   }
 
-  Future<void> insertDailyClosing(DailyClosing closing) async {
+  static Future<void> upgradeDailyClosingsV16(Database db) async {
+    try {
+      await db.execute('ALTER TABLE daily_closings ADD COLUMN is_synced INTEGER DEFAULT 0');
+    } catch (e) {
+      // ignore: avoid_print
+      print('daily_closings.is_synced already exists: $e');
+    }
+  }
+
+  Future<void> insertDailyClosing(DailyClosing closing, {bool skipSync = false}) async {
     final db = await database;
     await db.insert('daily_closings', closing.toDb(),
         conflictAlgorithm: ConflictAlgorithm.abort);
+    if (!skipSync) await WriteNotifier.notify();
   }
 
   Future<DailyClosing?> getDailyClosingByDate(String closingDate) async {
@@ -61,5 +73,19 @@ mixin LocalDbClosings {
         whereArgs: [closingDate],
         limit: 1);
     return r.isNotEmpty;
+  }
+
+  Future<List<DailyClosing>> getUnsyncedClosings() async {
+    final db = await database;
+    final maps = await db.query('daily_closings',
+        where: 'is_synced = 0', orderBy: 'closing_date ASC');
+    return maps.map((m) => DailyClosing.fromDb(m)).toList();
+  }
+
+  Future<void> markClosingSynced(int id, {bool skipSync = false}) async {
+    final db = await database;
+    await db.update('daily_closings', {'is_synced': 1},
+        where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
   }
 }

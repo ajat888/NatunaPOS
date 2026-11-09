@@ -21,6 +21,7 @@ part 'sync_runner_open_orders.dart';
 part 'sync_runner_settings.dart';
 part 'sync_runner_expenses_push.dart';
 part 'sync_runner_expenses_pull.dart';
+part 'sync_runner_closings.dart';
 
 class SyncRunner {
   final SupabaseClient client;
@@ -46,6 +47,7 @@ class SyncRunner {
     failures += await _SyncPuller(this).pullAll();
     failures += await openOrderSync.pull();
     failures += await _SyncExpensesPuller(this).pullAll();
+    failures += await _SyncClosings(this).sync();
     failures += await _SyncSettings(this).sync();
 
     return failures;
