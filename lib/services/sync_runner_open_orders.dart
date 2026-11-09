@@ -58,7 +58,7 @@ class _SyncOpenOrder {
     final orders = await _localDb.getOpenOrders();
     if (orders.isEmpty) return 0;
 
-    Map<String, int> serverIdByKey = {};
+    final Map<String, int> serverIdByKey = {};
     try {
       final serverOrders =
           await _client.from('open_orders').select('id, order_key').eq('user_id', userId);
