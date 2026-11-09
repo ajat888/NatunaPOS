@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../services/supabase_service.dart';
 import '../services/printer_service.dart';
 import '../services/app_settings.dart';
+import '../services/auto_sync_scheduler.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/open_order.dart';
@@ -300,22 +301,22 @@ Future<void> reloadData() async {
   }
 
   Future<void> _handlePaySuccess(String orderKey) async {
-    await _reloadOpenOrders();
-    _service.syncData();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Pembayaran berhasil'),
-      backgroundColor: Colors.green,
-    ));
-    if (_view == PosView.split) {
-      final refreshed = _findOrder(orderKey);
-      if (refreshed != null) {
-        _openOrderDetail(refreshed);
-        return;
-      }
+  await _reloadOpenOrders();
+  AutoSyncScheduler.instance.scheduleSync();
+  if (!mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    content: Text('Pembayaran berhasil'),
+    backgroundColor: Colors.green,
+  ));
+  if (_view == PosView.split) {
+    final refreshed = _findOrder(orderKey);
+    if (refreshed != null) {
+      _openOrderDetail(refreshed);
+      return;
     }
-    _backToTables();
   }
+  _backToTables();
+}
 
   void _showPaymentFor(OpenOrder order) {
     showDialog(
