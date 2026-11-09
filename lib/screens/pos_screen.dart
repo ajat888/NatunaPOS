@@ -57,55 +57,39 @@ class PosScreenState extends State<PosScreen> {
     reloadData();
   }
 
-  Future<void> reloadData() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
-    try {
-      final products = await _localDb.getProducts();
-      final categories = await _localDb.getCategories();
-      final openOrders = await _localDb.getOpenOrders();
-      if (!mounted) return;
-
-      if (_filterCategoryId != null && _filterCategoryId != -1) {
-        if (!categories.any((c) => c.id == _filterCategoryId)) {
-          _filterCategoryId = null;
-        }
-      }
-
-      setState(() {
-        _products = products;
-        _categories = categories;
-        _openOrders = openOrders;
-        _isLoading = false;
-      });
-      _service.syncData().then((_) async {
-        if (!mounted) return;
-        try {
-          final p = await _localDb.getProducts();
-          final c = await _localDb.getCategories();
-          final o = await _localDb.getOpenOrders();
-          if (!mounted) return;
-          setState(() {
-            _products = p;
-            _categories = c;
-            _openOrders = o;
-          });
-        } catch (e) {
-          debugPrint('Reload after sync failed: $e');
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Gagal memuat data lokal.';
-      });
-    }
+Future<void> reloadData() async {
+  if (mounted) {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
   }
+  try {
+    final products = await _localDb.getProducts();
+    final categories = await _localDb.getCategories();
+    final openOrders = await _localDb.getOpenOrders();
+    if (!mounted) return;
+
+    if (_filterCategoryId != null && _filterCategoryId != -1) {
+      if (!categories.any((c) => c.id == _filterCategoryId)) {
+        _filterCategoryId = null;
+      }
+    }
+
+    setState(() {
+      _products = products;
+      _categories = categories;
+      _openOrders = openOrders;
+      _isLoading = false;
+    });
+  } catch (e) {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _errorMessage = 'Gagal memuat data lokal.';
+    });
+  }
+}
 
   Future<void> _reloadOpenOrders() async {
     final o = await _localDb.getOpenOrders();

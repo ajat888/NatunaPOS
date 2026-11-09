@@ -84,66 +84,44 @@ class KelolaScreenState extends State<KelolaScreen>
     });
   }
 
-  Future<void> reloadData() async {
-    if (mounted) setState(() { _isLoading = true; _errorMessage = null; });
+Future<void> reloadData() async {
+  if (mounted) setState(() { _isLoading = true; _errorMessage = null; });
 
-    try {
-      final products = await _service.getLocalProducts();
-      final inactiveProducts = await _service.getLocalInactiveProducts();
-      final categories = await _service.getLocalCategories();
-      final inactiveCategories = await _service.getLocalInactiveCategories();
+  try {
+    final products = await _service.getLocalProducts();
+    final inactiveProducts = await _service.getLocalInactiveProducts();
+    final categories = await _service.getLocalCategories();
+    final inactiveCategories = await _service.getLocalInactiveCategories();
 
-      final expCats = await _expenseService.getLocalExpenseCategories();
-      final expItems = await _expenseService.getLocalExpenseItems();
+    final expCats = await _expenseService.getLocalExpenseCategories();
+    final expItems = await _expenseService.getLocalExpenseItems();
 
-      if (!mounted) return;
+    if (!mounted) return;
 
-      final base = _showInactive ? inactiveProducts : products;
-      if (_filterCategoryId != null && _filterCategoryId != -1) {
-        final hasCat = categories.any((c) => c.id == _filterCategoryId) &&
-                       base.any((p) => p.categoryId == _filterCategoryId);
-        if (!hasCat) _filterCategoryId = null;
-      }
-
-      setState(() {
-        _products = products;
-        _inactiveProducts = inactiveProducts;
-        _categories = categories;
-        _inactiveCategories = inactiveCategories;
-        _expenseCategories = expCats;
-        _expenseItems = expItems;
-        _isLoading = false;
-      });
-
-      _service.syncData().then((_) async {
-        try {
-          final p = await _service.getLocalProducts();
-          final ip = await _service.getLocalInactiveProducts();
-          final c = await _service.getLocalCategories();
-          final ic = await _service.getLocalInactiveCategories();
-          final ec = await _expenseService.getLocalExpenseCategories();
-          final ei = await _expenseService.getLocalExpenseItems();
-          if (!mounted) return;
-          setState(() {
-            _products = p;
-            _inactiveProducts = ip;
-            _categories = c;
-            _inactiveCategories = ic;
-            _expenseCategories = ec;
-            _expenseItems = ei;
-          });
-        } catch (e) {
-          debugPrint('Reload after sync failed: $e');
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Gagal memuat data lokal.';
-      });
+    final base = _showInactive ? inactiveProducts : products;
+    if (_filterCategoryId != null && _filterCategoryId != -1) {
+      final hasCat = categories.any((c) => c.id == _filterCategoryId) &&
+                     base.any((p) => p.categoryId == _filterCategoryId);
+      if (!hasCat) _filterCategoryId = null;
     }
+
+    setState(() {
+      _products = products;
+      _inactiveProducts = inactiveProducts;
+      _categories = categories;
+      _inactiveCategories = inactiveCategories;
+      _expenseCategories = expCats;
+      _expenseItems = expItems;
+      _isLoading = false;
+    });
+  } catch (e) {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _errorMessage = 'Gagal memuat data lokal.';
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {

@@ -42,7 +42,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   final _connectivity = Connectivity();
 
   StreamSubscription<List<ConnectivityResult>>? _connSub;
-  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -112,13 +111,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    SyncStatusService.instance.lastSyncedAt.removeListener(_onSyncedData);
-    AutoSyncScheduler.instance.authFailureTick.removeListener(_onAuthFailure);
-    AutoSyncScheduler.instance.stop();
-    _connSub?.cancel();
-    _debounceTimer?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
+  SyncStatusService.instance.lastSyncedAt.removeListener(_onSyncedData);
+  AutoSyncScheduler.instance.authFailureTick.removeListener(_onAuthFailure);
+  AutoSyncScheduler.instance.stop();
+  _connSub?.cancel();
+  WidgetsBinding.instance.removeObserver(this);
+  super.dispose();
   }
 
   @override
