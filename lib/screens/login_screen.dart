@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // ← IMPORT BARU
 import '../services/supabase_service.dart';
 import '../core/theme.dart';
+import '../core/breakpoints.dart';
 import 'main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -118,7 +119,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWideScreen = MediaQuery.of(context).size.width > 800;
+    final size = Breakpoints.of(context);
+    final isWideScreen = !size.isCompact;
 
     return Scaffold(
       body: SafeArea(
