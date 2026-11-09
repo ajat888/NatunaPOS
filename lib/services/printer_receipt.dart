@@ -24,28 +24,27 @@ extension _ReceiptGenerator on PrinterService {
     }
 
     final logoPath = settings.logoPath.value;
-    if (logoPath != null && File(logoPath).existsSync()) {
-      try {
-        final rawImage = img.decodeImage(File(logoPath).readAsBytesSync());
-        if (rawImage != null) {
-          final background = img.Image(
-            width: rawImage.width,
-            height: rawImage.height,
-          );
-          img.fill(background, color: img.ColorRgb8(255, 255, 255));
-          final flattened = img.compositeImage(background, rawImage);
-          final resized = img.copyResize(flattened, width: 180);
-          final grayscale = img.grayscale(resized);
-          bytes.addAll(generator.imageRaster(
-            grayscale,
-            align: PosAlign.center,
-          ));
-          bytes.addAll(generator.feed(1));
-        }
-      } catch (e) {
-        debugPrint('Render logo gagal: $e');
-      }
+if (logoPath != null && File(logoPath).existsSync()) {
+  try {
+    final imageBytes = File(logoPath).readAsBytesSync();
+    final rawImage = img.decodeImage(imageBytes);
+    
+    if (rawImage != null) {
+      final resized = img.copyResize(rawImage, width: 160);
+      final grayscale = img.grayscale(resized);
+      
+      bytes.addAll(generator.imageRaster(
+        grayscale,
+        align: PosAlign.center,
+      ));
+      bytes.addAll(generator.feed(1));
+    } else {
+      debugPrint('Render logo gagal: Decoder mengembalikan null (format gambar tidak didukung)');
     }
+  } catch (e) {
+    debugPrint('Render logo gagal: $e');
+  }
+}
 
     bytes.addAll(generator.text(
       settings.storeName.value.toUpperCase(),
