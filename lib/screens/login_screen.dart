@@ -150,9 +150,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildBranding() {
-    return Column(
+    return const Column(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
+      children: [
         Icon(
           Icons.account_balance_wallet_outlined,
           size: 80,
