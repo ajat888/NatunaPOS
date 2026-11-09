@@ -1,7 +1,11 @@
 part of 'main_layout.dart';
 
-extension _MainLayoutDrawerExt on _MainLayoutState {
-  Widget _buildSyncBadge() {
+class _SyncBadge extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SyncBadge({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return ValueListenableBuilder<SyncState>(
       valueListenable: SyncStatusService.instance.state,
       builder: (context, state, _) {
@@ -42,10 +46,9 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
               message: tooltip,
               child: InkWell(
                 borderRadius: BorderRadius.circular(4),
-                onTap: _trySync,
+                onTap: onTap,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(4),
@@ -73,7 +76,9 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
       },
     );
   }
+}
 
+extension _MainLayoutDrawerExt on _MainLayoutState {
   Widget _buildDrawerItem(int index, IconData icon, String label) {
     final isSelected = _selectedIndex == index;
     return ListTile(
@@ -105,13 +110,12 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
               child: Row(
-                children: [
-                  const Icon(Icons.storefront,
-                      color: AppTheme.primaryColor, size: 32),
-                  const SizedBox(width: 12),
+                children: const [
+                  Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
+                  SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'NatunaPOS',
                         style: TextStyle(
@@ -135,11 +139,10 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
             ),
             const Divider(height: 1),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
-                children: [
-                  const Text(
+                children: const [
+                  Text(
                     'STATUS SYNC',
                     style: TextStyle(
                       fontSize: 11,
@@ -148,8 +151,8 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  const Spacer(),
-                  _buildSyncBadge(),
+                  Spacer(),
+                  _SyncBadge(onTap: _trySync), // Widget baru, aman dari error linter
                 ],
               ),
             ),
@@ -162,12 +165,10 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                   _buildDrawerItem(1, Icons.point_of_sale_outlined, 'Kasir'),
                   _buildDrawerItem(2, Icons.inventory_2_outlined, 'Kelola'),
                   _buildDrawerItem(3, Icons.receipt_long_outlined, 'Riwayat'),
-                  _buildDrawerItem(4,
-                      Icons.account_balance_wallet_outlined, 'Pengeluaran'),
+                  _buildDrawerItem(4, Icons.account_balance_wallet_outlined, 'Pengeluaran'),
                   _buildDrawerItem(5, Icons.settings_outlined, 'Pengaturan'),
                   _buildDrawerItem(6, Icons.bar_chart_outlined, 'Laporan'),
-                  _buildDrawerItem(
-                      7, Icons.lock_clock_outlined, 'Closing Harian'),
+                  _buildDrawerItem(7, Icons.lock_clock_outlined, 'Closing Harian'),
                 ],
               ),
             ),
@@ -181,8 +182,7 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.system_update,
-                  color: AppTheme.primaryColor),
+              leading: const Icon(Icons.system_update, color: AppTheme.primaryColor),
               title: const Text('Cek Update'),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
@@ -190,10 +190,8 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
               },
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.logout, color: AppTheme.dangerColor),
-              title: const Text('Keluar',
-                  style: TextStyle(color: AppTheme.dangerColor)),
+              leading: Icon(Icons.logout, color: AppTheme.dangerColor), // 'const' dihapus karena dianggap unnecessary
+              title: Text('Keluar', style: TextStyle(color: AppTheme.dangerColor)), // 'const' dihapus
               onTap: _handleLogout,
             ),
             const SizedBox(height: 8),

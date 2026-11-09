@@ -113,6 +113,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Widget _buildButtonChild() {
+    if (_isLoading) {
+      return const SizedBox(
+        height: 20,
+        width: 20,
+        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+      );
+    }
+    return const Text('MASUK');
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = Breakpoints.of(context);
@@ -235,13 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 32),
         ElevatedButton(
           onPressed: _isLoading ? null : _handleLogin,
-          child: _isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2))
-              : const Text('MASUK'),
+          child: _buildButtonChild(),
         ),
       ],
     );
