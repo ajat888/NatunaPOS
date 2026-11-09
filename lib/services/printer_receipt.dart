@@ -211,7 +211,7 @@ final resized = img.copyResize(rawImage, width: 240);
   ));
 }
 
-bytes.addAll(generator.feed(2));
+bytes.addAll(generator.feed(1));
 bytes.addAll(generator.cut());
 
     return bytes;
