@@ -9,7 +9,7 @@ import 'screens/main_layout.dart';
 import 'services/supabase_service.dart';
 import 'services/update_service.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await SystemChrome.setPreferredOrientations([
