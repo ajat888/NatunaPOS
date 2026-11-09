@@ -73,29 +73,34 @@ class SupabaseService {
   }
 
   Future<void> cleanupOrphanedImages() async {
-    try {
-      final paths = await _localDb.getAllLocalImagePaths();
-      final dir = await getApplicationDocumentsDirectory();
-      if (!await dir.exists()) return;
-      final validPaths = paths.toSet();
-      await for (var entity in dir.list()) {
-        if (entity is File) {
-          final filename = entity.path.split('/').last;
-          if (filename.startsWith('img_') && filename.endsWith('.jpg')) {
-            if (!validPaths.contains(entity.path)) {
-              try {
-                await entity.delete();
-              } catch (e) {
-                debugPrint('Failed to delete orphaned image: $e');
-              }
+  try {
+    final paths = await _localDb.getAllLocalImagePaths();
+    final dir = await getApplicationDocumentsDirectory();
+    if (!await dir.exists()) return;
+    final validPaths = paths.toSet();
+    final now = DateTime.now();
+    await for (var entity in dir.list()) {
+      if (entity is File) {
+        final filename = entity.path.split('/').last;
+        if (filename.startsWith('img_') && filename.endsWith('.jpg')) {
+          if (validPaths.contains(entity.path)) continue;
+          try {
+            final stat = await entity.stat();
+            if (now.difference(stat.modified) <
+                const Duration(minutes: 10)) {
+              continue;
             }
+            await entity.delete();
+          } catch (e) {
+            debugPrint('Failed to delete orphaned image: $e');
           }
         }
       }
-    } catch (e) {
-      debugPrint('cleanupOrphanedImages error: $e');
     }
+  } catch (e) {
+    debugPrint('cleanupOrphanedImages error: $e');
   }
+}
 
   Future<void> clearTempCache() async {
     try {
