@@ -272,25 +272,25 @@ mixin LocalDbTransactions {
   }
 
   Future<List<Transaction>> getUnsyncedTransactions() async {
-    final db = await database;
-    final txMaps = await db.query('transactions',
-        where: 'is_synced = 0 AND is_deleted = 0 AND is_voided = 0',
-        orderBy: 'created_at ASC');
-    if (txMaps.isEmpty) return [];
-    final txIds = txMaps.map((m) => m['id'] as int).toList();
-    final placeholders = List.filled(txIds.length, '?').join(',');
-    final itemMaps = await db.query('transaction_items',
-        where: 'transaction_id IN ($placeholders)', whereArgs: txIds);
-    final itemsByTx = <int, List<TransactionItem>>{};
-    for (final m in itemMaps) {
-      final item = TransactionItem.fromDb(m);
-      itemsByTx.putIfAbsent(item.transactionId, () => []).add(item);
-    }
-    return txMaps.map((m) {
-      final id = m['id'] as int;
-      return Transaction.fromDb(m, itemsByTx[id] ?? []);
-    }).toList();
+  final db = await database;
+  final txMaps = await db.query('transactions',
+      where: 'is_synced = 0 AND is_deleted = 0',
+      orderBy: 'created_at ASC');
+  if (txMaps.isEmpty) return [];
+  final txIds = txMaps.map((m) => m['id'] as int).toList();
+  final placeholders = List.filled(txIds.length, '?').join(',');
+  final itemMaps = await db.query('transaction_items',
+      where: 'transaction_id IN ($placeholders)', whereArgs: txIds);
+  final itemsByTx = <int, List<TransactionItem>>{};
+  for (final m in itemMaps) {
+    final item = TransactionItem.fromDb(m);
+    itemsByTx.putIfAbsent(item.transactionId, () => []).add(item);
   }
+  return txMaps.map((m) {
+    final id = m['id'] as int;
+    return Transaction.fromDb(m, itemsByTx[id] ?? []);
+  }).toList();
+}
 
   Future<List<Transaction>> getUnsyncedVoidedTransactions() async {
     final db = await database;

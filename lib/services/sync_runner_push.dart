@@ -366,23 +366,30 @@ class _SyncPusher {
         final localCreatedMs = tx.createdAt.millisecondsSinceEpoch;
 
         final Map<String, dynamic> payload = {
-          'user_id': userId,
-          'total': tx.total,
-          'subtotal': tx.subtotal,
-          'bill_discount': tx.billDiscount,
-          'discount_type': tx.discountType,
-          'discount_value': tx.discountValue,
-          'tax_rate': tx.taxRate,
-          'tax_amount': tx.taxAmount,
-          'created_at_local': localCreatedMs,
-          'cash_received': tx.cashReceived,
-          'change_amount': tx.changeAmount,
-          'table_number': tx.tableNumber,
-          'order_type': tx.orderType,
-        };
-        if (tx.parentOrderKey != null) {
-          payload['parent_order_key'] = tx.parentOrderKey;
-        }
+  'user_id': userId,
+  'total': tx.total,
+  'subtotal': tx.subtotal,
+  'bill_discount': tx.billDiscount,
+  'discount_type': tx.discountType,
+  'discount_value': tx.discountValue,
+  'tax_rate': tx.taxRate,
+  'tax_amount': tx.taxAmount,
+  'created_at_local': localCreatedMs,
+  'cash_received': tx.cashReceived,
+  'change_amount': tx.changeAmount,
+  'table_number': tx.tableNumber,
+  'order_type': tx.orderType,
+};
+if (tx.parentOrderKey != null) {
+  payload['parent_order_key'] = tx.parentOrderKey;
+}
+if (tx.isVoided) {
+  payload['is_voided'] = true;
+  payload['void_reason'] = tx.voidReason;
+  payload['voided_by'] = tx.voidedBy;
+  payload['voided_at'] =
+      (tx.voidedAt ?? DateTime.now()).toUtc().toIso8601String();
+}
 
         int? existingId;
         try {
@@ -471,9 +478,8 @@ class _SyncPusher {
     for (final tx in unsynced) {
       try {
         if (tx.id < 0) {
-          await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
-          continue;
-        }
+  continue;
+}
         try {
           await _client.from('transactions').update({
             'is_voided': true,
