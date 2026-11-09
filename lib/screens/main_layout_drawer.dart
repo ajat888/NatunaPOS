@@ -107,36 +107,36 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'NatunaPOS',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textColor,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Point of Sale',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textLightColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            const Padding(
+  padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
+  child: Row(
+    children: [
+      Icon(Icons.storefront, color: AppTheme.primaryColor, size: 32),
+      SizedBox(width: 12),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'NatunaPOS',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textColor,
             ),
+          ),
+          SizedBox(height: 2),
+          Text(
+            'Point of Sale',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppTheme.textLightColor,
+            ),
+          ),
+        ],
+      ),
+    ],
+  ),
+),
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
