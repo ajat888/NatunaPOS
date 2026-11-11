@@ -168,12 +168,13 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                 _buildDrawerItem(4, Icons.account_balance_wallet_outlined, 'Pengeluaran'),
                 _buildDrawerItem(5, Icons.settings_outlined, 'Pengaturan'),
                 _buildDrawerItem(6, Icons.bar_chart_outlined, 'Laporan'),
-                _buildDrawerItem(7, Icons.lock_clock_outlined, 'Closing Harian'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+                                _buildDrawerItem(7, Icons.lock_clock_outlined, 'Closing Harian'),
+              ], // Menutup children ListView
+            ), // Menutup ListView
+          ), // Menutup Expanded
+        ], // Menutup children Column
+      ), // Menutup Column
+    ), // Menutup SafeArea
+  ); // Menutup Drawer
+  } // Menutup _buildDrawer
+} // Menutup extension

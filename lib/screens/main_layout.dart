@@ -259,11 +259,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   if (!mounted) return;
-await Navigator.pushAndRemoveUntil(
-  context,
-  MaterialPageRoute(builder: (_) => const LoginScreen()),
-  (route) => false,
-);
+  await Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => const LoginScreen()),
+    (route) => false,
+  );
 }
 
   void _openMenu() {
