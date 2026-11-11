@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -43,7 +44,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   void initState() {
     super.initState();
-    _checkPinStatus();
+    unawaited(_checkPinStatus());
   }
 
   Future<void> _checkPinStatus() async {
@@ -57,7 +58,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       setState(() {
         _pinGateLoading = false;
       });
-      _showPinDialog(isSetup: !status.hasPin);
+      unawaited(_showPinDialog(isSetup: !status.hasPin));
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceAll('Exception: ', '');
@@ -87,7 +88,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return;
     }
     setState(() => _verifiedPin = result);
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -141,7 +142,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _from = from;
       _to = to;
     });
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _pickFrom() async {
@@ -344,15 +345,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Positioned.fill(
               child: Container(
                 color: Colors.black.withOpacity(0.35),
-                child: Center(
+                child: const Center(
                   child: Card(
                     elevation: 4,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 24, vertical: 20),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           CircularProgressIndicator(),
                           SizedBox(height: 12),
                           Text(
