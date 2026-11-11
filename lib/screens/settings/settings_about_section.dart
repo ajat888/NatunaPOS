@@ -149,57 +149,69 @@ class _AboutSectionState extends State<_AboutSection> {
     return '$dd/$mm/${date.year} $hh:$mi';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _sectionHeader('Tentang Aplikasi'),
-        _card(
-          child: Column(
-            children: [
-              _infoTile('Versi Aplikasi', _version),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              ValueListenableBuilder<DateTime?>(
-                valueListenable: SyncStatusService.instance.lastSyncedAt,
-                builder: (context, last, _) {
-                  return _infoTile('Sinkron Terakhir', _formatRelativeTime(last));
-                },
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              ValueListenableBuilder<int>(
-                valueListenable: SyncStatusService.instance.pendingCount,
-                builder: (context, pending, _) {
-                  return _infoTile('Menunggu Sinkron', '$pending perubahan');
-                },
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _actionTile(
-                icon: Icons.sync,
-                label: 'Sinkron Sekarang',
-                busy: _busySync,
-                onTap: _syncNow,
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _actionTile(
-                icon: Icons.system_update,
-                label: 'Cek Update',
-                busy: _busyUpdate,
-                onTap: _checkUpdate,
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _actionTile(
-                icon: Icons.cleaning_services_outlined,
-                label: 'Bersihkan Cache',
-                busy: _busyCache,
-                onTap: _clearCache,
-              ),
-            ],
+@override
+Widget build(BuildContext context) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _sectionHeader('Tentang Aplikasi'),
+      _card(
+        child: Column(
+          children: [
+            _infoTile('Versi Aplikasi', _version),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            ValueListenableBuilder<DateTime?>(
+              valueListenable: SyncStatusService.instance.lastSyncedAt,
+              builder: (context, last, _) {
+                return _infoTile('Sinkron Terakhir', _formatRelativeTime(last));
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            ValueListenableBuilder<int>(
+              valueListenable: SyncStatusService.instance.pendingCount,
+              builder: (context, pending, _) {
+                return _infoTile('Menunggu Sinkron', '$pending perubahan');
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            _actionTile(
+              icon: Icons.sync,
+              label: 'Sinkron Sekarang',
+              busy: _busySync,
+              onTap: _syncNow,
+            ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            _actionTile(
+              icon: Icons.system_update,
+              label: 'Cek Update',
+              busy: _busyUpdate,
+              onTap: _checkUpdate,
+            ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            _actionTile(
+              icon: Icons.cleaning_services_outlined,
+              label: 'Bersihkan Cache',
+              busy: _busyCache,
+              onTap: _clearCache,
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 32),
+      const Center(
+        child: Text(
+          '© 2026 NatunaPOS by Ajat Sanjaya',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.textLightColor,
           ),
         ),
-      ],
-    );
-  }
+      ),
+      const SizedBox(height: 16),
+    ],
+  );
+}
 
   Widget _infoTile(String label, String value) {
     return Padding(
