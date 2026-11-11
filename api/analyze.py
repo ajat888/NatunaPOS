@@ -2,7 +2,7 @@ import os
 import json
 from http.server import BaseHTTPRequestHandler
 import requests
-from _shared import verify_jwt, validate_pin, verify_pin
+from api._shared import verify_jwt, validate_pin, verify_pin
 
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')

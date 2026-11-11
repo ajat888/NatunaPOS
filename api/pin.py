@@ -1,6 +1,6 @@
 import json
 from http.server import BaseHTTPRequestHandler
-from _shared import (
+from api._shared import (
     verify_jwt,
     hash_pin,
     generate_salt,
