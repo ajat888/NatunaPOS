@@ -14,7 +14,6 @@ import 'settings_screen.dart';
 import 'reports_screen.dart';
 import 'closing_screen.dart';
 import '../services/auto_sync_scheduler.dart';
-import '../services/update_service.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
 import '../widgets/common/main_menu_scope.dart';
