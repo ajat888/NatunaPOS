@@ -330,7 +330,7 @@ await Navigator.pushAndRemoveUntil(
         child: IndexedStack(
           index: _selectedIndex,
           children: pages,
-        ),
+        ],
       ),
     );
   }

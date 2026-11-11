@@ -192,13 +192,13 @@ class _LogoutSectionState extends State<_LogoutSection> {
       return;
     }
 
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
+      if (!mounted) return;
+  await Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => const LoginScreen()),
+    (route) => false,
+  );
+}
 
   Future<bool?> _confirmForceLogout(int pendingCount) {
     return showDialog<bool>(
