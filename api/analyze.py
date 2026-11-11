@@ -1,12 +1,20 @@
 import os
 import json
+import time
 from http.server import BaseHTTPRequestHandler
 import requests
 from api._shared import verify_jwt, validate_pin, verify_pin
 
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
-GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')
 GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+
+# DAFTAR MODEL FALLBACK (Dicoba berurutan dari atas ke bawah)
+MODELS_TO_TRY = [
+    'openai/gpt-oss-120b',        # Model utama (paling pintar, pengganti llama-3.3)
+    'llama-3.1-8b-instant',       # Model cadangan 1 (sangat cepat & ringan)
+    'openai/gpt-oss-20b',         # Model cadangan 2
+    'gemma2-9b-it',               # Model cadangan 3
+]
 
 
 def _fmt(n):
@@ -156,40 +164,47 @@ class handler(BaseHTTPRequestHandler):
 
         prompt = _build_prompt(report)
 
-        try:
-            groq_resp = requests.post(
-                GROQ_URL,
-                headers={
-                    'Authorization': f'Bearer {GROQ_API_KEY}',
-                    'Content-Type': 'application/json',
-                },
-                json={
-                    'model': GROQ_MODEL,
-                    'messages': [
-                        {'role': 'system', 'content': 'Anda adalah analis bisnis F&B Indonesia. Jawab dalam Markdown.'},
-                        {'role': 'user', 'content': prompt},
-                    ],
-                    'temperature': 0.4,
-                    'max_tokens': 1500,
-                },
-                timeout=60,
-            )
-        except Exception as e:
-            self._respond(500, {'error': f'Gagal menghubungi Groq: {e}'})
-            return
+        last_error = None
+        success_model = None
+        analysis_result = None
 
-        if groq_resp.status_code != 200:
-            self._respond(500, {'error': f'Groq error ({groq_resp.status_code}). Coba lagi nanti.'})
-            return
+        # LOOPING FALLBACK: Coba satu per satu
+        for model_name in MODELS_TO_TRY:
+            try:
+                groq_resp = requests.post(
+                    GROQ_URL,
+                    headers={
+                        'Authorization': f'Bearer {GROQ_API_KEY}',
+                        'Content-Type': 'application/json',
+                    },
+                    json={
+                        'model': model_name,
+                        'messages': [
+                            {'role': 'system', 'content': 'Anda adalah analis bisnis F&B Indonesia. Jawab dalam Markdown.'},
+                            {'role': 'user', 'content': prompt},
+                        ],
+                        'temperature': 0.4,
+                        'max_tokens': 3000, # Naikkan max_tokens untuk model reasoning
+                    },
+                    timeout=60,
+                )
 
-        try:
-            data = groq_resp.json()
-            analysis = data['choices'][0]['message']['content']
-        except Exception:
-            self._respond(500, {'error': 'Format respons Groq tidak dikenali'})
-            return
+                if groq_resp.status_code == 200:
+                    data = groq_resp.json()
+                    analysis_result = data['choices'][0]['message']['content']
+                    success_model = model_name
+                    break # Berhasil, keluar dari loop
+                else:
+                    last_error = f'{model_name} error ({groq_resp.status_code})'
+                    # Lanjut ke model berikutnya
+            except requests.exceptions.RequestException as e:
+                last_error = f'{model_name} koneksi gagal: {e}'
+                # Lanjut ke model berikutnya
 
-        self._respond(200, {
-            'analysis': analysis.strip(),
-            'model': GROQ_MODEL,
-        })
+        if analysis_result is not None:
+            self._respond(200, {
+                'analysis': analysis_result.strip(),
+                'model': success_model,
+            })
+        else:
+            self._respond(500, {'error': f'Semua model gagal. Error terakhir: {last_error}'})
