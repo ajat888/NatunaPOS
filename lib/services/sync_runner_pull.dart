@@ -1,5 +1,4 @@
 part of 'sync_runner.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class _SyncPuller {
   final SupabaseClient _client;
