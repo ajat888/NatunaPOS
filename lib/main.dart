@@ -8,6 +8,15 @@ import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/supabase_service.dart';
 import 'services/update_service.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (kIsWeb) {
+    databaseFactory = databaseFactoryFfiWeb;
+  }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
