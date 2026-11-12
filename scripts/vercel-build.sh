@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-# 1. Unduh file wajib SQLite untuk web
+# 1. Unduh file wajib SQLite untuk web (WASM)
 mkdir -p web
-curl -sL -o web/sqlite3.wasm https://raw.githubusercontent.com/tekartik/sqflite/master/sqflite_common_ffi_web/web/sqlite3.wasm
-curl -sL -o web/sqflite_sw.js https://raw.githubusercontent.com/tekartik/sqflite/master/sqflite_common_ffi_web/web/sqflite_sw.js
+echo "Downloading sqlite3.wasm..."
+curl -fsSL -o web/sqlite3.wasm https://github.com/simolus3/sqlite3.dart/releases/latest/download/sqlite3.wasm
 
 # 2. Jalankan build Flutter
 flutter/bin/flutter create . --platforms=web

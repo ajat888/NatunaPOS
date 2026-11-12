@@ -135,24 +135,24 @@ class LocalDb with
 }
   }
 
-  Future<int> countPendingSync() async {
-    final db = await database;
-    final result = await db.rawQuery('''
-      SELECT
-        (SELECT COUNT(*) FROM products            WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM categories          WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM transactions        WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM expense_categories  WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM expense_items       WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM expenses            WHERE is_synced = 0)
-      + (SELECT COUNT(*) FROM daily_closings      WHERE is_synced = 0)            WHERE is_synced = 0)
-      AS total
-    ''');
-    final v = result.first['total'];
-    if (v is int) return v;
-    if (v is num) return v.toInt();
-    return 0;
-  }
+Future<int> countPendingSync() async {
+  final db = await database;
+  final result = await db.rawQuery('''
+    SELECT
+      (SELECT COUNT(*) FROM products            WHERE is_synced = 0)
+    + (SELECT COUNT(*) FROM categories          WHERE is_synced = 0)
+    + (SELECT COUNT(*) FROM transactions        WHERE is_synced = 0)
+    + (SELECT COUNT(*) FROM expense_categories  WHERE is_synced = 0)
+    + (SELECT COUNT(*) FROM expense_items       WHERE is_synced = 0)
+    + (SELECT COUNT(*) FROM expenses            WHERE is_synced = 0)
+    + (SELECT COUNT(*) FROM daily_closings      WHERE is_synced = 0)
+    AS total
+  ''');
+  final v = result.first['total'];
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return 0;
+}
 
   Future<void> clearAllData() async {
     final db = await database;
