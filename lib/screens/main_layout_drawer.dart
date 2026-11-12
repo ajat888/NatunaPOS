@@ -126,7 +126,7 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Point of Sale',
+                        'Smart POS & Business Analytics',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppTheme.textLightColor,

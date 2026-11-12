@@ -12,6 +12,7 @@ import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/supabase_service.dart';
 import 'services/update_service.dart';
+import 'screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,16 +84,18 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isLoggedIn = SupabaseService().isLoggedIn;
+@override
+Widget build(BuildContext context) {
+  final isLoggedIn = SupabaseService().isLoggedIn;
 
-    return MaterialApp(
-      navigatorKey: UpdateService.navigatorKey,
-      title: 'NatunaPOS',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: isLoggedIn ? const MainLayout() : const LoginScreen(),
-    );
-  }
+  return MaterialApp(
+    navigatorKey: UpdateService.navigatorKey,
+    title: 'NatunaPOS',
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.lightTheme,
+    home: SplashScreen(
+      onFinished: () =>
+          isLoggedIn ? const MainLayout() : const LoginScreen(),
+    ),
+  );
 }
