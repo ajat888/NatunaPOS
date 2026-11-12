@@ -16,9 +16,9 @@ import 'services/update_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (kIsWeb) {
-    databaseFactory = databaseFactoryFfiWeb;
-  }
+if (kIsWeb) {
+  databaseFactory = databaseFactoryFfiWebNoWebWorker;
+}
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
