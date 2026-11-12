@@ -83,53 +83,66 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   }
 
   Future<void> _pay() async {
-    if (!_canPay || _saving) return;
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    try {
-      if (widget.splitSelection != null) {
-        await widget.service.payPartialOpenOrder(
-          orderKey: widget.order.orderKey,
-          selections: widget.splitSelection!,
-          cashReceived: _cashReceived,
-          changeAmount: _change,
-          billDiscount: _billDiscount,
-          discountType: _discountType,
-          discountValue: _discountValue,
-          taxRate: _applyTax ? _taxRate : 0,
-        );
-      } else {
-        await widget.service.payOpenOrder(
-          orderKey: widget.order.orderKey,
-          cashReceived: _cashReceived,
-          changeAmount: _change,
-          billDiscount: _billDiscount,
-          discountType: _discountType,
-          discountValue: _discountValue,
-          taxRate: _applyTax ? _taxRate : 0,
-        );
-      }
+  if (!_canPay || _saving) return;
+  setState(() {
+    _saving = true;
+    _error = null;
+  });
+  try {
+    if (widget.splitSelection != null) {
+      await widget.service.payPartialOpenOrder(
+        orderKey: widget.order.orderKey,
+        selections: widget.splitSelection!,
+        cashReceived: _cashReceived,
+        changeAmount: _change,
+        billDiscount: _billDiscount,
+        discountType: _discountType,
+        discountValue: _discountValue,
+        taxRate: _applyTax ? _taxRate : 0,
+      );
+    } else {
+      await widget.service.payOpenOrder(
+        orderKey: widget.order.orderKey,
+        cashReceived: _cashReceived,
+        changeAmount: _change,
+        billDiscount: _billDiscount,
+        discountType: _discountType,
+        discountValue: _discountValue,
+        taxRate: _applyTax ? _taxRate : 0,
+      );
+    }
 
-      if (_printReceipt) {
+    if (_printReceipt) {
+      try {
         final txs = await widget.service.getLocalTransactions(limit: 1);
         if (txs.isNotEmpty) {
-          await PrinterService.instance.printReceipt(txs.first);
+          final printSuccess = await PrinterService.instance.printReceipt(txs.first);
+          if (!printSuccess && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Pembayaran berhasil, tetapi struk gagal dicetak (Printer tidak terhubung).'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
         }
+      } catch (printError) {
+        debugPrint('Print error: $printError');
       }
-
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      await widget.onSuccess();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-        _error = e.toString().replaceAll('Exception: ', '');
-      });
     }
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    await widget.onSuccess();
+  } catch (e) {
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _error = e.toString().replaceAll('Exception: ', '');
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {

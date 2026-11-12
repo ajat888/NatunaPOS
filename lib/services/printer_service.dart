@@ -36,33 +36,50 @@ class PrinterService {
     }
   }
 
-  Future<bool> printReceipt(Transaction tx) async {
+Future<bool> printReceipt(Transaction tx) async {
+  try {
+    final bool isBluetoothOn = await PrintBluetoothThermal.bluetoothEnabled;
+    if (!isBluetoothOn) {
+      debugPrint('Print failed: Bluetooth is disabled');
+      return false;
+    }
+
     final isConn = await isConnected;
     if (!isConn) {
       final mac = AppSettings.instance.printerMac.value;
       if (mac != null && mac.isNotEmpty) {
         final success = await connect(mac);
-        if (!success) return false;
+        if (!success) {
+          debugPrint('Print failed: Could not connect to printer');
+          return false;
+        }
       } else {
+        debugPrint('Print failed: No printer MAC address saved');
         return false;
       }
     }
 
-    try {
-      final profile = await CapabilityProfile.load();
-      final generator = Generator(PaperSize.mm58, profile);
-      final bytes = await _generateReceiptBytes(tx, generator);
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+    final bytes = await _generateReceiptBytes(tx, generator);
 
-      if (Platform.isAndroid) {
-        final res = await PrintBluetoothThermal.writeBytes(bytes);
-        return res;
-      }
-      return false;
-    } catch (e) {
-      debugPrint('Print receipt failed: $e');
-      return false;
+    if (Platform.isAndroid) {
+      final res = await PrintBluetoothThermal.writeBytes(bytes)
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        debugPrint('Print failed: Timeout while writing bytes');
+        return false;
+      });
+      return res;
     }
+    return false;
+  } catch (e) {
+    debugPrint('Print receipt failed: $e');
+    try {
+      await PrintBluetoothThermal.disconnect;
+    } catch (_) {}
+    return false;
   }
+}
 
   Future<bool> printTest() async {
     final now = DateTime.now();
