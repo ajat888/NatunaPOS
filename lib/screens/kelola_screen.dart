@@ -128,11 +128,17 @@ Future<void> reloadData() async {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          tooltip: 'Menu',
-          onPressed: () => MainMenuScope.of(context)?.openMenu(),
-        ),
+leading: Navigator.canPop(context)
+    ? IconButton(
+        icon: const Icon(Icons.arrow_back),
+        tooltip: 'Kembali',
+        onPressed: () => Navigator.pop(context),
+      )
+    : IconButton(
+        icon: const Icon(Icons.menu),
+        tooltip: 'Menu',
+        onPressed: () => MainMenuScope.of(context)?.openMenu(),
+      ),
         title: const Text('Kelola Data'),
         actions: [
           IconButton(

@@ -17,6 +17,7 @@ import '../services/update_service.dart';
 import '../services/printer_service.dart';
 import '../widgets/common/main_menu_scope.dart';
 import 'login_screen.dart';
+import 'kelola_screen.dart';
 
 part 'settings/settings_store_form.dart';
 part 'settings/settings_profile_form.dart';
@@ -42,6 +43,16 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _SettingsMenuItem(
+  icon: Icons.inventory_2_outlined,
+  title: 'Kelola Data',
+  subtitle: 'Produk, kategori, dan item pengeluaran',
+  onTap: () => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const KelolaScreen()),
+  ),
+),
+const SizedBox(height: 8),
           _SettingsMenuItem(
             icon: Icons.storefront_outlined,
             title: 'Info Toko',

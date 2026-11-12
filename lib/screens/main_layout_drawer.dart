@@ -79,8 +79,10 @@ class _SyncBadge extends StatelessWidget {
 }
 
 extension _MainLayoutDrawerExt on _MainLayoutState {
-  Widget _buildDrawerItem(int index, IconData icon, String label) {
-    final isSelected = _selectedIndex == index;
+  Widget _buildDrawerItem(int drawerIndex, IconData icon, String label) {
+    final tabIndex = drawerIndex == 6 ? 4 : drawerIndex;
+    final isTab = drawerIndex <= 3 || drawerIndex == 6;
+    final isSelected = isTab && _selectedIndex == tabIndex;
     return ListTile(
       selected: isSelected,
       selectedTileColor: AppTheme.primaryColor.withOpacity(0.08),
@@ -95,7 +97,7 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
           color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,
         ),
       ),
-      onTap: () => _selectDestination(index),
+      onTap: () => _selectDestination(drawerIndex),
     );
   }
 
@@ -163,12 +165,13 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                 children: [
                   _buildDrawerItem(0, Icons.dashboard_outlined, 'Beranda'),
                   _buildDrawerItem(1, Icons.point_of_sale_outlined, 'Kasir'),
-                  _buildDrawerItem(2, Icons.inventory_2_outlined, 'Kelola'),
+                  _buildDrawerItem(
+                      2, Icons.account_balance_wallet_outlined, 'Pengeluaran'),
                   _buildDrawerItem(3, Icons.receipt_long_outlined, 'Riwayat'),
-                  _buildDrawerItem(4, Icons.account_balance_wallet_outlined, 'Pengeluaran'),
-                  _buildDrawerItem(5, Icons.settings_outlined, 'Pengaturan'),
-                  _buildDrawerItem(6, Icons.bar_chart_outlined, 'Laporan'),
-                  _buildDrawerItem(7, Icons.lock_clock_outlined, 'Closing Harian'),
+                  _buildDrawerItem(4, Icons.bar_chart_outlined, 'Laporan'),
+                  _buildDrawerItem(
+                      5, Icons.lock_clock_outlined, 'Closing Harian'),
+                  _buildDrawerItem(6, Icons.settings_outlined, 'Pengaturan'),
                 ],
               ),
             ),

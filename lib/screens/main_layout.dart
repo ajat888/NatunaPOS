@@ -6,7 +6,6 @@ import 'package:path_provider/path_provider.dart';
 import '../core/theme.dart';
 import 'dashboard_screen.dart';
 import 'pos_screen.dart';
-import 'kelola_screen.dart';
 import 'history_screen.dart';
 import 'expenses_screen.dart';
 import 'login_screen.dart';
@@ -33,7 +32,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   final _dashboardKey = GlobalKey<DashboardScreenState>();
   final _posKey = GlobalKey<PosScreenState>();
-  final _kelolaKey = GlobalKey<KelolaScreenState>();
   final _historyKey = GlobalKey<HistoryScreenState>();
   final _expensesKey = GlobalKey<ExpensesScreenState>();
 
@@ -160,7 +158,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void _refreshAllScreens() {
     _dashboardKey.currentState?.refresh();
     _posKey.currentState?.reloadData();
-    _kelolaKey.currentState?.reloadData();
     _historyKey.currentState?.reloadData();
     _expensesKey.currentState?.reloadData();
   }
@@ -270,41 +267,40 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _scaffoldKey.currentState?.openDrawer();
   }
 
-  void _selectDestination(int index) {
+  void _selectDestination(int drawerIndex) {
     _scaffoldKey.currentState?.closeDrawer();
-    if (index == 6) {
+    if (drawerIndex == 4) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ReportsScreen()),
       );
       return;
     }
-    if (index == 7) {
+    if (drawerIndex == 5) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ClosingScreen()),
       );
       return;
     }
-    if (_selectedIndex == index) {
-      _refreshTab(index);
+    final tabIndex = drawerIndex == 6 ? 4 : drawerIndex;
+    if (_selectedIndex == tabIndex) {
+      _refreshTab(tabIndex);
       return;
     }
-    setState(() => _selectedIndex = index);
-    _refreshTab(index);
+    setState(() => _selectedIndex = tabIndex);
+    _refreshTab(tabIndex);
   }
 
-  void _refreshTab(int index) {
-    if (index == 0) {
+  void _refreshTab(int tabIndex) {
+    if (tabIndex == 0) {
       _dashboardKey.currentState?.refresh();
-    } else if (index == 1) {
+    } else if (tabIndex == 1) {
       _posKey.currentState?.reloadData();
-    } else if (index == 2) {
-      _kelolaKey.currentState?.reloadData();
-    } else if (index == 3) {
-      _historyKey.currentState?.reloadData();
-    } else if (index == 4) {
+    } else if (tabIndex == 2) {
       _expensesKey.currentState?.reloadData();
+    } else if (tabIndex == 3) {
+      _historyKey.currentState?.reloadData();
     }
   }
 
@@ -316,9 +312,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         onStartTransaction: () => _selectDestination(1),
       ),
       PosScreen(key: _posKey),
-      KelolaScreen(key: _kelolaKey),
-      HistoryScreen(key: _historyKey),
       ExpensesScreen(key: _expensesKey),
+      HistoryScreen(key: _historyKey),
       const SettingsScreen(),
     ];
 
