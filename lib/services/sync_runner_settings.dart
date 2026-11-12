@@ -1,4 +1,5 @@
 part of 'sync_runner.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class _SyncSettings {
   final SupabaseClient _client;
@@ -49,25 +50,21 @@ class _SyncSettings {
         hasLogo;
   }
 
-  Future<int> _push(String userId) async {
-    final settings = AppSettings.instance;
-    final tax = TaxSettings.instance;
-    try {
-      String? logoUrl = settings.logoUrl;
-      final localLogo = settings.logoPath.value;
-      final localExists = localLogo != null && File(localLogo).existsSync();
-      final needUpload =
-          settings.isLogoDirty || (logoUrl == null && localExists);
-
+Future<int> _push(String userId) async {
+  final settings = AppSettings.instance;
+  final tax = TaxSettings.instance;
+  try {
+    String? logoUrl = settings.logoUrl;
+    final localLogo = settings.logoPath.value;
+    final localExists = localLogo != null && File(localLogo).existsSync();
+    
+    if (!kIsWeb) {
+      final needUpload = settings.isLogoDirty || (logoUrl == null && localExists);
       if (needUpload) {
         if (localExists) {
-          final fileName =
-              'store_logo_${DateTime.now().millisecondsSinceEpoch}.png';
-          await _client.storage
-              .from('product_images')
-              .upload(fileName, File(localLogo));
-          logoUrl =
-              _client.storage.from('product_images').getPublicUrl(fileName);
+          final fileName = 'store_logo_${DateTime.now().millisecondsSinceEpoch}.png';
+          await _client.storage.from('product_images').upload(fileName, File(localLogo));
+          logoUrl = _client.storage.from('product_images').getPublicUrl(fileName);
           await settings.saveLogoUrl(logoUrl);
         } else {
           logoUrl = null;
@@ -75,6 +72,7 @@ class _SyncSettings {
         }
         await settings.clearLogoDirty();
       }
+    }
 
       final payload = <String, dynamic>{
         ...settings.toServerJson(logoUrl: logoUrl),
@@ -114,56 +112,45 @@ class _SyncSettings {
     }
   }
 
-  Future<int> _pull(String userId) async {
-    try {
-      final settings = AppSettings.instance;
-      if (settings.isDirty) return 0;
+Future<int> _pull(String userId) async {
+  try {
+    final settings = AppSettings.instance;
+    if (settings.isDirty) return 0;
 
-      final res = await _client
-          .from('store_settings')
-          .select()
-          .eq('user_id', userId)
-          .limit(1);
-      if (res.isEmpty) return 0;
-      final row = res.first;
+    final res = await _client.from('store_settings').select().eq('user_id', userId).limit(1);
+    if (res.isEmpty) return 0;
+    final row = res.first;
 
-      final rawUpdated = row['updated_at'];
-      if (rawUpdated == null) return 0;
-      final serverMs = rawUpdated is num
-          ? rawUpdated.toInt()
-          : DateTime.parse(rawUpdated.toString()).millisecondsSinceEpoch;
+    final rawUpdated = row['updated_at'];
+    if (rawUpdated == null) return 0;
+    final serverMs = rawUpdated is num ? rawUpdated.toInt() : DateTime.parse(rawUpdated.toString()).millisecondsSinceEpoch;
 
-      if (settings.updatedAtMs >= serverMs) return 0;
-      if (settings.isDirty) return 0;
+    if (settings.updatedAtMs >= serverMs) return 0;
+    if (settings.isDirty) return 0;
 
-      final logoUrl = row['logo_url'] as String?;
-      final currentLocal = settings.logoPath.value;
-      final currentUrl = settings.logoUrl;
-      String? localLogoPath;
+    final logoUrl = row['logo_url'] as String?;
+    final currentLocal = settings.logoPath.value;
+    final currentUrl = settings.logoUrl;
+    String? localLogoPath;
 
-      if (logoUrl != null && logoUrl.isNotEmpty) {
-        if (currentLocal != null &&
-            File(currentLocal).existsSync() &&
-            currentUrl == logoUrl) {
-          localLogoPath = currentLocal;
-        } else {
-          try {
-            final dir = await getApplicationDocumentsDirectory();
-            if (!await dir.exists()) await dir.create(recursive: true);
-            final response = await http
-                .get(Uri.parse(logoUrl))
-                .timeout(const Duration(seconds: 15));
-            if (response.statusCode == 200) {
-              final file = File(
-                  '${dir.path}/logo_${DateTime.now().millisecondsSinceEpoch}.png');
-              await file.writeAsBytes(response.bodyBytes);
-              localLogoPath = file.path;
-            }
-          } catch (e) {
-            debugPrint('Download logo failed: $e');
+    if (!kIsWeb && logoUrl != null && logoUrl.isNotEmpty) {
+      if (currentLocal != null && File(currentLocal).existsSync() && currentUrl == logoUrl) {
+        localLogoPath = currentLocal;
+      } else {
+        try {
+          final dir = await getApplicationDocumentsDirectory();
+          if (!await dir.exists()) await dir.create(recursive: true);
+          final response = await http.get(Uri.parse(logoUrl)).timeout(const Duration(seconds: 15));
+          if (response.statusCode == 200) {
+            final file = File('${dir.path}/logo_${DateTime.now().millisecondsSinceEpoch}.png');
+            await file.writeAsBytes(response.bodyBytes);
+            localLogoPath = file.path;
           }
+        } catch (e) {
+          debugPrint('Download logo failed: $e');
         }
       }
+    }
 
       await settings.applyFromServer(
         storeName: row['store_name'] as String? ?? '',

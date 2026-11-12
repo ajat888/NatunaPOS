@@ -1,4 +1,5 @@
 part of 'sync_runner.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class _SyncPuller {
   final SupabaseClient _client;
@@ -72,9 +73,10 @@ class _SyncPuller {
     }
   }
 
-  Future<void> _downloadMissingImages() async {
-    try {
-      final missing = await _localDb.getProductsNeedingImageDownload();
+Future<void> _downloadMissingImages() async {
+  if (kIsWeb) return;
+  try {
+    final missing = await _localDb.getProductsNeedingImageDownload();
       if (missing.isEmpty) return;
 
       final dir = await getApplicationDocumentsDirectory();
