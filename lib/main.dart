@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sqflite/sqflite.dart'; // Wajib ditambah untuk databaseFactory
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'core/theme.dart';
 import 'core/tax_settings.dart';
 import 'services/app_settings.dart';
@@ -8,8 +12,6 @@ import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/supabase_service.dart';
 import 'services/update_service.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; 
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,9 +19,6 @@ Future<void> main() async {
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
   }
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
