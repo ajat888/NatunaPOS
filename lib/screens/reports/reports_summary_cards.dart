@@ -112,7 +112,7 @@ class _ReportsSummaryCards extends StatelessWidget {
     );
   }
 
-Widget _detailsCard(NumberFormat fmt) {
+Widget _detailsCard(BuildContext context, NumberFormat fmt) {
   return Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -123,14 +123,31 @@ Widget _detailsCard(NumberFormat fmt) {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'DETAIL',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-            color: AppTheme.textLightColor,
-          ),
+        Row(
+          children: [
+            const Text(
+              'DETAIL',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: AppTheme.textLightColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            InkWell(
+              onTap: () => _showDetailInfo(context),
+              borderRadius: BorderRadius.circular(16),
+              child: const Padding(
+                padding: EdgeInsets.all(2.0),
+                child: Icon(
+                  Icons.help_outline,
+                  size: 14,
+                  color: AppTheme.textLightColor,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         
@@ -166,6 +183,55 @@ Widget _detailsCard(NumberFormat fmt) {
           'Cash Seharusnya',
           'Rp ${fmt.format(summary.cashExpected)}',
           bold: true,
+        ),
+      ],
+    ),
+  );
+}
+
+void _showDetailInfo(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      title: const Text('Informasi Pembatalan'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            'Transaksi Dibatalkan',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: AppTheme.textColor),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Penjualan yang sudah dibayar (masuk struk) namun dibatalkan oleh kasir karena suatu alasan. Uang dikembalikan atau tidak jadi masuk ke laci kasir.',
+            style:
+                TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Pesanan Dibatalkan',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: AppTheme.textColor),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Pesanan yang disimpan di meja (Open Order) sebelum dibayar, lalu dibatalkan. Belum ada uang yang masuk ke kasir.',
+            style:
+                TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('MENGERTI'),
         ),
       ],
     ),
