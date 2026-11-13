@@ -82,13 +82,29 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     }
   }
 
-  Future<void> _pay() async {
+Future<void> _pay() async {
   if (!_canPay || _saving) return;
   setState(() {
     _saving = true;
     _error = null;
   });
   try {
+    // Cek koneksi printer terlebih dahulu jika user memilih cetak struk
+    if (_printReceipt) {
+      final isConn = await PrinterService.instance.isConnected;
+      if (!isConn) {
+        final mac = AppSettings.instance.printerMac.value;
+        if (mac != null && mac.isNotEmpty) {
+          final success = await PrinterService.instance.connect(mac);
+          if (!success) {
+            throw Exception('Gagal terhubung ke printer Bluetooth. Pastikan printer menyala dan Bluetooth aktif.');
+          }
+        } else {
+          throw Exception('Printer Bluetooth belum diatur di menu Pengaturan.');
+        }
+      }
+    }
+
     if (widget.splitSelection != null) {
       await widget.service.payPartialOpenOrder(
         orderKey: widget.order.orderKey,
@@ -113,22 +129,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     }
 
     if (_printReceipt) {
-      try {
-        final txs = await widget.service.getLocalTransactions(limit: 1);
-        if (txs.isNotEmpty) {
-          final printSuccess = await PrinterService.instance.printReceipt(txs.first);
-          if (!printSuccess && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Pembayaran berhasil, tetapi struk gagal dicetak (Printer tidak terhubung).'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 4),
-              ),
-            );
-          }
-        }
-      } catch (printError) {
-        debugPrint('Print error: $printError');
+      final txs = await widget.service.getLocalTransactions(limit: 1);
+      if (txs.isNotEmpty) {
+        await PrinterService.instance.printReceipt(txs.first);
       }
     }
 
