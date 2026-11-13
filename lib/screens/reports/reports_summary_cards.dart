@@ -56,7 +56,7 @@ class _ReportsSummaryCards extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _detailsCard(fmt),
+        _detailsCard(context, fmt),
       ],
     );
   }
@@ -193,7 +193,7 @@ void _showDetailInfo(BuildContext context) {
   showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: const Text('Informasi Pembatalan'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
