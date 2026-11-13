@@ -38,7 +38,7 @@ extension _PosViewsExt on PosScreenState {
       categories: _categories,
       cart: _cart,
       filterCategoryId: _filterCategoryId,
-      onFilterChanged: (id) => setState(() => _filterCategoryId = id),
+      onFilterChanged: _updateFilterCategoryId, // <-- Diperbaiki
       onAdd: _addToCart,
       onRemove: _removeFromCart,
       cartTotal: _cartTotal,

@@ -131,7 +131,13 @@ class PosScreenState extends State<PosScreen> {
     return null;
   }
 
-  void _openEmptyTable(int tableNumber) {
+  void _updateFilterCategoryId(int? id) {
+  setState(() {
+    _filterCategoryId = id;
+  });
+}
+
+void _openEmptyTable(int tableNumber) {
     setState(() {
       _afterMenuView = PosView.tables;
       _view = PosView.menu;
