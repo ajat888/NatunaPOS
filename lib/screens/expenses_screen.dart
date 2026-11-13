@@ -215,6 +215,7 @@ Widget build(BuildContext context) {
       onPressed: _showInputDialog,
       icon: const Icon(Icons.add),
       label: const Text('Catat Pengeluaran'),
-    ),
-  );
+      ),
+    );
+  }
 }
