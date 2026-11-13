@@ -166,7 +166,7 @@ class _ReportsSummaryCards extends StatelessWidget {
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: const [
                     Text(
                       'Transaksi Dibatalkan',
                       style: TextStyle(
@@ -202,7 +202,7 @@ class _ReportsSummaryCards extends StatelessWidget {
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: const [
                     Text(
                       'Pesanan Dibatalkan',
                       style: TextStyle(
