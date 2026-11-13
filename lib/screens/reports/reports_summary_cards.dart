@@ -45,14 +45,14 @@ class _ReportsSummaryCards extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _summaryCard(
-                'Laba Bersih',
-                'Rp ${fmt.format(summary.netProfit)}',
-                Icons.trending_up,
-                danger: summary.netProfit < 0,
-                positive: summary.netProfit >= 0,
-              ),
-            ),
+  child: _summaryCard(
+    'Laba Bersih',
+    'Rp ${fmt.format(summary.totalSales - summary.totalExpenses)}',
+    Icons.trending_up,
+    danger: (summary.totalSales - summary.totalExpenses) < 0,
+    positive: (summary.totalSales - summary.totalExpenses) >= 0,
+  ),
+),
           ],
         ),
         const SizedBox(height: 16),
