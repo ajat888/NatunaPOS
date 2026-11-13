@@ -11,7 +11,6 @@ class _ReportsSummaryCards extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Baris 1: Total Penjualan & Transaksi
         Row(
           children: [
             Expanded(
@@ -32,7 +31,6 @@ class _ReportsSummaryCards extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        // Baris 2: Pengeluaran & Laba Bersih
         Row(
           children: [
             Expanded(
@@ -45,14 +43,14 @@ class _ReportsSummaryCards extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-  child: _summaryCard(
-    'Laba Bersih',
-    'Rp ${fmt.format(summary.totalSales - summary.totalExpenses)}',
-    Icons.trending_up,
-    danger: (summary.totalSales - summary.totalExpenses) < 0,
-    positive: (summary.totalSales - summary.totalExpenses) >= 0,
-  ),
-),
+              child: _summaryCard(
+                'Laba Bersih',
+                'Rp ${fmt.format(summary.totalSales - summary.totalExpenses)}',
+                Icons.trending_up,
+                danger: (summary.totalSales - summary.totalExpenses) < 0,
+                positive: (summary.totalSales - summary.totalExpenses) >= 0,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -112,131 +110,238 @@ class _ReportsSummaryCards extends StatelessWidget {
     );
   }
 
-Widget _detailsCard(BuildContext context, NumberFormat fmt) {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppTheme.surfaceColor,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            const Text(
-              'DETAIL',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-                color: AppTheme.textLightColor,
-              ),
-            ),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: () => _showDetailInfo(context),
-              borderRadius: BorderRadius.circular(16),
-              child: const Padding(
-                padding: EdgeInsets.all(2.0),
-                child: Icon(
-                  Icons.help_outline,
-                  size: 14,
+  Widget _detailsCard(BuildContext context, NumberFormat fmt) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'DETAIL',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                   color: AppTheme.textLightColor,
                 ),
               ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () => _showDetailInfo(context),
+                borderRadius: BorderRadius.circular(16),
+                child: const Padding(
+                  padding: EdgeInsets.all(2.0),
+                  child: Icon(
+                    Icons.help_outline,
+                    size: 16,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          
+          _row(
+            'Total HPP (Modal Bahan)',
+            'Rp ${fmt.format(summary.totalHpp)}',
+          ),
+          const SizedBox(height: 6),
+          _row(
+            'Laba Kotor',
+            'Rp ${fmt.format(summary.grossProfit)}',
+          ),
+          const SizedBox(height: 6),
+
+          if (summary.voidTransactionCount > 0) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Transaksi Dibatalkan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.dangerColor,
+                      ),
+                    ),
+                    Text(
+                      '(Tidak masuk omzet)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.textLightColor,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${summary.voidTransactionCount} • Rp ${fmt.format(summary.totalVoidAmount)}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.dangerColor,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 6),
           ],
-        ),
-        const SizedBox(height: 10),
-        
-        if (summary.voidTransactionCount > 0) ...[
-          _row(
-            'Transaksi Dibatalkan',
-            '${summary.voidTransactionCount} • Rp ${fmt.format(summary.totalVoidAmount)}',
-            danger: true,
-          ),
-          const SizedBox(height: 6),
-        ],
-        
-        if (summary.voidOpenOrderCount > 0) ...[
-          _row(
-            'Pesanan Dibatalkan',
-            '${summary.voidOpenOrderCount} • Rp ${fmt.format(summary.totalVoidOpenOrderAmount)}',
-            danger: true,
-          ),
-          const SizedBox(height: 6),
-        ],
+          
+          if (summary.voidOpenOrderCount > 0) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pesanan Dibatalkan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.dangerColor,
+                      ),
+                    ),
+                    Text(
+                      '(Tidak masuk omzet)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.textLightColor,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${summary.voidOpenOrderCount} • Rp ${fmt.format(summary.totalVoidOpenOrderAmount)}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.dangerColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+          ],
 
-        if (summary.voidTransactionCount == 0 && summary.voidOpenOrderCount == 0) ...[
+          if (summary.voidTransactionCount == 0 && summary.voidOpenOrderCount == 0) ...[
+            _row(
+              'Pembatalan',
+              'Tidak ada',
+              danger: false,
+            ),
+            const SizedBox(height: 6),
+          ],
+
+          const Divider(height: 20, color: Color(0xFFE2E8F0)),
           _row(
-            'Pembatalan',
-            'Tidak ada',
-            danger: false,
-          ),
-          const SizedBox(height: 6),
-        ],
-
-        const Divider(height: 20, color: Color(0xFFE2E8F0)),
-        _row(
-          'Cash Seharusnya',
-          'Rp ${fmt.format(summary.cashExpected)}',
-          bold: true,
-        ),
-      ],
-    ),
-  );
-}
-
-void _showDetailInfo(BuildContext context) {
-  showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      title: const Text('Informasi Pembatalan'),
-      content: const Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Transaksi Dibatalkan',
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppTheme.textColor),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Penjualan yang sudah dibayar (masuk struk) namun dibatalkan oleh kasir karena suatu alasan. Uang dikembalikan atau tidak jadi masuk ke laci kasir.',
-            style:
-                TextStyle(fontSize: 12, color: AppTheme.textLightColor),
-          ),
-          SizedBox(height: 12),
-          Text(
-            'Pesanan Dibatalkan',
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppTheme.textColor),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Pesanan yang disimpan di meja (Open Order) sebelum dibayar, lalu dibatalkan. Belum ada uang yang masuk ke kasir.',
-            style:
-                TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+            'Perkiraan Uang Tunai di Kasir',
+            'Rp ${fmt.format(summary.cashExpected)}',
+            bold: true,
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('MENGERTI'),
+    );
+  }
+
+  void _showDetailInfo(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Informasi Detail'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Total HPP (Modal Bahan)',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppTheme.textColor),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Total harga modal (HPP) dari seluruh produk yang terjual hari ini.',
+              style:
+                  TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Laba Kotor',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppTheme.textColor),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Total Penjualan dikurangi Total HPP. Laba ini belum dipotong pengeluaran operasional (seperti listrik, gaji, dll).',
+              style:
+                  TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Transaksi Dibatalkan',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppTheme.textColor),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Penjualan yang sudah dibayar (masuk struk) namun dibatalkan oleh kasir. Uang dikembalikan atau tidak jadi masuk ke laci kasir.',
+              style:
+                  TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Pesanan Dibatalkan',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppTheme.textColor),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Pesanan yang disimpan di meja (Open Order) sebelum dibayar, lalu dibatalkan. Belum ada uang yang masuk ke kasir.',
+              style:
+                  TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Perkiraan Uang Tunai di Kasir',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppTheme.textColor),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Uang tunai yang seharusnya ada di laci kasir hari ini (Hanya menghitung transaksi pembayaran Tunai/Cash, tidak termasuk QRIS/Transfer).',
+              style:
+                  TextStyle(fontSize: 12, color: AppTheme.textLightColor),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
-}
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('MENGERTI'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _row(
     String label,
@@ -247,11 +352,13 @@ void _showDetailInfo(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: danger ? AppTheme.dangerColor : AppTheme.textLightColor,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: danger ? AppTheme.dangerColor : AppTheme.textLightColor,
+            ),
           ),
         ),
         Text(

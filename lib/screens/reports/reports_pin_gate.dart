@@ -25,6 +25,7 @@ class _PinGateDialogState extends State<_PinGateDialog> {
   final _confirmController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmFocusNode = FocusNode();
   bool _busy = false;
   String? _error;
   int _lockedUntilMs = 0;
@@ -39,6 +40,7 @@ class _PinGateDialogState extends State<_PinGateDialog> {
     _confirmController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmFocusNode.dispose();
     super.dispose();
   }
 
@@ -54,6 +56,7 @@ class _PinGateDialogState extends State<_PinGateDialog> {
   }
 
   Future<void> _submitPin() async {
+    if (_busy) return;
     final pin = _pinController.text.trim();
     if (pin.length != 6 || int.tryParse(pin) == null) {
       setState(() => _error = 'PIN harus 6 digit angka');
@@ -107,6 +110,7 @@ class _PinGateDialogState extends State<_PinGateDialog> {
   }
 
   Future<void> _submitReset() async {
+    if (_busy) return;
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     if (email.isEmpty || password.isEmpty) {
@@ -262,11 +266,21 @@ class _PinGateDialogState extends State<_PinGateDialog> {
             counterText: '',
           ),
           onSubmitted: (_) => _submitPin(),
+          onChanged: (val) {
+            if (val.length == 6) {
+              if (!_effectiveSetup) {
+                _submitPin();
+              } else {
+                _confirmFocusNode.requestFocus();
+              }
+            }
+          },
         ),
         if (_effectiveSetup) ...[
           const SizedBox(height: 8),
           TextField(
             controller: _confirmController,
+            focusNode: _confirmFocusNode,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             obscureText: true,
@@ -276,6 +290,11 @@ class _PinGateDialogState extends State<_PinGateDialog> {
               counterText: '',
             ),
             onSubmitted: (_) => _submitPin(),
+            onChanged: (val) {
+              if (val.length == 6) {
+                _submitPin();
+              }
+            },
           ),
         ],
         if (!_effectiveSetup)
