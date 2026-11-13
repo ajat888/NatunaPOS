@@ -179,78 +179,147 @@ class _ReportsSummaryCards extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         color: AppTheme.textLightColor,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  '${summary.voidTransactionCount} • Rp ${fmt.format(summary.totalVoidAmount)}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.dangerColor,
-                  ),
-                ),
-              ],
+Widget _detailsCard(BuildContext context, NumberFormat fmt) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.surfaceColor,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'DETAIL',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: AppTheme.textLightColor,
+              ),
             ),
-            const SizedBox(height: 6),
-          ],
-          
-          if (summary.voidOpenOrderCount > 0) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Pesanan Dibatalkan',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.dangerColor,
-                      ),
-                    ),
-                    Text(
-                      '(Tidak masuk omzet)',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textLightColor,
-                      ),
-                    ),
-                  ],
+            const SizedBox(width: 4),
+            InkWell(
+              onTap: () => _showDetailInfo(context),
+              borderRadius: BorderRadius.circular(16),
+              child: const Padding(
+                padding: EdgeInsets.all(2.0),
+                child: Icon(
+                  Icons.help_outline,
+                  size: 16,
+                  color: AppTheme.primaryColor,
                 ),
-                Text(
-                  '${summary.voidOpenOrderCount} • Rp ${fmt.format(summary.totalVoidOpenOrderAmount)}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.dangerColor,
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 6),
           ],
+        ),
+        const SizedBox(height: 10),
+        
+        _row(
+          'Total HPP (Modal Bahan)',
+          'Rp ${fmt.format(summary.totalHpp)}',
+        ),
+        const SizedBox(height: 6),
+        _row(
+          'Laba Kotor',
+          'Rp ${fmt.format(summary.grossProfit)}',
+        ),
+        const SizedBox(height: 6),
 
-          if (summary.voidTransactionCount == 0 && summary.voidOpenOrderCount == 0) ...[
-            _row(
-              'Pembatalan',
-              'Tidak ada',
-              danger: false,
-            ),
-            const SizedBox(height: 6),
-          ],
-
-          const Divider(height: 20, color: Color(0xFFE2E8F0)),
-          _row(
-            'Perkiraan Uang Tunai di Kasir',
-            'Rp ${fmt.format(summary.cashExpected)}',
-            bold: true,
+        if (summary.voidTransactionCount > 0) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Transaksi Dibatalkan',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.dangerColor,
+                    ),
+                  ),
+                  Text(
+                    '(Tidak masuk omzet)',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.textLightColor,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '${summary.voidTransactionCount} • Rp ${fmt.format(summary.totalVoidAmount)}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.dangerColor,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 6),
         ],
-      ),
-    );
-  }
+        
+        if (summary.voidOpenOrderCount > 0) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pesanan Dibatalkan',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.dangerColor,
+                    ),
+                  ),
+                  Text(
+                    '(Tidak masuk omzet)',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.textLightColor,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '${summary.voidOpenOrderCount} • Rp ${fmt.format(summary.totalVoidOpenOrderAmount)}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.dangerColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+        ],
+
+        if (summary.voidTransactionCount == 0 && summary.voidOpenOrderCount == 0) ...[
+          _row(
+            'Pembatalan',
+            'Tidak ada',
+            danger: false,
+          ),
+          const SizedBox(height: 6),
+        ],
+
+        const Divider(height: 20, color: Color(0xFFE2E8F0)),
+        _row(
+          'Perkiraan Uang Tunai di Kasir',
+          'Rp ${fmt.format(summary.cashExpected)}',
+          bold: true,
+        ),
+      ],
+    ),
+  );
+}
 
   void _showDetailInfo(BuildContext context) {
     showDialog<void>(
