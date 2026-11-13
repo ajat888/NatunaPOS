@@ -25,7 +25,7 @@ part 'pos/pos_save_dialog.dart';
 part 'pos/pos_discount_dialog.dart';
 part 'pos/pos_split_view.dart';
 part 'pos/pos_void_open_order_dialog.dart';
-part 'pos/pos_views.dart';
+part 'pos/pos_view.dart'; // <-- Disesuaikan dengan nama file buatanmu
 
 enum PosView { tables, menu, orderDetail, split }
 
@@ -54,42 +54,50 @@ class PosScreenState extends State<PosScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-@override
-void initState() {
-  super.initState();
-  unawaited(reloadData(showLoading: true));
-}
+  @override
+  void initState() {
+    super.initState();
+    unawaited(reloadData(showLoading: true));
+  }
 
-Future<void> reloadData({bool showLoading = false}) async {
-  if (mounted) {
-    setState(() {
-      if (showLoading) _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> reloadData({bool showLoading = false}) async {
+    if (mounted) {
+      setState(() {
+        if (showLoading) _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+    try {
+      final products = await _localDb.getProducts();
+      final categories = await _localDb.getCategories();
+      final order = AppSettings.instance.posCategoryOrder.value;
+      if (order.isNotEmpty) {
+        categories.sort((a, b) {
+          final idxA = order.indexOf(a.id);
+          final idxB = order.indexOf(b.id);
+          if (idxA == -1 && idxB == -1) return a.id.compareTo(b.id);
+          if (idxA == -1) return 1;
+          if (idxB == -1) return -1;
+          return idxA.compareTo(idxB);
+        });
+      }
+      final openOrders = await _localDb.getOpenOrders();
+      
+      if (!mounted) return;
+      setState(() {
+        _products = products;
+        _categories = categories;
+        _openOrders = openOrders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Gagal memuat data lokal.';
+      });
+    }
   }
-  try {
-final products = await _localDb.getProducts();
-final categories = await _localDb.getCategories();
-final order = AppSettings.instance.posCategoryOrder.value;
-if (order.isNotEmpty) {
-  categories.sort((a, b) {
-    final idxA = order.indexOf(a.id);
-    final idxB = order.indexOf(b.id);
-    if (idxA == -1 && idxB == -1) return a.id.compareTo(b.id);
-    if (idxA == -1) return 1;
-    if (idxB == -1) return -1;
-    return idxA.compareTo(idxB);
-  });
-}
-final openOrders = await _localDb.getOpenOrders();
-  } catch (e) {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _errorMessage = 'Gagal memuat data lokal.';
-    });
-  }
-}
 
   Future<void> _reloadOpenOrders() async {
     final o = await _localDb.getOpenOrders();
@@ -299,61 +307,61 @@ final openOrders = await _localDb.getOpenOrders();
     _backToTables();
   }
 
-void _handleReorderCategories(int oldIndex, int newIndex) {
-  final availableCategories = _categories.where((c) {
-    return _products.any((p) => p.categoryId == c.id);
-  }).toList();
-  final hasUncategorized = _products.any((p) => p.categoryId == null);
+  void _handleReorderCategories(int oldIndex, int newIndex) {
+    final availableCategories = _categories.where((c) {
+      return _products.any((p) => p.categoryId == c.id);
+    }).toList();
+    final hasUncategorized = _products.any((p) => p.categoryId == null);
 
-  final List<int> currentIds = availableCategories.map((c) => c.id).toList();
-  if (hasUncategorized) currentIds.add(-1);
+    final List<int> currentIds = availableCategories.map((c) => c.id).toList();
+    if (hasUncategorized) currentIds.add(-1);
 
-  if (newIndex > oldIndex) {
-    newIndex -= 1;
-  }
-
-  if (oldIndex < 0 || oldIndex >= currentIds.length) return;
-  if (newIndex < 0 || newIndex >= currentIds.length) return;
-
-  final movedId = currentIds.removeAt(oldIndex);
-  currentIds.insert(newIndex, movedId);
-
-  final Map<int, Category> categoryMap = {
-    for (var c in _categories) c.id: c,
-  };
-
-  final List<Category> newCategories = [];
-  for (final id in currentIds) {
-    if (id != -1 && categoryMap.containsKey(id)) {
-      newCategories.add(categoryMap.remove(id)!);
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
     }
+
+    if (oldIndex < 0 || oldIndex >= currentIds.length) return;
+    if (newIndex < 0 || newIndex >= currentIds.length) return;
+
+    final movedId = currentIds.removeAt(oldIndex);
+    currentIds.insert(newIndex, movedId);
+
+    final Map<int, Category> categoryMap = {
+      for (var c in _categories) c.id: c,
+    };
+
+    final List<Category> newCategories = [];
+    for (final id in currentIds) {
+      if (id != -1 && categoryMap.containsKey(id)) {
+        newCategories.add(categoryMap.remove(id)!);
+      }
+    }
+    newCategories.addAll(categoryMap.values);
+
+    setState(() {
+      _categories = newCategories;
+    });
+
+    AppSettings.instance.savePosCategoryOrder(currentIds);
   }
-  newCategories.addAll(categoryMap.values);
 
-  setState(() {
-    _categories = newCategories;
-  });
-
-  AppSettings.instance.savePosCategoryOrder(currentIds);
-}
-  
   Future<void> _handlePaySuccess(String orderKey) async {
-  await _reloadOpenOrders();
-  AutoSyncScheduler.instance.scheduleSync();
-  if (!mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-    content: Text('Pembayaran berhasil'),
-    backgroundColor: Colors.green,
-  ));
-  if (_view == PosView.split) {
-    final refreshed = _findOrder(orderKey);
-    if (refreshed != null) {
-      _openOrderDetail(refreshed);
-      return;
+    await _reloadOpenOrders();
+    AutoSyncScheduler.instance.scheduleSync();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Pembayaran berhasil'),
+      backgroundColor: Colors.green,
+    ));
+    if (_view == PosView.split) {
+      final refreshed = _findOrder(orderKey);
+      if (refreshed != null) {
+        _openOrderDetail(refreshed);
+        return;
+      }
     }
+    _backToTables();
   }
-  _backToTables();
-}
 
   void _showPaymentFor(OpenOrder order) {
     unawaited(showDialog(
@@ -445,8 +453,8 @@ void _handleReorderCategories(int oldIndex, int newIndex) {
                   style: const TextStyle(color: AppTheme.dangerColor)),
               const SizedBox(height: 16),
               TextButton(
-    onPressed: () => reloadData(showLoading: true),
-    child: const Text('Coba Lagi')),
+                  onPressed: () => reloadData(showLoading: true),
+                  child: const Text('Coba Lagi')),
             ],
           ),
         ),
@@ -462,24 +470,5 @@ void _handleReorderCategories(int oldIndex, int newIndex) {
       case PosView.split:
         return _buildSplitView();
     }
-  }
-
-
-  Widget _buildSplitView() {
-    final order =
-        _activeOrderKey != null ? _findOrder(_activeOrderKey!) : null;
-    if (order == null) return _buildTablesView();
-    return _PosSplitView(
-      order: order,
-      onBack: () {
-        final o = _findOrder(_activeOrderKey!);
-        if (o != null) {
-          _openOrderDetail(o);
-        } else {
-          _backToTables();
-        }
-      },
-      onPay: _handleSplitPay,
-    );
   }
 }

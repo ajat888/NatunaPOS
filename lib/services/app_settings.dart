@@ -22,7 +22,7 @@ class AppSettings {
       'natunapos_settings_updated_at_ms';
   static const String _kTableCount = 'natunapos_table_count';
   static const String _kPosCategoryOrder = 'natunapos_pos_category_order';
-  
+
   final ValueNotifier<String> storeName = ValueNotifier('');
   final ValueNotifier<String> storeSubtitle = ValueNotifier('');
   final ValueNotifier<String> storeAddress = ValueNotifier('');
@@ -34,7 +34,7 @@ class AppSettings {
   final ValueNotifier<String?> printerName = ValueNotifier(null);
   final ValueNotifier<int> tableCount = ValueNotifier(20);
   final ValueNotifier<List<int>> posCategoryOrder = ValueNotifier([]);
-  
+
   String? _logoUrl;
   bool _isDirty = false;
   bool _isLogoDirty = false;
@@ -61,18 +61,17 @@ class AppSettings {
       _isDirty = prefs.getBool(_kSettingsDirty) ?? false;
       _isLogoDirty = prefs.getBool(_kLogoDirty) ?? false;
       _updatedAtMs = prefs.getInt(_kSettingsUpdatedAtMs) ?? 0;
+      
       final loaded = prefs.getInt(_kTableCount) ?? 20;
       tableCount.value = loaded.clamp(1, 200);
-      final loaded = prefs.getInt(_kTableCount) ?? 20;
-tableCount.value = loaded.clamp(1, 200);
 
-final orderList = prefs.getStringList(_kPosCategoryOrder);
-if (orderList != null) {
-  posCategoryOrder.value = orderList
-      .map((e) => int.tryParse(e) ?? -2)
-      .where((e) => e != -2)
-      .toList();
-}
+      final orderList = prefs.getStringList(_kPosCategoryOrder);
+      if (orderList != null) {
+        posCategoryOrder.value = orderList
+            .map((e) => int.tryParse(e) ?? -2)
+            .where((e) => e != -2)
+            .toList();
+      }
     } catch (e) {
       debugPrint('AppSettings load failed: $e');
     }
@@ -124,16 +123,16 @@ if (orderList != null) {
   }
 
   Future<void> savePosCategoryOrder(List<int> order) async {
-  posCategoryOrder.value = order;
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-        _kPosCategoryOrder, order.map((e) => e.toString()).toList());
-  } catch (e) {
-    debugPrint('AppSettings savePosCategoryOrder failed: $e');
+    posCategoryOrder.value = order;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+          _kPosCategoryOrder, order.map((e) => e.toString()).toList());
+    } catch (e) {
+      debugPrint('AppSettings savePosCategoryOrder failed: $e');
+    }
   }
-}
-  
+
   Future<void> saveCashierName(String name) async {
     final trimmed = name.trim();
     final prefs = await SharedPreferences.getInstance();
