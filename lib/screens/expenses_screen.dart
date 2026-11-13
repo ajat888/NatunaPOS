@@ -163,35 +163,117 @@ TextButton(
                             ),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('${exp.categoryName} • ${dateFormat.format(exp.createdAt)} • oleh: ${exp.createdBy}', style: const TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
-                                  if (exp.description != null && exp.description!.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Text('"${exp.description}"', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppTheme.textLightColor)),
-                                    ),
-                                ],
+@override
+Widget build(BuildContext context) {
+  final formatCurrency = NumberFormat.decimalPattern('id');
+  final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+
+  return Scaffold(
+    backgroundColor: AppTheme.backgroundColor,
+    appBar: AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.menu),
+        tooltip: 'Menu',
+        onPressed: () => MainMenuScope.of(context)?.openMenu(),
+      ),
+      title: const Text('Pengeluaran'),
+      actions: [
+        IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => reloadData(showLoading: true),
+            tooltip: 'Muat ulang'),
+      ],
+    ),
+    body: _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _errorMessage != null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(_errorMessage!,
+                        style: const TextStyle(color: AppTheme.dangerColor)),
+                    const SizedBox(height: 16),
+                    TextButton(
+                        onPressed: () => reloadData(showLoading: true),
+                        child: const Text('Coba Lagi')),
+                  ],
+                ),
+              )
+            : _expenses.isEmpty
+                ? const Center(
+                    child: Text('Belum ada pengeluaran.',
+                        style: TextStyle(color: AppTheme.textLightColor)))
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                    itemCount: _expenses.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final exp = _expenses[index];
+                      return Container(
+                        decoration: BoxDecoration(
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: const Color(0xFFE2E8F0))),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(exp.itemName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textColor)),
                               ),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.cancel_outlined, color: AppTheme.dangerColor, size: 20),
-                              onPressed: () => _voidExpense(exp),
-                              tooltip: 'Void',
+                              Text(
+                                  '- Rp ${formatCurrency.format(exp.amount)}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.dangerColor)),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    '${exp.categoryName} • ${dateFormat.format(exp.createdAt)} • oleh: ${exp.createdBy}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.textLightColor)),
+                                if (exp.description != null &&
+                                    exp.description!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text('"${exp.description}"',
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            fontStyle: FontStyle.italic,
+                                            color: AppTheme.textLightColor)),
+                                  ),
+                              ],
                             ),
                           ),
-                        );
-                      },
-                    ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        onPressed: _showInputDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Catat Pengeluaran'),
-      ),
-    );
-  }
+                          trailing: IconButton(
+                            icon: const Icon(Icons.cancel_outlined,
+                                color: AppTheme.dangerColor, size: 20),
+                            onPressed: () => _voidExpense(exp),
+                            tooltip: 'Void',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+    floatingActionButton: FloatingActionButton.extended(
+      backgroundColor: AppTheme.primaryColor,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onPressed: _showInputDialog,
+      icon: const Icon(Icons.add),
+      label: const Text('Catat Pengeluaran'),
+    ),
+  );
 }
