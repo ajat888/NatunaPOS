@@ -24,29 +24,34 @@ class ExpensesScreenState extends State<ExpensesScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  @override
-  void initState() {
-    super.initState();
-    reloadData();
-  }
+@override
+void initState() {
+  super.initState();
+  reloadData(showLoading: true);
+}
 
-  Future<void> reloadData() async {
-    if (mounted) setState(() { _isLoading = true; _errorMessage = null; });
-    try {
-      final list = await _service.getLocalExpenses();
-      if (!mounted) return;
-      setState(() {
-        _expenses = list;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Gagal memuat data pengeluaran.';
-      });
-    }
+Future<void> reloadData({bool showLoading = false}) async {
+  if (mounted) {
+    setState(() {
+      if (showLoading) _isLoading = true;
+      _errorMessage = null;
+    });
   }
+  try {
+    final list = await _service.getLocalExpenses();
+    if (!mounted) return;
+    setState(() {
+      _expenses = list;
+      _isLoading = false;
+    });
+  } catch (e) {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _errorMessage = 'Gagal memuat data pengeluaran.';
+    });
+  }
+}
 
   Future<void> _showInputDialog() async {
     final items = await _service.getLocalExpenseItemsForInput();
@@ -114,8 +119,12 @@ class ExpensesScreenState extends State<ExpensesScreen> {
         ),
         title: const Text('Pengeluaran'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: reloadData, tooltip: 'Muat ulang'),
-        ],
+actions: [
+  IconButton(
+      icon: const Icon(Icons.refresh),
+      onPressed: () => reloadData(showLoading: true),
+      tooltip: 'Muat ulang'),
+],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -126,8 +135,9 @@ class ExpensesScreenState extends State<ExpensesScreen> {
                       children: [
                       Text(_errorMessage!, style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
-                      TextButton(onPressed: reloadData, child: const Text('Coba Lagi'))
-                    ]))
+TextButton(
+    onPressed: () => reloadData(showLoading: true),
+    child: const Text('Coba Lagi')),
               : _expenses.isEmpty
                   ? const Center(child: Text('Belum ada pengeluaran.', style: TextStyle(color: AppTheme.textLightColor)))
                   : ListView.separated(

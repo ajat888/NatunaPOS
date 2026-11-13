@@ -24,34 +24,34 @@ class HistoryScreenState extends State<HistoryScreen> {
   bool _showVoided = true;
   String? _errorMessage;
 
-  @override
-  void initState() {
-    super.initState();
-    reloadData();
-  }
+@override
+void initState() {
+  super.initState();
+  reloadData(showLoading: true);
+}
 
-  Future<void> reloadData() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
-    try {
-      final txs = await _service.getLocalTransactions();
-      if (!mounted) return;
-      setState(() {
-        _transactions = txs;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Gagal memuat riwayat transaksi.';
-      });
-    }
+Future<void> reloadData({bool showLoading = false}) async {
+  if (mounted) {
+    setState(() {
+      if (showLoading) _isLoading = true;
+      _errorMessage = null;
+    });
   }
+  try {
+    final txs = await _service.getLocalTransactions();
+    if (!mounted) return;
+    setState(() {
+      _transactions = txs;
+      _isLoading = false;
+    });
+  } catch (e) {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _errorMessage = 'Gagal memuat riwayat transaksi.';
+    });
+  }
+}
 
   String _displayTable(Transaction tx) {
     final t = tx.tableNumber;
@@ -143,11 +143,11 @@ class HistoryScreenState extends State<HistoryScreen> {
             tooltip: _showVoided ? 'Sembunyikan VOID' : 'Tampilkan VOID',
             onPressed: () => setState(() => _showVoided = !_showVoided),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: reloadData,
-            tooltip: 'Muat ulang',
-          ),
+IconButton(
+  icon: const Icon(Icons.refresh),
+  onPressed: () => reloadData(showLoading: true),
+  tooltip: 'Muat ulang',
+),
         ],
       ),
       body: _isLoading
@@ -160,9 +160,9 @@ class HistoryScreenState extends State<HistoryScreen> {
                       Text(_errorMessage!,
                           style: const TextStyle(color: AppTheme.dangerColor)),
                       const SizedBox(height: 16),
-                      TextButton(
-                          onPressed: reloadData,
-                          child: const Text('Coba Lagi')),
+TextButton(
+    onPressed: () => reloadData(showLoading: true),
+    child: const Text('Coba Lagi')),
                     ],
                   ),
                 )

@@ -53,16 +53,16 @@ class PosScreenState extends State<PosScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(reloadData());
-  }
+@override
+void initState() {
+  super.initState();
+  unawaited(reloadData(showLoading: true));
+}
 
-Future<void> reloadData() async {
+Future<void> reloadData({bool showLoading = false}) async {
   if (mounted) {
     setState(() {
-      _isLoading = true;
+      if (showLoading) _isLoading = true;
       _errorMessage = null;
     });
   }
@@ -408,7 +408,9 @@ Future<void> reloadData() async {
               Text(_errorMessage!,
                   style: const TextStyle(color: AppTheme.dangerColor)),
               const SizedBox(height: 16),
-              TextButton(onPressed: reloadData, child: const Text('Coba Lagi')),
+              TextButton(
+    onPressed: () => reloadData(showLoading: true),
+    child: const Text('Coba Lagi')),
             ],
           ),
         ),
@@ -437,10 +439,10 @@ Future<void> reloadData() async {
         ),
         title: const Text('Kasir'),
         actions: [
-          IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: reloadData,
-              tooltip: 'Muat ulang'),
+IconButton(
+    icon: const Icon(Icons.refresh),
+    onPressed: () => reloadData(showLoading: true),
+    tooltip: 'Muat ulang'),
         ],
       ),
       body: ValueListenableBuilder<int>(
