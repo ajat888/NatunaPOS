@@ -25,6 +25,7 @@ part 'pos/pos_save_dialog.dart';
 part 'pos/pos_discount_dialog.dart';
 part 'pos/pos_split_view.dart';
 part 'pos/pos_void_open_order_dialog.dart';
+part 'pos/pos_views.dart';
 
 enum PosView { tables, menu, orderDetail, split }
 
@@ -67,23 +68,20 @@ Future<void> reloadData({bool showLoading = false}) async {
     });
   }
   try {
-    final products = await _localDb.getProducts();
-    final categories = await _localDb.getCategories();
-    final openOrders = await _localDb.getOpenOrders();
-    if (!mounted) return;
-
-    if (_filterCategoryId != null && _filterCategoryId != -1) {
-      if (!categories.any((c) => c.id == _filterCategoryId)) {
-        _filterCategoryId = null;
-      }
-    }
-
-    setState(() {
-      _products = products;
-      _categories = categories;
-      _openOrders = openOrders;
-      _isLoading = false;
-    });
+final products = await _localDb.getProducts();
+final categories = await _localDb.getCategories();
+final order = AppSettings.instance.posCategoryOrder.value;
+if (order.isNotEmpty) {
+  categories.sort((a, b) {
+    final idxA = order.indexOf(a.id);
+    final idxB = order.indexOf(b.id);
+    if (idxA == -1 && idxB == -1) return a.id.compareTo(b.id);
+    if (idxA == -1) return 1;
+    if (idxB == -1) return -1;
+    return idxA.compareTo(idxB);
+  });
+}
+final openOrders = await _localDb.getOpenOrders();
   } catch (e) {
     if (!mounted) return;
     setState(() {
@@ -301,6 +299,44 @@ Future<void> reloadData({bool showLoading = false}) async {
     _backToTables();
   }
 
+void _handleReorderCategories(int oldIndex, int newIndex) {
+  final availableCategories = _categories.where((c) {
+    return _products.any((p) => p.categoryId == c.id);
+  }).toList();
+  final hasUncategorized = _products.any((p) => p.categoryId == null);
+
+  final List<int> currentIds = availableCategories.map((c) => c.id).toList();
+  if (hasUncategorized) currentIds.add(-1);
+
+  if (newIndex > oldIndex) {
+    newIndex -= 1;
+  }
+
+  if (oldIndex < 0 || oldIndex >= currentIds.length) return;
+  if (newIndex < 0 || newIndex >= currentIds.length) return;
+
+  final movedId = currentIds.removeAt(oldIndex);
+  currentIds.insert(newIndex, movedId);
+
+  final Map<int, Category> categoryMap = {
+    for (var c in _categories) c.id: c,
+  };
+
+  final List<Category> newCategories = [];
+  for (final id in currentIds) {
+    if (id != -1 && categoryMap.containsKey(id)) {
+      newCategories.add(categoryMap.remove(id)!);
+    }
+  }
+  newCategories.addAll(categoryMap.values);
+
+  setState(() {
+    _categories = newCategories;
+  });
+
+  AppSettings.instance.savePosCategoryOrder(currentIds);
+}
+  
   Future<void> _handlePaySuccess(String orderKey) async {
   await _reloadOpenOrders();
   AutoSyncScheduler.instance.scheduleSync();
@@ -428,89 +464,6 @@ Future<void> reloadData({bool showLoading = false}) async {
     }
   }
 
-  Widget _buildTablesView() {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          tooltip: 'Menu',
-          onPressed: () => MainMenuScope.of(context)?.openMenu(),
-        ),
-        title: const Text('Kasir'),
-        actions: [
-IconButton(
-    icon: const Icon(Icons.refresh),
-    onPressed: () => reloadData(showLoading: true),
-    tooltip: 'Muat ulang'),
-        ],
-      ),
-      body: ValueListenableBuilder<int>(
-        valueListenable: AppSettings.instance.tableCount,
-        builder: (context, tableCount, _) => _PosTablesView(
-          openOrders: _openOrders,
-          tableCount: tableCount,
-          onTapEmptyTable: _openEmptyTable,
-          onTapOpenOrder: _openOrderDetail,
-          onTapTakeAway: _openTakeAway,
-          onTapPay: _showPaymentFor,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuView() {
-    return _PosMenuPicker(
-      products: _products,
-      categories: _categories,
-      cart: _cart,
-      filterCategoryId: _filterCategoryId,
-      onFilterChanged: (id) => setState(() => _filterCategoryId = id),
-      onAdd: _addToCart,
-      onRemove: _removeFromCart,
-      cartTotal: _cartTotal,
-      cartItemCount: _cartItemCount,
-      onSave: _promptSaveOrder,
-      onBack: () {
-        if (_afterMenuView == PosView.orderDetail) {
-          final o = _findOrder(_activeOrderKey ?? '');
-          if (o != null) {
-            _openOrderDetail(o);
-            return;
-          }
-        }
-        _backToTables();
-      },
-      title: _activeOrderType == 'take_away'
-          ? 'Pesan $_activeOrderKey'
-          : 'Pesan Meja $_activeTableNumber',
-    );
-  }
-
-  Widget _buildOrderDetailView() {
-    final order =
-        _activeOrderKey != null ? _findOrder(_activeOrderKey!) : null;
-    if (order == null) return _buildTablesView();
-    return _PosOrderDetailView(
-      order: order,
-      onBack: _backToTables,
-      onAddMore: _startAddToExisting,
-      onPay: () => _showPaymentFor(order),
-      onSplit: _openSplitView,
-      onAdjustQty: (item, delta) => _adjustOpenOrderItemQty(order, item, delta),
-      onVoidSuccess: () async {
-        await _reloadOpenOrders();
-        if (!mounted) return;
-        _backToTables();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pesanan di-void'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildSplitView() {
     final order =

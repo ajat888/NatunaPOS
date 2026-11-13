@@ -13,21 +13,23 @@ class _PosMenuPicker extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onBack;
   final String title;
+  final void Function(int oldIndex, int newIndex) onReorder;
 
-  const _PosMenuPicker({
-    required this.products,
-    required this.categories,
-    required this.cart,
-    required this.filterCategoryId,
-    required this.onFilterChanged,
-    required this.onAdd,
-    required this.onRemove,
-    required this.cartTotal,
-    required this.cartItemCount,
-    required this.onSave,
-    required this.onBack,
-    required this.title,
-  });
+const _PosMenuPicker({
+  required this.products,
+  required this.categories,
+  required this.cart,
+  required this.filterCategoryId,
+  required this.onFilterChanged,
+  required this.onAdd,
+  required this.onRemove,
+  required this.cartTotal,
+  required this.cartItemCount,
+  required this.onSave,
+  required this.onBack,
+  required this.title,
+  required this.onReorder,
+});
 
   List<Product> get _filteredProducts {
     List<Product> filtered;
@@ -76,37 +78,60 @@ class _PosMenuPicker extends StatelessWidget {
       ),
       body: Column(
         children: [
-          if (availableCategories.isNotEmpty || hasUncategorized)
-            Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              color: AppTheme.surfaceColor,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  ...availableCategories.map((c) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(c.name),
-                          selected: filterCategoryId == c.id,
-                          onSelected: (_) => onFilterChanged(
-                              filterCategoryId == c.id ? null : c.id),
-                        ),
-                      )),
-                  if (hasUncategorized)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: const Text('Tanpa Kategori'),
-                        selected: filterCategoryId == -1,
-                        onSelected: (_) => onFilterChanged(
-                            filterCategoryId == -1 ? null : -1),
-                      ),
-                    ),
-                ],
+if (availableCategories.isNotEmpty || hasUncategorized)
+  Container(
+    height: 50,
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    color: AppTheme.surfaceColor,
+    child: ReorderableListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount:
+          availableCategories.length + (hasUncategorized ? 1 : 0),
+      onReorder: onReorder,
+      buildDefaultDragHandles: false,
+      proxyDecorator: (child, index, animation) {
+        return Material(
+          elevation: 4.0,
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: child,
+        );
+      },
+      itemBuilder: (context, index) {
+        if (index < availableCategories.length) {
+          final c = availableCategories[index];
+          return ReorderableDelayedDragStartListener(
+            key: ValueKey(c.id),
+            index: index,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(c.name),
+                selected: filterCategoryId == c.id,
+                onSelected: (_) => onFilterChanged(
+                    filterCategoryId == c.id ? null : c.id),
               ),
             ),
+          );
+        } else {
+          return ReorderableDelayedDragStartListener(
+            key: const ValueKey(-1),
+            index: index,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: const Text('Tanpa Kategori'),
+                selected: filterCategoryId == -1,
+                onSelected: (_) => onFilterChanged(
+                    filterCategoryId == -1 ? null : -1),
+              ),
+            ),
+          );
+        }
+      },
+    ),
+  ),
           Expanded(
             child: _filteredProducts.isEmpty
                 ? const Center(
