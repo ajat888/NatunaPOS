@@ -112,49 +112,65 @@ class _ReportsSummaryCards extends StatelessWidget {
     );
   }
 
-  Widget _detailsCard(NumberFormat fmt) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'DETAIL',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-              color: AppTheme.textLightColor,
-            ),
+Widget _detailsCard(NumberFormat fmt) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.surfaceColor,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'DETAIL',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+            color: AppTheme.textLightColor,
           ),
-          const SizedBox(height: 10),
-          // HPP & Laba Kotor DIHAPUS dari sini (hanya untuk AI)
+        ),
+        const SizedBox(height: 10),
+        
+        if (summary.voidTransactionCount > 0) ...[
           _row(
-            'Void Transaksi',
+            'Transaksi Dibatalkan',
             '${summary.voidTransactionCount} • Rp ${fmt.format(summary.totalVoidAmount)}',
-            danger: summary.voidTransactionCount > 0,
+            danger: true,
           ),
           const SizedBox(height: 6),
-          _row(
-            'Void Open Order',
-            '${summary.voidOpenOrderCount} • Rp ${fmt.format(summary.totalVoidOpenOrderAmount)}',
-            danger: summary.voidOpenOrderCount > 0,
-          ),
-          const Divider(height: 20, color: Color(0xFFE2E8F0)),
-          _row(
-            'Cash Seharusnya',
-            'Rp ${fmt.format(summary.cashExpected)}',
-            bold: true,
-          ),
         ],
-      ),
-    );
-  }
+        
+        if (summary.voidOpenOrderCount > 0) ...[
+          _row(
+            'Pesanan Dibatalkan',
+            '${summary.voidOpenOrderCount} • Rp ${fmt.format(summary.totalVoidOpenOrderAmount)}',
+            danger: true,
+          ),
+          const SizedBox(height: 6),
+        ],
+
+        if (summary.voidTransactionCount == 0 && summary.voidOpenOrderCount == 0) ...[
+          _row(
+            'Pembatalan',
+            'Tidak ada',
+            danger: false,
+          ),
+          const SizedBox(height: 6),
+        ],
+
+        const Divider(height: 20, color: Color(0xFFE2E8F0)),
+        _row(
+          'Cash Seharusnya',
+          'Rp ${fmt.format(summary.cashExpected)}',
+          bold: true,
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _row(
     String label,
