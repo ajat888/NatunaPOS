@@ -32,7 +32,7 @@ class _ReportsChart extends StatelessWidget {
         if (sales > maxSales) maxSales = sales;
         chartData.add({
           'date': hStr,
-          'label': '$hStr',
+          'label': hStr, // FIXED: Removed unnecessary interpolation
           'sales': sales,
         });
       }
@@ -51,10 +51,9 @@ class _ReportsChart extends StatelessWidget {
         current = current.add(const Duration(days: 1));
       }
 
-      bool isTrimmed = false;
+      // FIXED: Removed unused local variable 'isTrimmed'
       if (days.length > 15) {
         days = days.sublist(days.length - 15);
-        isTrimmed = true;
       }
 
       for (var day in days) {
@@ -101,7 +100,7 @@ class _ReportsChart extends StatelessWidget {
                   ),
                 ],
               ),
-              if (!isSingleDay && chartData.length > 15)
+              if (!isSingleDay && chartData.length >= 15)
                 const Text(
                   '15 Hari Terakhir',
                   style: TextStyle(fontSize: 10, color: AppTheme.textLightColor),
