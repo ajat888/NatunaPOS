@@ -21,11 +21,12 @@ class _ReportsTopProducts extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          // PENAMBAHAN CONST DI SINI
+          const Row(
             children: [
-              const Icon(Icons.star, color: Colors.amber, size: 18),
-              const SizedBox(width: 6),
-              const Text(
+              Icon(Icons.star, color: Colors.amber, size: 18),
+              SizedBox(width: 6),
+              Text(
                 'MENU TERLARIS',
                 style: TextStyle(
                   fontSize: 11,

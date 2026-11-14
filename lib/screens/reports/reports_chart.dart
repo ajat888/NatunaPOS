@@ -1,5 +1,4 @@
 part of '../reports_screen.dart';
-import 'dart:math';
 
 class _ReportsChart extends StatelessWidget {
   final List<Map<String, dynamic>> dailySales;
@@ -51,7 +50,10 @@ class _ReportsChart extends StatelessWidget {
                 final dateStr = (d['date'] as String).split('-').last;
                 final sales = (d['sales'] as num).toInt();
                 final double ratio = sales / maxSales;
-                final double barHeight = max(4.0, ratio * 100);
+                
+                // Mengganti max(4.0, ratio * 100) dengan ternary
+                final double rawHeight = ratio * 100;
+                final double barHeight = rawHeight < 4.0 ? 4.0 : rawHeight;
 
                 return Expanded(
                   child: Padding(
