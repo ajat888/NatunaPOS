@@ -1,3 +1,4 @@
+// lib/screens/reports_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,8 @@ part 'reports/reports_summary_cards.dart';
 part 'reports/reports_lists.dart';
 part 'reports/reports_pin_gate.dart';
 part 'reports/reports_ai_view.dart';
+part 'reports/reports_chart.dart';        // TAMBAHAN
+part 'reports/reports_top_products.dart'; // TAMBAHAN
 
 enum ReportPreset { today, yesterday, last7, last30, custom }
 
@@ -333,6 +336,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     )
                   else ...[
                     _ReportsSummaryCards(summary: _summary!),
+                    if (_summary!.dailySales.length > 1) ...[
+                      const SizedBox(height: 16),
+                      _ReportsChart(dailySales: _summary!.dailySales),
+                    ],
+                    const SizedBox(height: 16),
+                    _ReportsTopProducts(topProducts: _summary!.topProducts),
                     const SizedBox(height: 16),
                     _ReportsLists(summary: _summary!),
                   ],

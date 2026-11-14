@@ -40,6 +40,7 @@ class _ReportsLists extends StatelessWidget {
     final fmt = NumberFormat.decimalPattern('id');
     final dateFmt = DateFormat('dd/MM/yyyy HH:mm');
     final items = summary.transactions.take(100).toList();
+    
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceColor,
@@ -76,6 +77,9 @@ class _ReportsLists extends StatelessWidget {
     NumberFormat fmt,
     DateFormat dateFmt,
   ) {
+    String itemSummary = tx.items.take(2).map((i) => '${i.qty}x ${i.productName}').join(', ');
+    if (tx.items.length > 2) itemSummary += ', ...';
+
     return Theme(
       data: Theme.of(context).copyWith(
         dividerColor: Colors.transparent,
@@ -84,7 +88,7 @@ class _ReportsLists extends StatelessWidget {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-        shape: const Border(), // Menghilangkan border default ExpansionTile
+        shape: const Border(),
         collapsedShape: const Border(),
         title: Row(
           children: [
@@ -132,12 +136,28 @@ class _ReportsLists extends StatelessWidget {
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            '${tx.itemCount} item • ${dateFmt.format(tx.createdAt)}',
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textLightColor,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                itemSummary,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${tx.itemCount} item • ${dateFmt.format(tx.createdAt)}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textLightColor,
+                ),
+              ),
+            ],
           ),
         ),
         children: [

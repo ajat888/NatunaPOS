@@ -7,6 +7,9 @@ class _ReportsSummaryCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.decimalPattern('id');
+    final avgTx = summary.totalTransactions > 0 
+        ? (summary.totalSales / summary.totalTransactions).round() 
+        : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -45,16 +48,16 @@ class _ReportsSummaryCards extends StatelessWidget {
             Expanded(
               child: _summaryCard(
                 'Laba Bersih',
-                'Rp ${fmt.format(summary.totalSales - summary.totalExpenses)}',
+                'Rp ${fmt.format(summary.netProfit)}',
                 Icons.trending_up,
-                danger: (summary.totalSales - summary.totalExpenses) < 0,
-                positive: (summary.totalSales - summary.totalExpenses) >= 0,
+                danger: summary.netProfit < 0,
+                positive: summary.netProfit >= 0,
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        _detailsCard(context, fmt),
+        _detailsCard(context, fmt, avgTx),
       ],
     );
   }
@@ -110,7 +113,7 @@ class _ReportsSummaryCards extends StatelessWidget {
     );
   }
 
-  Widget _detailsCard(BuildContext context, NumberFormat fmt) {
+  Widget _detailsCard(BuildContext context, NumberFormat fmt, int avgTx) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -149,15 +152,15 @@ class _ReportsSummaryCards extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           
-          _row(
-            'Total HPP (Modal Bahan)',
-            'Rp ${fmt.format(summary.totalHpp)}',
-          ),
+          _row('Total Item Terjual', '${summary.totalItems} item'),
           const SizedBox(height: 6),
-          _row(
-            'Laba Kotor',
-            'Rp ${fmt.format(summary.grossProfit)}',
-          ),
+          _row('Rata-rata / Transaksi', 'Rp ${fmt.format(avgTx)}'),
+          const SizedBox(height: 6),
+          const Divider(height: 16, color: Color(0xFFE2E8F0)),
+          
+          _row('Total HPP (Modal Bahan)', 'Rp ${fmt.format(summary.totalHpp)}'),
+          const SizedBox(height: 6),
+          _row('Laba Kotor', 'Rp ${fmt.format(summary.grossProfit)}'),
           const SizedBox(height: 6),
 
           if (summary.voidTransactionCount > 0) ...[
@@ -233,17 +236,13 @@ class _ReportsSummaryCards extends StatelessWidget {
           ],
 
           if (summary.voidTransactionCount == 0 && summary.voidOpenOrderCount == 0) ...[
-            _row(
-              'Pembatalan',
-              'Tidak ada',
-              danger: false,
-            ),
+            _row('Pembatalan', 'Tidak ada', danger: false),
             const SizedBox(height: 6),
           ],
 
           const Divider(height: 20, color: Color(0xFFE2E8F0)),
           _row(
-            'Perkiraan Uang Tunai di Kasir',
+            'Uang Kas (Penjualan Tunai)',
             'Rp ${fmt.format(summary.cashExpected)}',
             bold: true,
           ),
@@ -291,7 +290,7 @@ class _ReportsSummaryCards extends StatelessWidget {
             ),
             SizedBox(height: 12),
             Text(
-              'Transaksi Dibatalkan',
+              'Laba Bersih',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -299,13 +298,13 @@ class _ReportsSummaryCards extends StatelessWidget {
             ),
             SizedBox(height: 4),
             Text(
-              'Penjualan yang sudah dibayar (masuk struk) namun dibatalkan oleh kasir. Uang dikembalikan atau tidak jadi masuk ke laci kasir.',
+              'Laba Kotor dikurangi Pengeluaran. Ini adalah keuntungan sesungguhnya Anda.',
               style:
                   TextStyle(fontSize: 12, color: AppTheme.textLightColor),
             ),
             SizedBox(height: 12),
             Text(
-              'Pesanan Dibatalkan',
+              'Uang Kas (Penjualan Tunai)',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -313,21 +312,7 @@ class _ReportsSummaryCards extends StatelessWidget {
             ),
             SizedBox(height: 4),
             Text(
-              'Pesanan yang disimpan di meja (Open Order) sebelum dibayar, lalu dibatalkan. Belum ada uang yang masuk ke kasir.',
-              style:
-                  TextStyle(fontSize: 12, color: AppTheme.textLightColor),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Perkiraan Uang Tunai di Kasir',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: AppTheme.textColor),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Uang tunai yang seharusnya ada di laci kasir hari ini (Hanya menghitung transaksi pembayaran Tunai/Cash, tidak termasuk QRIS/Transfer).',
+              'Uang tunai murni dari transaksi pelanggan. Belum dipotong pengeluaran (karena pengeluaran diasumsikan tidak diambil dari laci kasir).',
               style:
                   TextStyle(fontSize: 12, color: AppTheme.textLightColor),
             ),

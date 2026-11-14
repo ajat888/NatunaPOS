@@ -6,21 +6,27 @@ import '../../models/transaction.dart';
 mixin LocalDbReports {
   Future<Database> get database;
 
-  Future<Map<String, int>> getSalesSummaryBetween(
-      DateTime from, DateTime to) async {
-    final db = await database;
-    final r = await db.rawQuery(
-      'SELECT COUNT(*) AS c, COALESCE(SUM(total), 0) AS t FROM transactions '
-      'WHERE is_deleted = 0 AND is_voided = 0 '
-      'AND created_at >= ? AND created_at < ?',
-      [from.toUtc().millisecondsSinceEpoch, to.toUtc().millisecondsSinceEpoch],
-    );
-    final row = r.first;
-    return {
-      'count': (row['c'] as num?)?.toInt() ?? 0,
-      'total': (row['t'] as num?)?.toInt() ?? 0,
-    };
-  }
+Future<Map<String, int>> getSalesSummaryBetween(
+    DateTime from, DateTime to) async {
+  final db = await database;
+  final r = await db.rawQuery(
+    'SELECT '
+    '(SELECT COUNT(*) FROM transactions WHERE is_deleted = 0 AND is_voided = 0 AND created_at >= ? AND created_at < ?) AS c, '
+    '(SELECT COALESCE(SUM(total), 0) FROM transactions WHERE is_deleted = 0 AND is_voided = 0 AND created_at >= ? AND created_at < ?) AS t, '
+    '(SELECT COALESCE(SUM(ti.qty), 0) FROM transaction_items ti INNER JOIN transactions t2 ON ti.transaction_id = t2.id WHERE t2.is_deleted = 0 AND t2.is_voided = 0 AND t2.created_at >= ? AND t2.created_at < ?) AS i',
+    [
+      from.toUtc().millisecondsSinceEpoch, to.toUtc().millisecondsSinceEpoch,
+      from.toUtc().millisecondsSinceEpoch, to.toUtc().millisecondsSinceEpoch,
+      from.toUtc().millisecondsSinceEpoch, to.toUtc().millisecondsSinceEpoch,
+    ],
+  );
+  final row = r.first;
+  return {
+    'count': (row['c'] as num?)?.toInt() ?? 0,
+    'total': (row['t'] as num?)?.toInt() ?? 0,
+    'items': (row['i'] as num?)?.toInt() ?? 0,
+  };
+}
 
   Future<int> getHppBetween(DateTime from, DateTime to) async {
     final db = await database;
