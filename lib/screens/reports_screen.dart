@@ -55,11 +55,13 @@ Future<void> _checkPinStatus() async {
     _pinGateError = null;
   });
   try {
-    if (PinService.instance.isUnlocked) {
+    final isUnlocked = await PinService.instance.checkUnlocked();
+    if (isUnlocked) {
+      final activePin = await PinService.instance.getActivePin();
       if (!mounted) return;
       setState(() {
         _pinGateLoading = false;
-        _verifiedPin = PinService.instance.activePin;
+        _verifiedPin = activePin;
       });
       unawaited(_load());
       return;

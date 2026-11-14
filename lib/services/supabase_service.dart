@@ -149,8 +149,8 @@ if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
   }
 
   Future<void> logout({bool force = false}) async {
-    AutoSyncScheduler.instance.stop();
-    PinService.instance.lock();
+  AutoSyncScheduler.instance.stop();
+  await PinService.instance.lock();
 
     if (!force) {
       if (_client.auth.currentSession != null) {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PinStatus {
   final bool hasPin;
@@ -26,6 +27,9 @@ class PinService {
   static final PinService instance = PinService._();
 
   static const String _envApiUrl = String.fromEnvironment('API_BASE_URL');
+  static const String _kActivePin = 'natunapos_active_pin';
+  static const String _kLastVerifiedAtMs = 'natunapos_last_verified_at_ms';
+  static const int _validDurationMs = 15 * 60 * 1000; // 15 Menit
 
   String get _apiBase {
     if (_envApiUrl.isNotEmpty) return _envApiUrl;
@@ -35,29 +39,34 @@ class PinService {
 
   String? get _jwt => Supabase.instance.client.auth.currentSession?.accessToken;
 
-  String? _activePin;
-  int _lastVerifiedAtMs = 0;
-  static const int _validDurationMs = 15 * 60 * 1000; // 15 Menit
+  Future<bool> checkUnlocked() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pin = prefs.getString(_kActivePin);
+    final lastVerified = prefs.getInt(_kLastVerifiedAtMs) ?? 0;
 
-  bool get isUnlocked {
-    if (_activePin == null) return false;
-    final elapsed = DateTime.now().millisecondsSinceEpoch - _lastVerifiedAtMs;
+    if (pin == null || pin.isEmpty) return false;
+
+    final elapsed = DateTime.now().millisecondsSinceEpoch - lastVerified;
     if (elapsed >= _validDurationMs) {
-      _activePin = null;
-      _lastVerifiedAtMs = 0;
+      await prefs.remove(_kActivePin);
+      await prefs.remove(_kLastVerifiedAtMs);
       return false;
     }
     return true;
   }
 
-  String? get activePin {
-    if (isUnlocked) return _activePin;
+  Future<String?> getActivePin() async {
+    if (await checkUnlocked()) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_kActivePin);
+    }
     return null;
   }
 
-  void lock() {
-    _activePin = null;
-    _lastVerifiedAtMs = 0;
+  Future<void> lock() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kActivePin);
+    await prefs.remove(_kLastVerifiedAtMs);
   }
 
   Future<Map<String, dynamic>> _post(
@@ -108,8 +117,9 @@ class PinService {
 
   Future<void> setPin(String pin) async {
     await _post({'action': 'set', 'pin': pin});
-    _activePin = pin;
-    _lastVerifiedAtMs = DateTime.now().millisecondsSinceEpoch;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kActivePin, pin);
+    await prefs.setInt(_kLastVerifiedAtMs, DateTime.now().millisecondsSinceEpoch);
   }
 
   Future<PinVerifyResult> verifyPin(String pin) async {
@@ -120,8 +130,9 @@ class PinService {
       failedAttempts: (res['failed_attempts'] as num?)?.toInt() ?? 0,
     );
     if (result.valid) {
-      _activePin = pin;
-      _lastVerifiedAtMs = DateTime.now().millisecondsSinceEpoch;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kActivePin, pin);
+      await prefs.setInt(_kLastVerifiedAtMs, DateTime.now().millisecondsSinceEpoch);
     }
     return result;
   }
@@ -134,6 +145,6 @@ class PinService {
       {'action': 'reset', 'email': email, 'password': password},
       auth: false,
     );
-    lock();
+    await lock();
   }
 }
