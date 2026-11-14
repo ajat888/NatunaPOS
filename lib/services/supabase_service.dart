@@ -18,6 +18,7 @@ import 'auto_sync_scheduler.dart';
 import 'sync_runner.dart';
 import 'sync_status_service.dart';
 import 'app_settings.dart';
+import 'pin_service.dart';
 
 part 'supabase_service_data.dart';
 
@@ -148,10 +149,11 @@ if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
   }
 
   Future<void> logout({bool force = false}) async {
-  AutoSyncScheduler.instance.stop();
+    AutoSyncScheduler.instance.stop();
+    PinService.instance.lock();
 
-  if (!force) {
-    if (_client.auth.currentSession != null) {
+    if (!force) {
+      if (_client.auth.currentSession != null) {
       try {
         await syncData();
       } catch (e) {

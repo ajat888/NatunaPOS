@@ -35,6 +35,31 @@ class PinService {
 
   String? get _jwt => Supabase.instance.client.auth.currentSession?.accessToken;
 
+  String? _activePin;
+  int _lastVerifiedAtMs = 0;
+  static const int _validDurationMs = 15 * 60 * 1000; // 15 Menit
+
+  bool get isUnlocked {
+    if (_activePin == null) return false;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - _lastVerifiedAtMs;
+    if (elapsed >= _validDurationMs) {
+      _activePin = null;
+      _lastVerifiedAtMs = 0;
+      return false;
+    }
+    return true;
+  }
+
+  String? get activePin {
+    if (isUnlocked) return _activePin;
+    return null;
+  }
+
+  void lock() {
+    _activePin = null;
+    _lastVerifiedAtMs = 0;
+  }
+
   Future<Map<String, dynamic>> _post(
     Map<String, dynamic> body, {
     bool auth = true,
@@ -83,15 +108,22 @@ class PinService {
 
   Future<void> setPin(String pin) async {
     await _post({'action': 'set', 'pin': pin});
+    _activePin = pin;
+    _lastVerifiedAtMs = DateTime.now().millisecondsSinceEpoch;
   }
 
   Future<PinVerifyResult> verifyPin(String pin) async {
     final res = await _post({'action': 'verify', 'pin': pin});
-    return PinVerifyResult(
+    final result = PinVerifyResult(
       valid: res['valid'] as bool? ?? false,
       lockedUntilMs: (res['locked_until_ms'] as num?)?.toInt() ?? 0,
       failedAttempts: (res['failed_attempts'] as num?)?.toInt() ?? 0,
     );
+    if (result.valid) {
+      _activePin = pin;
+      _lastVerifiedAtMs = DateTime.now().millisecondsSinceEpoch;
+    }
+    return result;
   }
 
   Future<void> resetPin({
@@ -102,5 +134,6 @@ class PinService {
       {'action': 'reset', 'email': email, 'password': password},
       auth: false,
     );
+    lock();
   }
 }

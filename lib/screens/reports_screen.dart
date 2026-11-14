@@ -49,29 +49,39 @@ class _ReportsScreenState extends State<ReportsScreen> {
     unawaited(_checkPinStatus());
   }
 
-  Future<void> _checkPinStatus() async {
-    setState(() {
-      _pinGateLoading = true;
-      _pinGateError = null;
-    });
-    try {
-      final status = await PinService.instance.getStatus();
+Future<void> _checkPinStatus() async {
+  setState(() {
+    _pinGateLoading = true;
+    _pinGateError = null;
+  });
+  try {
+    if (PinService.instance.isUnlocked) {
       if (!mounted) return;
       setState(() {
         _pinGateLoading = false;
+        _verifiedPin = PinService.instance.activePin;
       });
-      unawaited(_showPinDialog(isSetup: !status.hasPin));
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      setState(() {
-        _pinGateLoading = false;
-        _pinGateError = msg.isEmpty
-            ? 'Halaman Laporan memerlukan koneksi internet. Periksa jaringan Anda.'
-            : msg;
-      });
+      unawaited(_load());
+      return;
     }
+
+    final status = await PinService.instance.getStatus();
+    if (!mounted) return;
+    setState(() {
+      _pinGateLoading = false;
+    });
+    unawaited(_showPinDialog(isSetup: !status.hasPin));
+  } catch (e) {
+    if (!mounted) return;
+    final msg = e.toString().replaceAll('Exception: ', '');
+    setState(() {
+      _pinGateLoading = false;
+      _pinGateError = msg.isEmpty
+          ? 'Halaman Laporan memerlukan koneksi internet. Periksa jaringan Anda.'
+          : msg;
+    });
   }
+}
 
   Future<void> _showPinDialog({required bool isSetup}) async {
     final result = await showDialog<String>(
