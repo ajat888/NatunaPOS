@@ -41,6 +41,7 @@ class ReportSummary {
     required this.voidedOpenOrders,
     required this.topProducts,
     required this.dailySales,
+    required this.hourlySales,
   });
 
   int get grossProfit => totalSales - totalHpp;
@@ -75,27 +76,31 @@ class ReportService {
     
     final dailySalesData = await db.getDailySalesBreakdown(start, end);
 
-    final voidOpenAmount =
-        voidedOpenOrders.fold<int>(0, (s, v) => s + v.subtotal);
+// TAMBAHAN: Ambil data per jam jika rentang waktu hanya 1 hari
+List<Map<String, dynamic>> hourlySalesData = [];
+if (start.year == to.year && start.month == to.month && start.day == to.day) {
+  hourlySalesData = await db.getHourlySalesBreakdown(start, end);
+}
 
-    return ReportSummary(
-      from: from,
-      to: to,
-      totalSales: sales['total'] ?? 0,
-      totalTransactions: sales['count'] ?? 0,
-      totalItems: sales['items'] ?? 0,
-      totalHpp: hpp,
-      totalExpenses: expSum['total'] ?? 0,
-      totalVoidAmount: voidTx['total'] ?? 0,
-      voidTransactionCount: voidTx['count'] ?? 0,
-      totalVoidOpenOrderAmount: voidOpenAmount,
-      voidOpenOrderCount: voidedOpenOrders.length,
-      cashExpected: cash,
-      transactions: transactions,
-      expenses: expenses,
-      voidedOpenOrders: voidedOpenOrders,
-      topProducts: topProductsData,
-      dailySales: dailySalesData,
-    );
+return ReportSummary(
+  from: from,
+  to: to,
+  totalSales: sales['total'] ?? 0,
+  totalTransactions: sales['count'] ?? 0,
+  totalItems: sales['items'] ?? 0,
+  totalHpp: hpp,
+  totalExpenses: expSum['total'] ?? 0,
+  totalVoidAmount: voidTx['total'] ?? 0,
+  voidTransactionCount: voidTx['count'] ?? 0,
+  totalVoidOpenOrderAmount: voidOpenAmount,
+  voidOpenOrderCount: voidedOpenOrders.length,
+  cashExpected: cash,
+  transactions: transactions,
+  expenses: expenses,
+  voidedOpenOrders: voidedOpenOrders,
+  topProducts: topProductsData,
+  dailySales: dailySalesData,
+  hourlySales: hourlySalesData, // <-- TAMBAHAN
+);
   }
 }

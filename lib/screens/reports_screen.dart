@@ -339,10 +339,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     if (_summary!.dailySales.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _ReportsChart(
-                        dailySales: _summary!.dailySales,
-                        from: _from,
-                        to: _to,
-                      ),
+  dailySales: _summary!.dailySales,
+  hourlySales: _summary!.hourlySales, // <-- TAMBAHAN
+  from: _from,
+  to: _to,
+),
                     ],
                     const SizedBox(height: 16),
                     _ReportsTopProducts(topProducts: _summary!.topProducts),

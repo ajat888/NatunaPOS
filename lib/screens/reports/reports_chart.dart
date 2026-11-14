@@ -2,11 +2,13 @@ part of '../reports_screen.dart';
 
 class _ReportsChart extends StatelessWidget {
   final List<Map<String, dynamic>> dailySales;
+  final List<Map<String, dynamic>> hourlySales;
   final DateTime from;
   final DateTime to;
 
   const _ReportsChart({
     required this.dailySales, 
+    required this.hourlySales,
     required this.from, 
     required this.to,
   });
@@ -14,47 +16,61 @@ class _ReportsChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.decimalPattern('id');
-    
-    // Map data dari DB untuk lookup cepat (key: yyyy-MM-dd)
-    final Map<String, int> salesMap = {
-      for (var d in dailySales) d['date'] as String: (d['sales'] as num).toInt()
-    };
+    final isSingleDay = from.year == to.year && from.month == to.month && from.day == to.day;
 
-    // Generate semua tanggal dari `from` sampai `to`
-    List<DateTime> days = [];
-    DateTime current = DateTime(from.year, from.month, from.day);
-    final end = DateTime(to.year, to.month, to.day);
-    
-    while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
-      days.add(current);
-      current = current.add(const Duration(days: 1));
-    }
-
-    // Jika rentang terlalu panjang (> 15 hari), kita ambil 15 hari terakhir saja
-    // agar grafik tidak terlalu padat di layar HP.
-    bool isTrimmed = false;
-    if (days.length > 15) {
-      days = days.sublist(days.length - 15);
-      isTrimmed = true;
-    }
-
-    // Cari nilai maksimal untuk menentukan tinggi bar
-    int maxSales = 0;
     final List<Map<String, dynamic>> chartData = [];
-    
-    for (var day in days) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(day);
-      final sales = salesMap[dateStr] ?? 0;
-      if (sales > maxSales) maxSales = sales;
-      
-      chartData.add({
-        'date': dateStr,
-        'label': DateFormat('dd').format(day),
-        'sales': sales,
-      });
-    }
-    if (maxSales == 0) maxSales = 1;
+    int maxSales = 0;
 
+    if (isSingleDay) {
+      // Mode Per Jam (00:00 - 23:00)
+      final Map<String, int> hourlyMap = {
+        for (var h in hourlySales) h['hour'] as String: (h['sales'] as num).toInt()
+      };
+      for (int i = 0; i < 24; i++) {
+        final hStr = i.toString().padLeft(2, '0');
+        final sales = hourlyMap[hStr] ?? 0;
+        if (sales > maxSales) maxSales = sales;
+        chartData.add({
+          'date': hStr,
+          'label': '$hStr',
+          'sales': sales,
+        });
+      }
+    } else {
+      // Mode Harian
+      final Map<String, int> salesMap = {
+        for (var d in dailySales) d['date'] as String: (d['sales'] as num).toInt()
+      };
+
+      List<DateTime> days = [];
+      DateTime current = DateTime(from.year, from.month, from.day);
+      final end = DateTime(to.year, to.month, to.day);
+      
+      while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
+        days.add(current);
+        current = current.add(const Duration(days: 1));
+      }
+
+      bool isTrimmed = false;
+      if (days.length > 15) {
+        days = days.sublist(days.length - 15);
+        isTrimmed = true;
+      }
+
+      for (var day in days) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(day);
+        final sales = salesMap[dateStr] ?? 0;
+        if (sales > maxSales) maxSales = sales;
+        
+        chartData.add({
+          'date': dateStr,
+          'label': DateFormat('dd').format(day),
+          'sales': sales,
+        });
+      }
+    }
+
+    if (maxSales == 0) maxSales = 1;
     final isSingleData = chartData.length == 1;
 
     return Container(
@@ -70,13 +86,13 @@ class _ReportsChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.bar_chart, color: AppTheme.primaryColor, size: 18),
-                  SizedBox(width: 6),
+                  Icon(isSingleDay ? Icons.access_time : Icons.bar_chart, color: AppTheme.primaryColor, size: 18),
+                  const SizedBox(width: 6),
                   Text(
-                    'GRAFIK PENJUALAN',
-                    style: TextStyle(
+                    isSingleDay ? 'GRAFIK PENJUALAN (PER JAM)' : 'GRAFIK PENJUALAN',
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
@@ -85,7 +101,7 @@ class _ReportsChart extends StatelessWidget {
                   ),
                 ],
               ),
-              if (isTrimmed)
+              if (!isSingleDay && chartData.length > 15)
                 const Text(
                   '15 Hari Terakhir',
                   style: TextStyle(fontSize: 10, color: AppTheme.textLightColor),
@@ -107,31 +123,39 @@ class _ReportsChart extends StatelessWidget {
                 final double rawHeight = ratio * 100;
                 final double barHeight = rawHeight < 4.0 ? 4.0 : rawHeight;
 
+                // Pada mode per jam, label hanya ditampilkan setiap 6 jam agar tidak sesak
+                final int hourInt = int.tryParse(d['label'] as String) ?? 0;
+                final showLabel = !isSingleDay || (hourInt % 6 == 0);
+
                 final barContent = Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 1.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Tooltip(
-                        message: 'Tgl ${d['label']}: Rp ${fmt.format(sales)}',
+                        message: isSingleDay 
+                            ? 'Jam ${d['label']}:00 — Rp ${fmt.format(sales)}'
+                            : 'Tgl ${d['label']}: Rp ${fmt.format(sales)}',
                         child: Container(
                           height: barHeight,
                           decoration: BoxDecoration(
                             color: sales > 0 ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
                           ),
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        d['label'] as String,
-                        style: const TextStyle(fontSize: 9, color: AppTheme.textLightColor),
-                      ),
+                      if (showLabel)
+                        Text(
+                          isSingleDay ? '${d['label']}' : d['label'] as String,
+                          style: const TextStyle(fontSize: 9, color: AppTheme.textLightColor),
+                        )
+                      else
+                        const SizedBox(height: 11), // spacer agar sejajar
                     ],
                   ),
                 );
 
-                // Jika hanya 1 data, batasi lebar batang. Jika lebih, gunakan Expanded.
                 return isSingleData
                     ? SizedBox(width: 64, child: barContent)
                     : Expanded(child: barContent);

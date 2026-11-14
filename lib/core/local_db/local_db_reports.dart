@@ -201,4 +201,29 @@ Future<Map<String, int>> getSalesSummaryBetween(
             })
         .toList();
   }
+  Future<List<Map<String, dynamic>>> getHourlySalesBreakdown(
+    DateTime from, DateTime to) async {
+  final db = await database;
+  final rows = await db.rawQuery('''
+    SELECT
+      STRFTIME('%H', created_at / 1000, 'unixepoch', 'localtime') AS hour,
+      COUNT(*) AS tx_count,
+      COALESCE(SUM(total), 0) AS sales
+    FROM transactions
+    WHERE is_deleted = 0 AND is_voided = 0
+      AND created_at >= ? AND created_at < ?
+    GROUP BY hour
+    ORDER BY hour ASC
+  ''', [
+    from.toUtc().millisecondsSinceEpoch,
+    to.toUtc().millisecondsSinceEpoch,
+  ]);
+  return rows
+      .map((r) => <String, dynamic>{
+            'hour': (r['hour'] as String?) ?? '00',
+            'tx_count': (r['tx_count'] as num?)?.toInt() ?? 0,
+            'sales': (r['sales'] as num?)?.toInt() ?? 0,
+          })
+      .toList();
+}
 }
