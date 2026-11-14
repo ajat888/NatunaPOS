@@ -55,6 +55,8 @@ class _ReportsChart extends StatelessWidget {
     }
     if (maxSales == 0) maxSales = 1;
 
+    final isSingleData = chartData.length == 1;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -95,7 +97,9 @@ class _ReportsChart extends StatelessWidget {
             height: 120,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: isSingleData 
+                  ? MainAxisAlignment.center 
+                  : MainAxisAlignment.spaceEvenly,
               children: chartData.map((d) {
                 final sales = d['sales'] as int;
                 final double ratio = sales / maxSales;
@@ -103,31 +107,34 @@ class _ReportsChart extends StatelessWidget {
                 final double rawHeight = ratio * 100;
                 final double barHeight = rawHeight < 4.0 ? 4.0 : rawHeight;
 
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Tooltip(
-                          message: 'Tgl ${d['label']}: Rp ${fmt.format(sales)}',
-                          child: Container(
-                            height: barHeight,
-                            decoration: BoxDecoration(
-                              color: sales > 0 ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                            ),
+                final barContent = Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Tooltip(
+                        message: 'Tgl ${d['label']}: Rp ${fmt.format(sales)}',
+                        child: Container(
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: sales > 0 ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          d['label'] as String,
-                          style: const TextStyle(fontSize: 9, color: AppTheme.textLightColor),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        d['label'] as String,
+                        style: const TextStyle(fontSize: 9, color: AppTheme.textLightColor),
+                      ),
+                    ],
                   ),
                 );
+
+                // Jika hanya 1 data, batasi lebar batang. Jika lebih, gunakan Expanded.
+                return isSingleData
+                    ? SizedBox(width: 64, child: barContent)
+                    : Expanded(child: barContent);
               }).toList(),
             ),
           ),
