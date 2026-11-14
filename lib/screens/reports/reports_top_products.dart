@@ -21,7 +21,6 @@ class _ReportsTopProducts extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // PENAMBAHAN CONST DI SINI
           const Row(
             children: [
               Icon(Icons.star, color: Colors.amber, size: 18),
@@ -41,8 +40,10 @@ class _ReportsTopProducts extends StatelessWidget {
           ...List.generate(top3.length, (index) {
             final p = top3[index];
             final medali = index == 0 ? '🥇' : (index == 1 ? '🥈' : '🥉');
+            final profit = (p['profit'] as num?)?.toInt() ?? 0;
+            
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Row(
                 children: [
                   Text(medali, style: const TextStyle(fontSize: 16)),
@@ -61,23 +62,43 @@ class _ReportsTopProducts extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
-                          'Omzet: Rp ${fmt.format(p['revenue'])}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textLightColor,
-                          ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Text(
+                              'Omzet: Rp ${fmt.format(p['revenue'])}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textLightColor,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Untung: Rp ${fmt.format(profit)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: profit > 0 ? Colors.green.shade700 : AppTheme.dangerColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  Text(
-                    '${p['qty_sold']} porsi',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${p['qty_sold']}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const Text('porsi', style: TextStyle(fontSize: 10, color: AppTheme.textLightColor)),
+                    ],
                   ),
                 ],
               ),

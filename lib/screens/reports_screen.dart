@@ -14,8 +14,8 @@ part 'reports/reports_summary_cards.dart';
 part 'reports/reports_lists.dart';
 part 'reports/reports_pin_gate.dart';
 part 'reports/reports_ai_view.dart';
-part 'reports/reports_chart.dart';        // TAMBAHAN
-part 'reports/reports_top_products.dart'; // TAMBAHAN
+part 'reports/reports_chart.dart';
+part 'reports/reports_top_products.dart';
 
 enum ReportPreset { today, yesterday, last7, last30, custom }
 
@@ -336,9 +336,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     )
                   else ...[
                     _ReportsSummaryCards(summary: _summary!),
-                    if (_summary!.dailySales.length > 1) ...[
+                    if (_summary!.dailySales.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      _ReportsChart(dailySales: _summary!.dailySales),
+                      _ReportsChart(
+                        dailySales: _summary!.dailySales,
+                        from: _from,
+                        to: _to,
+                      ),
                     ],
                     const SizedBox(height: 16),
                     _ReportsTopProducts(topProducts: _summary!.topProducts),
