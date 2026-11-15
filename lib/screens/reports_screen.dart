@@ -208,7 +208,7 @@ Future<void> _openAIAnalysis() async {
     if (!mounted) return;
     
     // Tampilkan BottomSheet sebagai ganti Navigator.push
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -217,7 +217,7 @@ Future<void> _openAIAnalysis() async {
         from: _from,
         to: _to,
       ),
-    );
+    ));
     
   } catch (e) {
     if (!mounted) return;
