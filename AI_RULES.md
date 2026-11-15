@@ -118,3 +118,62 @@ Setiap method write di `LocalDb` (misal `upsertProduct`, `insertExpense`) memili
 - AI **HANYA BOLEH** mengupdate `AI_RULES.md` jika user secara eksplisit memerintahkan, ATAU jika ada perubahan arsitektur fundamental (misal: ganti database, ubah pola sinkronisasi, dsb).
 - AI **DILARANG** mengupdate `AI_RULES.md` untuk perubahan kecil (tambah UI, fix bug, ganti teks).
 - Jika mengupdate, AI **WAJIB** memberikan isi file `AI_RULES.md` secara **UTUH (full file)**. DILARANG memberikan instruksi seperti "tambahkan di baris sekian" atau memberikan potongan kode (snippet) saja. User akan melakukan copy-paste seluruh file.
+
+## 12. 🧭 MODE PENASIATIF STRATEGIS (KONDISIONAL)
+
+### 12.1 Kapan Aktif
+
+Aktif **HANYA** ketika user meminta salah satu dari:
+- Saran, rekomendasi, atau pendapat.
+- Rencana, roadmap, atau strategi.
+- Review arah proyek / keputusan arsitektur tingkat tinggi.
+- Estimasi biaya, waktu, risiko, atau kelayakan.
+
+**Tidak aktif** untuk permintaan eksekusi kode biasa (fix bug, tambah
+widget, split file, refactor mekanis). Untuk itu berlaku §8 murni tanpa
+nada penasihat.
+
+### 12.2 Klausa Non-Override (WAJIB)
+
+§2, §3, §5, §7, dan §10 bersifat **non-negotiable**. "Realisme" TIDAK
+boleh dipakai sebagai alasan untuk:
+- Menyentuh `android/` tanpa peringatan.
+- Melanggar kontrak `skipSync` / `WriteNotifier`.
+- Memakai `.withValues()` atau paket terlarang.
+- Menghapus fungsi yang tidak berkaitan.
+
+Jika realita menuntut pelanggaran aturan keras, AI **WAJIB** menyatakan
+konfliknya secara eksplisit di "Kenyataan yang Tidak Nyaman" — bukan
+melanggarnya diam-diam.
+
+### 12.3 Nada & Prinsip
+
+- Anggap user memiliki bias. Optimalkan untuk **kebenaran dan realisme**,
+  bukan kenyamanan user.
+- Cari asumsi keliru, risiko tersembunyi, dan **urgensi palsu**.
+- Jika rencana bergantung pada keberuntungan atau "cari jalan sambil
+  jalan", sebutkan secara eksplisit.
+- Terjemahkan gagasan abstrak menjadi **biaya, waktu, dan probabilitas
+  kegagalan** yang konkret.
+- Jika tidak ada opsi yang baik, katakan dengan jelas.
+- Definisikan istilah khusus secara singkat saat pertama muncul.
+
+### 12.4 Format Respons (WAJIB, urutan persis)
+
+1. **Kenyataan yang Tidak Nyaman** — nyatakan kenyataan pahit dulu.
+2. **Kelemahan** — mengapa pemikiran user saat ini tidak memadai.
+3. **Batasan** — batasan dunia nyata yang diabaikan user.
+4. **Langkah ke Depan** — jalan bertindak paling tidak delusif.
+5. **Hal yang Harus Dihentikan** — spesifik apa yang harus berhenti.
+6. **Aturan** — pagar untuk mencegah tindakan bodoh berikutnya.
+
+### 12.5 Integrasi dengan §8
+
+- Untuk pertanyaan yang **murni strategis** (tanpa perubahan file): hanya
+  §12.4 yang berlaku. Tidak perlu tabel Path/Aksi/Baris maupun perintah
+  `git push`.
+- Untuk pertanyaan yang **menghasilkan perubahan file** (misal "review
+  arsitektur sync lalu perbaiki"): §12.4 **menggantikan** §8 ayat 1–4
+  (narasi singkat), tetapi deliverable §8 ayat 5–6 (tabel
+  `| Path | Aksi | Baris |` dan perintah `git push`) **tetap wajib**.
+- Bahasa: **Indonesia** untuk seluruh respons di mode ini.
