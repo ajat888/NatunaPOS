@@ -4,65 +4,80 @@ class _ReportsSummaryCards extends StatelessWidget {
   final ReportSummary summary;
   const _ReportsSummaryCards({required this.summary});
 
-  @override
-  Widget build(BuildContext context) {
-    final fmt = NumberFormat.decimalPattern('id');
-    final avgTx = summary.totalTransactions > 0 
-        ? (summary.totalSales / summary.totalTransactions).round() 
-        : 0;
+@override
+Widget build(BuildContext context) {
+  final fmt = NumberFormat.decimalPattern('id');
+  final totalOut = summary.totalHpp + summary.totalExpenses;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildSmartInsight(context),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                'Total Penjualan',
-                'Rp ${fmt.format(summary.totalSales)}',
-                Icons.account_balance_wallet_outlined,
-              ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _buildSmartInsight(context),
+      const SizedBox(height: 12),
+      // KOTAK 1: UANG MASUK (Full Width)
+      _summaryCard(
+        'Uang Masuk',
+        'Rp ${fmt.format(summary.totalSales)}',
+        Icons.account_balance_wallet_outlined,
+        subtitle: '${summary.totalTransactions} transaksi',
+      ),
+      const SizedBox(height: 8),
+      // KOTAK 2 & 3: UANG KELUAR & SISA BERSIH (Split)
+      Row(
+        children: [
+          Expanded(
+            child: _summaryCard(
+              'Uang Keluar',
+              '- Rp ${fmt.format(totalOut)}',
+              Icons.money_off,
+              danger: totalOut > 0,
+              subtitle: 'Belanja + Operasional',
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _summaryCard(
-                'Transaksi',
-                '${summary.totalTransactions}',
-                Icons.receipt_outlined,
-              ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _summaryCard(
+              'Sisa Bersih',
+              'Rp ${fmt.format(summary.netProfit)}',
+              Icons.trending_up,
+              danger: summary.netProfit < 0,
+              positive: summary.netProfit >= 0,
+              subtitle: summary.netProfit >= 0 ? 'Laba' : 'Rugi',
             ),
-          ],
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      // DETAIL AKUNTANSI (Bungkus dengan ExpansionTile agar rapi)
+      Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                'Pengeluaran',
-                '- Rp ${fmt.format(summary.totalExpenses)}',
-                Icons.money_off,
-                danger: summary.totalExpenses > 0,
-              ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: const Text(
+              'Lihat Detail Akuntansi',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _summaryCard(
-                'Laba Bersih',
-                'Rp ${fmt.format(summary.netProfit)}',
-                Icons.trending_up,
-                danger: summary.netProfit < 0,
-                positive: summary.netProfit >= 0,
+            iconColor: AppTheme.primaryColor,
+            collapsedIconColor: AppTheme.textLightColor,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: _detailsCard(context, fmt, summary.totalTransactions > 0 
+                    ? (summary.totalSales / summary.totalTransactions).round() 
+                    : 0),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
-        _detailsCard(context, fmt, avgTx),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildSmartInsight(BuildContext context) {
     if (summary.totalTransactions == 0) return const SizedBox.shrink();
@@ -142,55 +157,63 @@ class _ReportsSummaryCards extends StatelessWidget {
   }
 
   Widget _summaryCard(
-    String title,
-    String value,
-    IconData icon, {
-    bool danger = false,
-    bool positive = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(
-              icon,
-              size: 16,
-              color: danger ? AppTheme.dangerColor : AppTheme.textLightColor,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: danger ? AppTheme.dangerColor : AppTheme.textLightColor,
-                  fontWeight: FontWeight.w500,
-                ),
+  String title,
+  String value,
+  IconData icon, {
+  bool danger = false,
+  bool positive = false,
+  String? subtitle,
+}) {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppTheme.surfaceColor,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Icon(
+            icon,
+            size: 16,
+            color: danger ? AppTheme.dangerColor : AppTheme.textLightColor,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 11,
+                color: danger ? AppTheme.dangerColor : AppTheme.textLightColor,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ]),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: danger
-                  ? AppTheme.dangerColor
-                  : (positive ? Colors.green.shade700 : AppTheme.textColor),
-            ),
           ),
-        ],
-      ),
-    );
-  }
+        ]),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: danger
+                ? AppTheme.dangerColor
+                : (positive ? Colors.green.shade700 : AppTheme.textColor),
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 10, color: AppTheme.textLightColor),
+          ),
+        ]
+      ],
+    ),
+  );
+}
 
   Widget _detailsCard(BuildContext context, NumberFormat fmt, int avgTx) {
     return Container(

@@ -79,28 +79,23 @@ def _build_prompt(report):
     return f"""Anda adalah analis bisnis untuk warung/resto kecil di Indonesia.
 
 ATURAN WAJIB:
-1. DILARANG menggunakan persentase (%). Semua angka dalam nominal Rupiah atau jumlah absolut (misal: "naik Rp 150.000", "tambah 3 porsi", "berkurang Rp 50.000").
-2. Gunakan bahasa Indonesia santai tapi profesional.
-3. Setiap saran harus KONKRET dan BISA DILAKUKAN hari ini, bukan teori.
-4. Sertakan angka nyata dari data. Jangan mengarang.
-5. Format Markdown. Maksimal 500 kata. Jangan tulis "Berikut adalah..." atau kalimat pembuka, langsung ke isi.
+1. DILARANG menggunakan persentase (%). Semua angka dalam nominal Rupiah atau jumlah absolut.
+2. DILARANG menghitung ulang atau menyebutkan Total Omzet, Total Pengeluaran, atau Laba Bersih. Angka tersebut sudah ditampilkan besar-besar di layar HP pengguna. Fokus Anda adalah INSIGHT (analisa), bukan kalkulasi dasar.
+3. Gunakan bahasa Indonesia santai tapi profesional.
+4. Setiap saran harus KONKRET dan BISA DILAKUKAN hari ini, bukan teori.
+5. Sertakan angka nominal nyata dari data untuk mendukung analisa (misal: "selisih Rp 15.000").
+6. Format Markdown. Maksimal 300 kata. Jangan tulis "Berikut adalah..." atau kalimat pembuka, langsung ke isi.
 
 STRUKTUR OUTPUT (WAJIB):
 
-## Ringkasan
-2-3 kalimat. Sebutkan pemasukan, pengeluaran, laba bersih, dan jumlah transaksi. Jika ada perbandingan antar hari, tulis selisihnya dalam Rupiah.
+## 🌟 Fokus Besok
+1-2 kalimat. Pilih 2 menu dengan untung per porsi tertinggi DAN volume penjualan bagus. Beri saran promosi konkret.
 
-## 🌟 Menu Bintang (Promosikan)
-Pilih 2-3 menu dengan untung per porsi tertinggi DAN volume penjualan bagus. Beri saran promosi konkret. Sertakan omzet dan untungnya.
+## ⚠️ Pemborosan & Kerugian
+Sebutkan pengeluaran yang nilainya besar (jika ada), atau menu dengan untung per porsi di bawah Rp 2.000 / HPP lebih besar dari harga jual. Sebut kerugian nominalnya.
 
-## ⚠️ Menu Bermasalah
-Cari menu dengan: untung per porsi di bawah Rp 2.000, atau terjual sangat sedikit, atau HPP lebih besar dari harga jual. Sebut kerugian nominal dan saran perbaikan.
-
-## 🚨 Peringatan
-Hanya jika ada: pengeluaran lebih besar dari pemasukan, void bernominal besar, atau pengeluaran bahan tidak sebanding dengan penjualan. Jika tidak ada, tulis: "Tidak ada peringatan besar hari ini."
-
-## 📋 Saran Aksi
-3-5 langkah konkret dengan angka atau target terukur.
+## 📋 Aksi Cepat (3 Langkah)
+3 langkah konkret untuk besok dengan target terukur, tanpa teori.
 
 ---
 

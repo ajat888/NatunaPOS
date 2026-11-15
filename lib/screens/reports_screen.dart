@@ -193,42 +193,45 @@ Future<void> _checkPinStatus() async {
     await _load();
   }
 
-  Future<void> _openAIAnalysis() async {
-    final summary = _summary;
-    final pin = _verifiedPin;
-    if (summary == null || pin == null || _aiLoading) return;
-    setState(() => _aiLoading = true);
-    try {
-      final analysis = await AiReportService.instance.analyze(
-        pin: pin,
+Future<void> _openAIAnalysis() async {
+  final summary = _summary;
+  final pin = _verifiedPin;
+  if (summary == null || pin == null || _aiLoading) return;
+  setState(() => _aiLoading = true);
+  try {
+    final analysis = await AiReportService.instance.analyze(
+      pin: pin,
+      from: _from,
+      to: _to,
+      summary: summary,
+    );
+    if (!mounted) return;
+    
+    // Tampilkan BottomSheet sebagai ganti Navigator.push
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AiAnalysisSheet(
+        analysis: analysis,
         from: _from,
         to: _to,
-        summary: summary,
-      );
-      if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _AiAnalysisPage(
-            analysis: analysis,
-            from: _from,
-            to: _to,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg.isEmpty ? 'Gagal menganalisis laporan' : msg),
-          backgroundColor: AppTheme.dangerColor,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _aiLoading = false);
-    }
+      ),
+    );
+    
+  } catch (e) {
+    if (!mounted) return;
+    final msg = e.toString().replaceAll('Exception: ', '');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg.isEmpty ? 'Gagal menganalisis laporan' : msg),
+        backgroundColor: AppTheme.dangerColor,
+      ),
+    );
+  } finally {
+    if (mounted) setState(() => _aiLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {

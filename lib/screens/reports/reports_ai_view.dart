@@ -1,10 +1,10 @@
 part of '../reports_screen.dart';
 
-class _AiAnalysisPage extends StatelessWidget {
+class _AiAnalysisSheet extends StatelessWidget {
   final String analysis;
   final DateTime from;
   final DateTime to;
-  const _AiAnalysisPage({
+  const _AiAnalysisSheet({
     required this.analysis,
     required this.from,
     required this.to,
@@ -13,70 +13,113 @@ class _AiAnalysisPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('dd/MM/yyyy');
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Kembali',
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Analisis AI'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_outlined),
-            tooltip: 'Salin teks',
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: analysis));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Teks analisis disalin')),
-              );
-            },
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.2)),
+          child: Column(
+            children: [
+              // Handle Bar
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.auto_awesome,
-                      size: 16, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Periode: ${dateFmt.format(from)} — ${dateFmt.format(to)}',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppTheme.textLightColor),
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Analisa AI',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textColor,
+                      ),
                     ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.copy_outlined),
+                      tooltip: 'Salin teks',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: analysis));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Teks analisis disalin')),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.auto_awesome,
+                                size: 16, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Periode: ${dateFmt.format(from)} — ${dateFmt.format(to)}',
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppTheme.textLightColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _AiMarkdownView(markdown: analysis),
+                      const SizedBox(height: 24),
+                      const Center(
+                        child: Text(
+                          'Hasil analisis dihasilkan oleh AI (Groq). Gunakan sebagai saran, bukan kebenaran mutlak.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 11, color: AppTheme.textLightColor),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _AiMarkdownView(markdown: analysis),
-            const SizedBox(height: 24),
-            const Center(
-              child: Text(
-                'Hasil analisis dihasilkan oleh AI (Groq). Gunakan sebagai saran, bukan kebenaran mutlak.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: AppTheme.textLightColor),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
