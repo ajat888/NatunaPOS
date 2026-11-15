@@ -1,4 +1,3 @@
-# api/analyze.py
 import os
 import json
 import time
@@ -9,11 +8,12 @@ from api._shared import verify_jwt, validate_pin, verify_pin
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
+# DAFTAR MODEL FALLBACK (Dicoba berurutan dari atas ke bawah)
 MODELS_TO_TRY = [
-    'openai/gpt-oss-120b',
-    'llama-3.1-8b-instant',
-    'openai/gpt-oss-20b',
-    'gemma2-9b-it',
+    'openai/gpt-oss-120b',        # Model utama (paling pintar, pengganti llama-3.3)
+    'llama-3.1-8b-instant',       # Model cadangan 1 (sangat cepat & ringan)
+    'openai/gpt-oss-20b',         # Model cadangan 2
+    'gemma2-9b-it',               # Model cadangan 3
 ]
 
 
@@ -79,23 +79,28 @@ def _build_prompt(report):
     return f"""Anda adalah analis bisnis untuk warung/resto kecil di Indonesia.
 
 ATURAN WAJIB:
-1. DILARANG menggunakan persentase (%).
-2. DILARANG menghitung ulang atau menyebutkan Total Omzet, Total Pengeluaran, atau Laba Bersih. Angka tersebut sudah ditampilkan besar-besar di layar HP pengguna. Fokus Anda adalah INSIGHT (analisa), bukan kalkulasi dasar.
-3. Gunakan bahasa Indonesia santai tapi profesional.
-4. Setiap saran harus KONKRET dan BISA DILAKUKAN hari ini, bukan teori.
-5. Sertakan angka nominal nyata dari data untuk mendukung analisa (misal: "selisih Rp 15.000").
-6. Format Markdown. Maksimal 300 kata. Jangan tulis "Berikut adalah..." atau kalimat pembuka, langsung ke isi.
+1. DILARANG menggunakan persentase (%). Semua angka dalam nominal Rupiah atau jumlah absolut (misal: "naik Rp 150.000", "tambah 3 porsi", "berkurang Rp 50.000").
+2. Gunakan bahasa Indonesia santai tapi profesional.
+3. Setiap saran harus KONKRET dan BISA DILAKUKAN hari ini, bukan teori.
+4. Sertakan angka nyata dari data. Jangan mengarang.
+5. Format Markdown. Maksimal 500 kata. Jangan tulis "Berikut adalah..." atau kalimat pembuka, langsung ke isi.
 
 STRUKTUR OUTPUT (WAJIB):
 
-## 🌟 Fokus Besok
-1-2 kalimat. Pilih 2 menu dengan untung per porsi tertinggi DAN volume penjualan bagus. Beri saran promosi konkret.
+## Ringkasan
+2-3 kalimat. Sebutkan pemasukan, pengeluaran, laba bersih, dan jumlah transaksi. Jika ada perbandingan antar hari, tulis selisihnya dalam Rupiah.
 
-## ⚠️ Pemborosan & Kerugian
-Sebutkan pengeluaran yang nilainya besar (jika ada), atau menu dengan untung per porsi di bawah Rp 2.000 / HPP lebih besar dari harga jual. Sebut kerugian nominalnya.
+## 🌟 Menu Bintang (Promosikan)
+Pilih 2-3 menu dengan untung per porsi tertinggi DAN volume penjualan bagus. Beri saran promosi konkret. Sertakan omzet dan untungnya.
 
-## 📋 Aksi Cepat (3 Langkah)
-3 langkah konkret untuk besok dengan target terukur, tanpa teori.
+## ⚠️ Menu Bermasalah
+Cari menu dengan: untung per porsi di bawah Rp 2.000, atau terjual sangat sedikit, atau HPP lebih besar dari harga jual. Sebut kerugian nominal dan saran perbaikan.
+
+## 🚨 Peringatan
+Hanya jika ada: pengeluaran lebih besar dari pemasukan, void bernominal besar, atau pengeluaran bahan tidak sebanding dengan penjualan. Jika tidak ada, tulis: "Tidak ada peringatan besar hari ini."
+
+## 📋 Saran Aksi
+3-5 langkah konkret dengan angka atau target terukur.
 
 ---
 
@@ -163,6 +168,7 @@ class handler(BaseHTTPRequestHandler):
         success_model = None
         analysis_result = None
 
+        # LOOPING FALLBACK: Coba satu per satu
         for model_name in MODELS_TO_TRY:
             try:
                 groq_resp = requests.post(
@@ -178,7 +184,7 @@ class handler(BaseHTTPRequestHandler):
                             {'role': 'user', 'content': prompt},
                         ],
                         'temperature': 0.4,
-                        'max_tokens': 1500,
+                        'max_tokens': 3000, # Naikkan max_tokens untuk model reasoning
                     },
                     timeout=60,
                 )
@@ -187,11 +193,13 @@ class handler(BaseHTTPRequestHandler):
                     data = groq_resp.json()
                     analysis_result = data['choices'][0]['message']['content']
                     success_model = model_name
-                    break
+                    break # Berhasil, keluar dari loop
                 else:
                     last_error = f'{model_name} error ({groq_resp.status_code})'
+                    # Lanjut ke model berikutnya
             except requests.exceptions.RequestException as e:
                 last_error = f'{model_name} koneksi gagal: {e}'
+                # Lanjut ke model berikutnya
 
         if analysis_result is not None:
             self._respond(200, {
