@@ -270,10 +270,12 @@ class _ReportsLists extends StatelessWidget {
     );
   }
 
-  Widget _expensesCard(BuildContext context) {
-    final fmt = NumberFormat.decimalPattern('id');
-    final dateFmt = DateFormat('dd/MM/yyyy');
-    final items = summary.expenses.take(100).toList();
+Widget _expensesCard(BuildContext context) {
+  final fmt = NumberFormat.decimalPattern('id');
+  final dateFmt = DateFormat('dd/MM/yyyy');
+  final sortedExpenses = List<Expense>.from(summary.expenses)
+    ..sort((a, b) => b.amount.compareTo(a.amount));
+  final items = sortedExpenses.take(100).toList();
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceColor,

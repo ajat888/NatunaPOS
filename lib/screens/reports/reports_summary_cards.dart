@@ -79,35 +79,44 @@ Widget build(BuildContext context) {
   );
 }
 
-  Widget _buildSmartInsight(BuildContext context) {
-    if (summary.totalTransactions == 0) return const SizedBox.shrink();
+Widget _buildSmartInsight(BuildContext context) {
+  if (summary.totalTransactions == 0) return const SizedBox.shrink();
 
-    if (summary.netProfit < 0) {
-      return _insightBanner(
-        context,
-        icon: Icons.warning_amber_rounded,
-        color: AppTheme.dangerColor,
-        title: 'Perhatian: Bisnis Rugi',
-        message: 'Pengeluaran Anda melebihi Laba Kotor. Evaluasi pengeluaran atau tingkatkan penjualan.',
-      );
-    } else if (summary.totalExpenses > (summary.totalSales * 0.3)) {
-      return _insightBanner(
-        context,
-        icon: Icons.info_outline,
-        color: Colors.orange.shade800,
-        title: 'Peringatan Pengeluaran',
-        message: 'Pengeluaran Anda mencapai lebih dari 30% dari Omzet. Cek kembali pengeluaran terbesar Anda.',
-      );
-    } else {
-      return _insightBanner(
-        context,
-        icon: Icons.check_circle_outline,
-        color: Colors.green.shade700,
-        title: 'Bisnis Sehat',
-        message: 'Laba bersih positif dan pengeluaran terkendali. Pertahankan!',
-      );
-    }
+  final fmt = NumberFormat.decimalPattern('id');
+  String topExpenseText = '';
+  if (summary.expenses.isNotEmpty) {
+    final sortedExp = List<Expense>.from(summary.expenses)
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    final top = sortedExp.first;
+    topExpenseText = ' Pengeluaran terbesar Anda: ${top.itemName} (Rp ${fmt.format(top.amount)}).';
   }
+
+  if (summary.netProfit < 0) {
+    return _insightBanner(
+      context,
+      icon: Icons.warning_amber_rounded,
+      color: AppTheme.dangerColor,
+      title: 'Perhatian: Bisnis Rugi',
+      message: 'Total uang keluar melebihi Uang Masuk (Omzet).$topExpenseText Segera kurangi pengeluaran atau evaluasi harga jual.',
+    );
+  } else if (summary.totalExpenses > (summary.totalSales * 0.3)) {
+    return _insightBanner(
+      context,
+      icon: Icons.info_outline,
+      color: Colors.orange.shade800,
+      title: 'Peringatan Pengeluaran',
+      message: 'Pengeluaran Anda mencapai lebih dari 30% dari Omzet.$topExpenseText Cek kembali apakah belanja ini mendesak.',
+    );
+  } else {
+    return _insightBanner(
+      context,
+      icon: Icons.check_circle_outline,
+      color: Colors.green.shade700,
+      title: 'Bisnis Sehat',
+      message: 'Laba bersih positif dan pengeluaran terkendali. Pertahankan!',
+    );
+  }
+}
 
   Widget _insightBanner(BuildContext context, {
     required IconData icon, 

@@ -37,55 +37,105 @@ class _ReportsTopProducts extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          ...List.generate(top3.length, (index) {
-            final p = top3[index];
-            final medali = index == 0 ? '🥇' : (index == 1 ? '🥈' : '🥉');
-            final profit = (p['profit'] as num?)?.toInt() ?? 0;
-            
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
+...List.generate(top3.length, (index) {
+  final p = top3[index];
+  final medali = index == 0 ? '🥇' : (index == 1 ? '🥈' : '🥉');
+  final profit = (p['profit'] as num?)?.toInt() ?? 0;
+  final revenue = (p['revenue'] as num?)?.toInt() ?? 0;
+  final margin = revenue > 0 ? (profit / revenue) * 100 : 0.0;
+  final isLowMargin = margin < 20.0;
+
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(
+      children: [
+        Text(medali, style: const TextStyle(fontSize: 16)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text(medali, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          p['name'] as String,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textColor,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Text(
-                              'Omzet: Rp ${fmt.format(p['revenue'])}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textLightColor,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Untung: Rp ${fmt.format(profit)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: profit > 0 ? Colors.green.shade700 : AppTheme.dangerColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    child: Text(
+                      p['name'] as String,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (isLowMargin) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.dangerColor.withOpacity(0.5)),
+                      ),
+                      child: const Text(
+                        'Margin Rendah',
+                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.dangerColor),
+                      ),
+                    ),
+                  ]
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Text(
+                    'Omzet: Rp ${fmt.format(revenue)}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textLightColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Untung: Rp ${fmt.format(profit)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: profit > 0 ? Colors.green.shade700 : AppTheme.dangerColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '(Margin ${margin.toStringAsFixed(0)}%)',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isLowMargin ? AppTheme.dangerColor : AppTheme.textLightColor,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${p['qty_sold']}',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const Text('porsi', style: TextStyle(fontSize: 10, color: AppTheme.textLightColor)),
+          ],
+        ),
+      ],
+    ),
+  );
+}),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
