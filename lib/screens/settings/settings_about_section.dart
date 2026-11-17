@@ -53,38 +53,38 @@ class _AboutSectionState extends State<_AboutSection> {
     }
   }
 
-  Future<void> _syncNow() async {
-    setState(() => _busySync = true);
-    try {
-      await SupabaseService().syncData();
-      if (!mounted) return;
-      final pending = SyncStatusService.instance.pendingCount.value;
-      final failed =
-          SyncStatusService.instance.state.value == SyncState.failed;
-      final msg = failed
-          ? 'Sinkronisasi gagal. Coba lagi nanti.'
-          : pending > 0
-              ? 'Tersisa $pending perubahan menunggu.'
-              : 'Sinkronisasi selesai.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: failed ? AppTheme.dangerColor : Colors.green,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Manual sync failed: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sinkronisasi gagal.'),
-          backgroundColor: AppTheme.dangerColor,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _busySync = false);
-    }
+Future<void> _syncNow() async {
+  setState(() => _busySync = true);
+  try {
+    await AutoSyncScheduler.instance.triggerNow();
+    if (!mounted) return;
+    final pending = SyncStatusService.instance.pendingCount.value;
+    final failed =
+        SyncStatusService.instance.state.value == SyncState.failed;
+    final msg = failed
+        ? 'Sinkronisasi gagal. Coba lagi nanti.'
+        : pending > 0
+            ? 'Tersisa $pending perubahan menunggu.'
+            : 'Sinkronisasi selesai.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: failed ? AppTheme.dangerColor : Colors.green,
+      ),
+    );
+  } catch (e) {
+    debugPrint('Manual sync failed: $e');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sinkronisasi gagal.'),
+        backgroundColor: AppTheme.dangerColor,
+      ),
+    );
+  } finally {
+    if (mounted) setState(() => _busySync = false);
   }
+}
 
   Future<void> _checkUpdate() async {
     setState(() => _busyUpdate = true);
