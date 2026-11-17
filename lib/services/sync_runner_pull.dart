@@ -72,10 +72,10 @@ class _SyncPuller {
     }
   }
 
-Future<void> _downloadMissingImages() async {
-  if (kIsWeb) return;
-  try {
-    final missing = await _localDb.getProductsNeedingImageDownload();
+  Future<void> _downloadMissingImages() async {
+    if (kIsWeb) return;
+    try {
+      final missing = await _localDb.getProductsNeedingImageDownload();
       if (missing.isEmpty) return;
 
       final dir = await getApplicationDocumentsDirectory();
@@ -92,7 +92,8 @@ Future<void> _downloadMissingImages() async {
               .get(Uri.parse(url))
               .timeout(const Duration(seconds: 15));
           if (response.statusCode != 200) {
-            debugPrint('Download image product ${product.id}: HTTP ${response.statusCode}');
+            debugPrint(
+                'Download image product ${product.id}: HTTP ${response.statusCode}');
             continue;
           }
 
@@ -101,7 +102,8 @@ Future<void> _downloadMissingImages() async {
           final file = File('${dir.path}/$filename');
           await file.writeAsBytes(response.bodyBytes);
 
-          await _localDb.updateProductLocalImagePath(product.id, file.path, skipSync: true);
+          await _localDb.updateProductLocalImagePath(product.id, file.path,
+              skipSync: true);
           debugPrint('Downloaded image for product ${product.id}');
         } catch (e) {
           debugPrint('Download image product ${product.id} failed: $e');
@@ -118,135 +120,6 @@ Future<void> _downloadMissingImages() async {
     return DateTime.tryParse(v.toString())?.millisecondsSinceEpoch;
   }
 
-  Future<int> _pullTransactions(String userId) async {
-    try {
-      int offset = 0;
-      const pageSize = 500;
-      while (true) {
-List<dynamic> list = const [];
-const queries = [
-  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, transaction_items(product_id, product_name, price, hpp, qty)',
-  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)',
-  'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)',
-  'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)'
-];
-bool fetched = false;
-PostgrestException? lastError;
-
-for (final q in queries) {
-  try {
-    final response = await _client
-        .from('transactions')
-        .select(q)
-        .eq('user_id', userId)
-        .order('id', ascending: true)
-        .range(offset, offset + pageSize - 1);
-    list = response;
-    fetched = true;
-    break;
-  } on PostgrestException catch (e) {
-    lastError = e;
-    final isColumnErr = e.code == '42703' || 
-        e.code == 'PGRST204' || 
-        e.message.toLowerCase().contains('column');
-    if (!isColumnErr) rethrow;
-  }
-}
-
-if (!fetched && lastError != null) {
-  throw lastError;
-}
-          try {
-            final response = await _client
-                .from('transactions')
-                .select(
-                    'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)')
-                .eq('user_id', userId)
-                .order('id', ascending: true)
-                .range(offset, offset + pageSize - 1);
-            list = response as List;
-          } on PostgrestException catch (e2) {
-            if (!(e2.code == '42703' ||
-                e2.message.toLowerCase().contains('column'))) {
-              rethrow;
-            }
-            try {
-              final response = await _client
-                  .from('transactions')
-                  .select(
-                      'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)')
-                  .eq('user_id', userId)
-                  .order('id', ascending: true)
-                  .range(offset, offset + pageSize - 1);
-              list = response as List;
-            } on PostgrestException catch (e3) {
-              if (!(e3.code == '42703' ||
-                  e3.message.toLowerCase().contains('column'))) {
-                rethrow;
-              }
-              final response = await _client
-                  .from('transactions')
-                  .select(
-                      'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)')
-                  .eq('user_id', userId)
-                  .order('id', ascending: true)
-                  .range(offset, offset + pageSize - 1);
-              list = response as List;
-            }
-          }
-        }
-
-        if (list.isEmpty) break;
-        final ids =
-            list.map((e) => ((e as Map)['id'] as num).toInt()).toList();
-        final existing = await _localDb.existingTransactionIds(ids);
-
-        for (final raw in list) {
-          final m = raw as Map<String, dynamic>;
-          final id = (m['id'] as num).toInt();
-          if (existing.contains(id)) {
-  final isVoided = (m['is_voided'] as bool?) ?? false;
-  if (isVoided) {
-    await _localDb.updateVoidedTransactionFromPull(
-      id: id,
-      isVoided: isVoided,
-      voidReason: m['void_reason'] as String?,
-      voidedBy: m['voided_by'] as String?,
-      voidedAtMs: _parseTimestamp(m['voided_at']),
-      skipSync: true,
-    );
-  }
-  continue;
-}
-
-          final rawItems =
-              (m['transaction_items'] as List?) ?? const <dynamic>[];
-          final items = rawItems.map<TransactionLine>((i) {
-            final im = i as Map<String, dynamic>;
-            return TransactionLine(
-              productId: (im['product_id'] as num?)?.toInt(),
-              productName: im['product_name'] as String? ?? '',
-              price: (im['price'] as num?)?.toInt() ?? 0,
-              hpp: (im['hpp'] as num?)?.toInt() ?? 0,
-              qty: (im['qty'] as num?)?.toInt() ?? 0,
-            );
-          }).toList();
-
-          int createdAtMs = 0;
-          final rawLocal = m['created_at_local'];
-          if (rawLocal is num) {
-            createdAtMs = rawLocal.toInt();
-          } else if (rawLocal is String) {
-            createdAtMs =
-                DateTime.tryParse(rawLocal)?.millisecondsSinceEpoch ?? 0;
-          } else if (m['created_at'] != null) {
-            final rawCreated = m['created_at'];
-            if (rawCreated is num) {
-              createdAtMs = rawCreated.toInt();
-            } else {
-              createdAtMs = DateTime.tryParse(rawCreated.toString())
-                      ?.millisecondsSinceEpoch ??
-                  0;
   Future<int> _pullTransactions(String userId) async {
     try {
       int offset = 0;
@@ -275,13 +148,13 @@ if (!fetched && lastError != null) {
             break;
           } on PostgrestException catch (e) {
             lastError = e;
-            final isColumnErr = e.code == '42703' || 
-                e.code == 'PGRST204' || 
+            final isColumnErr = e.code == '42703' ||
+                e.code == 'PGRST204' ||
                 e.message.toLowerCase().contains('column');
             if (!isColumnErr) rethrow;
           }
         }
-        
+
         if (!fetched && lastError != null) {
           throw lastError;
         }
