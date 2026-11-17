@@ -45,13 +45,25 @@ Future<int> run() async {
 
   failures += await _SyncExpensesPusher(this).pushAll();
 
+  if (failures > 0) {
+    return failures;
+  }
+
   final pullRes = await _SyncPuller(this).pullAll();
   failures += pullRes.failures;
+
+  if (failures > 0) {
+    return failures;
+  }
   
   failures += await openOrderSync.pull();
   
   final expPullRes = await _SyncExpensesPuller(this).pullAll();
   failures += expPullRes.failures;
+
+  if (failures > 0) {
+    return failures;
+  }
   
   failures += await _SyncClosings(this).sync();
   failures += await _SyncSettings(this).sync();
