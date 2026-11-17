@@ -13,6 +13,7 @@ import '../models/open_order.dart';
 import '../models/expense_category.dart';
 import '../models/expense_item.dart';
 import '../models/expense.dart';
+import '../models/daily_closing.dart';
 import 'app_settings.dart';
 
 part 'sync_runner_push.dart';
