@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/transaction.dart';
+import '../models/expense.dart';
 import '../services/report_service.dart';
 import '../services/pin_service.dart';
 import '../services/ai_report_service.dart';
