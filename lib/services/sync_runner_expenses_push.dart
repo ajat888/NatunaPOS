@@ -277,26 +277,26 @@ class _SyncExpensesPusher {
         final createdAtMs = e.createdAt.toUtc().millisecondsSinceEpoch;
 
         int? existingId;
-        try {
-          final probe = await _client
-              .from('expenses')
-              .select('id, is_active')
-              .eq('user_id', userId)
-              .eq('created_at_local', createdAtMs)
-              .eq('amount', e.amount)
-              .eq('created_by', e.createdBy)
-              .eq('item_name', e.itemName)
-              .eq('category_name', e.categoryName)
-              .eq('is_active', true)
-              .limit(1);
-          if ((probe as List).isNotEmpty) {
-            final row = probe.first as Map<String, dynamic>;
-            final isActive = row['is_active'] == true;
-            if (isActive) {
-              existingId = (row['id'] as num).toInt();
-            }
-          }
-        } catch (err) {
+try {
+  final probe = await _client
+      .from('expenses')
+      .select('id, is_active')
+      .eq('user_id', userId)
+      .eq('created_at_local', createdAtMs)
+      .eq('amount', e.amount)
+      .eq('created_by', e.createdBy)
+      .eq('item_name', e.itemName)
+      .eq('category_name', e.categoryName)
+      .eq('is_active', true)
+      .limit(1);
+  if (probe.isNotEmpty) {
+    final row = probe.first;
+    final isActive = row['is_active'] == true;
+    if (isActive) {
+      existingId = (row['id'] as num).toInt();
+    }
+  }
+} catch (err) {
           debugPrint('Expense idempotency probe failed for ${e.id}: $err');
           failures++;
           continue;
@@ -326,26 +326,26 @@ class _SyncExpensesPusher {
             newId = (response['id'] as num).toInt();
           } catch (insertErr) {
             int? recoveredId;
-            try {
-              final reProbe = await _client
-                  .from('expenses')
-                  .select('id, is_active')
-                  .eq('user_id', userId)
-                  .eq('created_at_local', createdAtMs)
-                  .eq('amount', e.amount)
-                  .eq('created_by', e.createdBy)
-                  .eq('item_name', e.itemName)
-                  .eq('category_name', e.categoryName)
-                  .eq('is_active', true)
-                  .limit(1);
-              if ((reProbe as List).isNotEmpty) {
-                final row = reProbe.first as Map<String, dynamic>;
-                final isActive = row['is_active'] == true;
-                if (isActive) {
-                  recoveredId = (row['id'] as num).toInt();
-                }
-              }
-            } catch (reProbeErr) {
+try {
+  final reProbe = await _client
+      .from('expenses')
+      .select('id, is_active')
+      .eq('user_id', userId)
+      .eq('created_at_local', createdAtMs)
+      .eq('amount', e.amount)
+      .eq('created_by', e.createdBy)
+      .eq('item_name', e.itemName)
+      .eq('category_name', e.categoryName)
+      .eq('is_active', true)
+      .limit(1);
+  if (reProbe.isNotEmpty) {
+    final row = reProbe.first;
+    final isActive = row['is_active'] == true;
+    if (isActive) {
+      recoveredId = (row['id'] as num).toInt();
+    }
+  }
+} catch (reProbeErr) {
               debugPrint('Expense re-probe after insert fail failed for ${e.id}: $reProbeErr');
             }
             if (recoveredId != null) {
