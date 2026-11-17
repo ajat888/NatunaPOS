@@ -76,14 +76,13 @@ class _SyncOpenOrder {
         final existingId = serverIdByKey[order.orderKey];
         int serverOrderId;
 
-        if (existingId != null) {
-          await _client.from('open_orders').update({
-            'order_type': order.orderType,
-            'table_number': order.tableNumber,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          }).eq('id', existingId);
-          serverOrderId = existingId;
-        } else {
+if (existingId != null) {
+  await _client.from('open_orders').update({
+    'order_type': order.orderType,
+    'table_number': order.tableNumber,
+  }).eq('id', existingId);
+  serverOrderId = existingId;
+} else {
           try {
             final response = await _client
                 .from('open_orders')
@@ -156,48 +155,59 @@ class _SyncOpenOrder {
     return failures;
   }
 
-  Future<int> pull() async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return 0;
+Future<({int failures, String? maxUpdatedAt})> pull() async {
+  final userId = _client.auth.currentUser?.id;
+  if (userId == null) return (failures: 0, maxUpdatedAt: null);
 
-    try {
-      final response = await _client.from('open_orders').select(
-          'id, order_key, order_type, table_number, created_at_local, '
-          'open_order_items(product_id, product_name, price, hpp, qty)')
-          .eq('user_id', userId);
+  try {
+    final lastPull = AppSettings.instance.lastPullTime;
+    final response = await _client.from('open_orders').select(
+        'id, order_key, order_type, table_number, created_at_local, updated_at, '
+        'open_order_items(product_id, product_name, price, hpp, qty)')
+        .eq('user_id', userId)
+        .gt('updated_at', lastPull)
+        .order('updated_at', ascending: true);
 
-      for (final raw in (response as List)) {
-        final m = raw as Map<String, dynamic>;
-        final orderKey = m['order_key'] as String;
+    String? maxUpdatedAt;
 
-        final rawItems = (m['open_order_items'] as List?) ?? const <dynamic>[];
-        final lines = rawItems.map<OpenOrderLine>((i) {
-          final im = i as Map<String, dynamic>;
-          return OpenOrderLine(
-            productId: (im['product_id'] as num?)?.toInt(),
-            productName: im['product_name'] as String? ?? '',
-            price: (im['price'] as num?)?.toInt() ?? 0,
-            hpp: (im['hpp'] as num?)?.toInt() ?? 0,
-            qty: (im['qty'] as num?)?.toInt() ?? 0,
-          );
-        }).toList();
-
-        final createdAtMs = (m['created_at_local'] as num?)?.toInt() ??
-            DateTime.now().millisecondsSinceEpoch;
-
-        await _localDb.insertPulledOpenOrder(
-          orderKey: orderKey,
-          orderType: m['order_type'] as String? ?? 'dine_in',
-          tableNumber: (m['table_number'] as num?)?.toInt(),
-          createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMs),
-          lines: lines,
-          skipSync: true,
-        );
+    for (final raw in (response as List)) {
+      final m = raw as Map<String, dynamic>;
+      if (m['updated_at'] != null) {
+        final u = m['updated_at'] as String;
+        if (maxUpdatedAt == null || u.compareTo(maxUpdatedAt) > 0) {
+          maxUpdatedAt = u;
+        }
       }
-      return 0;
-    } catch (e) {
-      debugPrint('Pull open orders failed: $e');
-      return 1;
+
+      final orderKey = m['order_key'] as String;
+      final rawItems = (m['open_order_items'] as List?) ?? const <dynamic>[];
+      final lines = rawItems.map<OpenOrderLine>((i) {
+        final im = i as Map<String, dynamic>;
+        return OpenOrderLine(
+          productId: (im['product_id'] as num?)?.toInt(),
+          productName: im['product_name'] as String? ?? '',
+          price: (im['price'] as num?)?.toInt() ?? 0,
+          hpp: (im['hpp'] as num?)?.toInt() ?? 0,
+          qty: (im['qty'] as num?)?.toInt() ?? 0,
+        );
+      }).toList();
+
+      final createdAtMs = (m['created_at_local'] as num?)?.toInt() ??
+          DateTime.now().millisecondsSinceEpoch;
+
+      await _localDb.insertPulledOpenOrder(
+        orderKey: orderKey,
+        orderType: m['order_type'] as String? ?? 'dine_in',
+        tableNumber: (m['table_number'] as num?)?.toInt(),
+        createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMs),
+        lines: lines,
+        skipSync: true,
+      );
+    }
+    return (failures: 0, maxUpdatedAt: maxUpdatedAt);
+  } catch (e) {
+    debugPrint('Pull open orders failed: $e');
+    return (failures: 1, maxUpdatedAt: null);
     }
   }
 }

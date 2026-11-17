@@ -56,7 +56,8 @@ Future<int> run() async {
     return failures;
   }
   
-  failures += await openOrderSync.pull();
+  final openPullRes = await openOrderSync.pull();
+  failures += openPullRes.failures;
   
   final expPullRes = await _SyncExpensesPuller(this).pullAll();
   failures += expPullRes.failures;
@@ -70,16 +71,24 @@ Future<int> run() async {
 
   if (failures == 0) {
     String? maxUpdatedAt = pullRes.maxUpdatedAt;
+    
+    if (openPullRes.maxUpdatedAt != null) {
+      if (maxUpdatedAt == null || openPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
+        maxUpdatedAt = openPullRes.maxUpdatedAt;
+      }
+    }
+    
     if (expPullRes.maxUpdatedAt != null) {
       if (maxUpdatedAt == null || expPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
         maxUpdatedAt = expPullRes.maxUpdatedAt;
       }
     }
+
     if (maxUpdatedAt != null) {
       await AppSettings.instance.setLastPullTime(maxUpdatedAt);
     }
   }
 
   return failures;
-  }
+}
 }
