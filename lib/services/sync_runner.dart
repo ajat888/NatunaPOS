@@ -34,22 +34,28 @@ class SyncRunner {
     Random? rng,
   }) : rng = rng ?? Random();
 
-  Future<int> run() async {
-    int failures = 0;
-    failures += await _SyncPusher(this).pushAll();
+Future<int> run() async {
+  int failures = 0;
+  final syncStartTime = DateTime.now().toUtc().subtract(const Duration(seconds: 10)).toIso8601String();
 
-    final openOrderSync = _SyncOpenOrder(this);
-    failures += await openOrderSync.pushDeletes();
-    failures += await openOrderSync.pushUpserts();
+  failures += await _SyncPusher(this).pushAll();
 
-    failures += await _SyncExpensesPusher(this).pushAll();
+  final openOrderSync = _SyncOpenOrder(this);
+  failures += await openOrderSync.pushDeletes();
+  failures += await openOrderSync.pushUpserts();
 
-    failures += await _SyncPuller(this).pullAll();
-    failures += await openOrderSync.pull();
-    failures += await _SyncExpensesPuller(this).pullAll();
-    failures += await _SyncClosings(this).sync();
-    failures += await _SyncSettings(this).sync();
+  failures += await _SyncExpensesPusher(this).pushAll();
 
-    return failures;
+  failures += await _SyncPuller(this).pullAll();
+  failures += await openOrderSync.pull();
+  failures += await _SyncExpensesPuller(this).pullAll();
+  failures += await _SyncClosings(this).sync();
+  failures += await _SyncSettings(this).sync();
+
+  if (failures == 0) {
+    await AppSettings.instance.setLastPullTime(syncStartTime);
   }
+
+  return failures;
+}
 }

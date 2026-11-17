@@ -22,6 +22,7 @@ class AppSettings {
       'natunapos_settings_updated_at_ms';
   static const String _kTableCount = 'natunapos_table_count';
   static const String _kPosCategoryOrder = 'natunapos_pos_category_order';
+  static const String _kLastPullTime = 'natunapos_last_pull_time';
 
   final ValueNotifier<String> storeName = ValueNotifier('');
   final ValueNotifier<String> storeSubtitle = ValueNotifier('');
@@ -39,11 +40,13 @@ class AppSettings {
   bool _isDirty = false;
   bool _isLogoDirty = false;
   int _updatedAtMs = 0;
+  String _lastPullTime = '1970-01-01T00:00:00Z';
 
   String? get logoUrl => _logoUrl;
   bool get isDirty => _isDirty;
   bool get isLogoDirty => _isLogoDirty;
   int get updatedAtMs => _updatedAtMs;
+  String get lastPullTime => _lastPullTime;
 
   Future<void> load() async {
     try {
@@ -61,6 +64,7 @@ class AppSettings {
       _isDirty = prefs.getBool(_kSettingsDirty) ?? false;
       _isLogoDirty = prefs.getBool(_kLogoDirty) ?? false;
       _updatedAtMs = prefs.getInt(_kSettingsUpdatedAtMs) ?? 0;
+      _lastPullTime = prefs.getString(_kLastPullTime) ?? '1970-01-01T00:00:00Z';
       
       final loaded = prefs.getInt(_kTableCount) ?? 20;
       tableCount.value = loaded.clamp(1, 200);
@@ -87,6 +91,12 @@ class AppSettings {
     }
     if (triggerSync) AutoSyncScheduler.instance.scheduleSync();
   }
+
+  Future<void> setLastPullTime(String time) async {
+  _lastPullTime = time;
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_kLastPullTime, time);
+}
 
   Future<void> saveStoreInfo({
     required String name,

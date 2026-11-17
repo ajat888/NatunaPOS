@@ -19,87 +19,103 @@ class _SyncExpensesPuller {
     return failures;
   }
 
-  Future<int> pullCategories(String userId) async {
-    try {
-      final all = <ExpenseCategory>[];
-      int offset = 0;
-      const pageSize = 1000;
-      while (true) {
-        final response = await _client
-            .from('expense_categories')
-            .select()
-            .eq('user_id', userId)
-            .order('id', ascending: true)
-            .range(offset, offset + pageSize - 1);
-        final list = (response as List)
-            .map((j) => ExpenseCategory.fromJson(j))
-            .toList();
-        all.addAll(list);
-        if (list.length < pageSize) break;
-        offset += pageSize;
-      }
-      await _localDb.replaceAllExpenseCategories(all, skipSync: true);
-      return 0;
-    } catch (e) {
-      debugPrint('Pull expense categories failed: $e');
-      return 1;
-    }
-  }
+Future<int> pullCategories(String userId) async {
+  try {
+    final lastPull = AppSettings.instance.lastPullTime;
+    final unsynced = await _localDb.getUnsyncedExpenseCategories();
+    final unsyncedIds = unsynced.map((e) => e.id).toSet();
 
-  Future<int> pullItems(String userId) async {
-    try {
-      final all = <ExpenseItem>[];
-      int offset = 0;
-      const pageSize = 1000;
-      while (true) {
-        final response = await _client
-            .from('expense_items')
-            .select()
-            .eq('user_id', userId)
-            .order('id', ascending: true)
-            .range(offset, offset + pageSize - 1);
-        final list =
-            (response as List).map((j) => ExpenseItem.fromJson(j)).toList();
-        all.addAll(list);
-        if (list.length < pageSize) break;
-        offset += pageSize;
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('expense_categories')
+          .select()
+          .eq('user_id', userId)
+          .gt('updated_at', lastPull)
+          .order('updated_at', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list = (response as List)
+          .map((j) => ExpenseCategory.fromJson(j))
+          .toList();
+      
+      for (final c in list) {
+        if (unsyncedIds.contains(c.id)) continue;
+        await _localDb.upsertExpenseCategory(c, skipSync: true);
       }
-      await _localDb.replaceAllExpenseItems(all, skipSync: true);
-      return 0;
-    } catch (e) {
-      debugPrint('Pull expense items failed: $e');
-      return 1;
+      if (list.length < pageSize) break;
+      offset += pageSize;
     }
+    return 0;
+  } catch (e) {
+    debugPrint('Pull expense categories failed: $e');
+    return 1;
   }
+}
 
-  Future<int> pullExpenses(String userId) async {
-    try {
-      int offset = 0;
-      const pageSize = 500;
-      while (true) {
-        final response = await _client
-            .from('expenses')
-            .select()
-            .eq('user_id', userId)
-            .order('id', ascending: true)
-            .range(offset, offset + pageSize - 1);
-        final list = response as List;
-        if (list.isEmpty) break;
+Future<int> pullItems(String userId) async {
+  try {
+    final lastPull = AppSettings.instance.lastPullTime;
+    final unsynced = await _localDb.getUnsyncedExpenseItems();
+    final unsyncedIds = unsynced.map((e) => e.id).toSet();
 
-        final unsyncedIds = await _localDb.getUnsyncedExpenseIds();
-        for (final raw in list) {
-          final m = raw as Map<String, dynamic>;
-          final id = (m['id'] as num).toInt();
-          if (unsyncedIds.contains(id)) continue;
-          await _localDb.upsertPulledExpense(Expense.fromJson(m), skipSync: true);
-        }
-        if (list.length < pageSize) break;
-        offset += pageSize;
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('expense_items')
+          .select()
+          .eq('user_id', userId)
+          .gt('updated_at', lastPull)
+          .order('updated_at', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list =
+          (response as List).map((j) => ExpenseItem.fromJson(j)).toList();
+      
+      for (final it in list) {
+        if (unsyncedIds.contains(it.id)) continue;
+        await _localDb.upsertExpenseItem(it, skipSync: true);
       }
-      return 0;
-    } catch (e) {
-      debugPrint('Pull expenses failed: $e');
-      return 1;
+      if (list.length < pageSize) break;
+      offset += pageSize;
     }
+    return 0;
+  } catch (e) {
+    debugPrint('Pull expense items failed: $e');
+    return 1;
   }
+}
+
+Future<int> pullExpenses(String userId) async {
+  try {
+    final lastPull = AppSettings.instance.lastPullTime;
+    int offset = 0;
+    const pageSize = 500;
+    while (true) {
+      final response = await _client
+          .from('expenses')
+          .select()
+          .eq('user_id', userId)
+          .gt('updated_at', lastPull)
+          .order('updated_at', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list = response as List;
+      if (list.isEmpty) break;
+
+      final unsyncedIds = await _localDb.getUnsyncedExpenseIds();
+      for (final raw in list) {
+        final m = raw as Map<String, dynamic>;
+        final id = (m['id'] as num).toInt();
+        if (unsyncedIds.contains(id)) continue;
+        await _localDb.upsertPulledExpense(Expense.fromJson(m), skipSync: true);
+      }
+      if (list.length < pageSize) break;
+      offset += pageSize;
+    }
+    return 0;
+  } catch (e) {
+    debugPrint('Pull expenses failed: $e');
+    return 1;
+  }
+}
 }

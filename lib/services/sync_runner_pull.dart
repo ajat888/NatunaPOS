@@ -19,58 +19,72 @@ class _SyncPuller {
     return failures;
   }
 
-  Future<int> _pullCategories(String userId) async {
-    try {
-      final all = <Category>[];
-      int offset = 0;
-      const pageSize = 1000;
-      while (true) {
-        final response = await _client
-            .from('categories')
-            .select()
-            .eq('user_id', userId)
-            .order('id', ascending: true)
-            .range(offset, offset + pageSize - 1);
-        final list =
-            (response as List).map((j) => Category.fromJson(j)).toList();
-        all.addAll(list);
-        if (list.length < pageSize) break;
-        offset += pageSize;
+Future<int> _pullCategories(String userId) async {
+  try {
+    final lastPull = AppSettings.instance.lastPullTime;
+    final unsynced = await _localDb.getUnsyncedCategories();
+    final unsyncedIds = unsynced.map((e) => e.id).toSet();
+    
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('categories')
+          .select()
+          .eq('user_id', userId)
+          .gt('updated_at', lastPull)
+          .order('updated_at', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list =
+          (response as List).map((j) => Category.fromJson(j)).toList();
+      
+      for (final c in list) {
+        if (unsyncedIds.contains(c.id)) continue;
+        await _localDb.upsertCategory(c, skipSync: true);
       }
-      await _localDb.replaceAllCategories(all, skipSync: true);
-      return 0;
-    } catch (e) {
-      debugPrint('Pull categories failed: $e');
-      return 1;
+      if (list.length < pageSize) break;
+      offset += pageSize;
     }
+    return 0;
+  } catch (e) {
+    debugPrint('Pull categories failed: $e');
+    return 1;
   }
+}
 
-  Future<int> _pullProducts(String userId) async {
-    try {
-      final all = <Product>[];
-      int offset = 0;
-      const pageSize = 1000;
-      while (true) {
-        final response = await _client
-            .from('products')
-            .select()
-            .eq('user_id', userId)
-            .order('id', ascending: true)
-            .range(offset, offset + pageSize - 1);
-        final list =
-            (response as List).map((j) => Product.fromJson(j)).toList();
-        all.addAll(list);
-        if (list.length < pageSize) break;
-        offset += pageSize;
+Future<int> _pullProducts(String userId) async {
+  try {
+    final lastPull = AppSettings.instance.lastPullTime;
+    final unsynced = await _localDb.getUnsyncedProducts();
+    final unsyncedIds = unsynced.map((e) => e.id).toSet();
+
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('products')
+          .select()
+          .eq('user_id', userId)
+          .gt('updated_at', lastPull)
+          .order('updated_at', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list =
+          (response as List).map((j) => Product.fromJson(j)).toList();
+      
+      for (final p in list) {
+        if (unsyncedIds.contains(p.id)) continue;
+        await _localDb.upsertProduct(p, skipSync: true);
       }
-      await _localDb.replaceAllProducts(all, skipSync: true);
-      await _downloadMissingImages();
-      return 0;
-    } catch (e) {
-      debugPrint('Pull products failed: $e');
-      return 1;
+      if (list.length < pageSize) break;
+      offset += pageSize;
     }
+    await _downloadMissingImages();
+    return 0;
+  } catch (e) {
+    debugPrint('Pull products failed: $e');
+    return 1;
   }
+}
 
   Future<void> _downloadMissingImages() async {
     if (kIsWeb) return;
@@ -120,44 +134,46 @@ class _SyncPuller {
     return DateTime.tryParse(v.toString())?.millisecondsSinceEpoch;
   }
 
-  Future<int> _pullTransactions(String userId) async {
-    try {
-      int offset = 0;
-      const pageSize = 500;
-      while (true) {
-        List<dynamic> list = const [];
-        const queries = [
-          'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, transaction_items(product_id, product_name, price, hpp, qty)',
-          'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)',
-          'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)',
-          'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)'
-        ];
-        bool fetched = false;
-        PostgrestException? lastError;
+Future<int> _pullTransactions(String userId) async {
+  try {
+    final lastPull = AppSettings.instance.lastPullTime;
+    int offset = 0;
+    const pageSize = 500;
+    while (true) {
+      List<dynamic> list = const [];
+      const queries = [
+        'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, updated_at, transaction_items(product_id, product_name, price, hpp, qty)',
+        'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, updated_at, transaction_items(product_id, product_name, price, hpp, qty)',
+        'id, total, created_at_local, cash_received, change_amount, table_number, order_type, updated_at, transaction_items(product_id, product_name, price, hpp, qty)',
+        'id, total, created_at_local, updated_at, transaction_items(product_id, product_name, price, hpp, qty)'
+      ];
+      bool fetched = false;
+      PostgrestException? lastError;
 
-        for (final q in queries) {
-          try {
-            final response = await _client
-                .from('transactions')
-                .select(q)
-                .eq('user_id', userId)
-                .order('id', ascending: true)
-                .range(offset, offset + pageSize - 1);
-            list = response as List;
-            fetched = true;
-            break;
-          } on PostgrestException catch (e) {
-            lastError = e;
-            final isColumnErr = e.code == '42703' ||
-                e.code == 'PGRST204' ||
-                e.message.toLowerCase().contains('column');
-            if (!isColumnErr) rethrow;
-          }
+      for (final q in queries) {
+        try {
+          final response = await _client
+              .from('transactions')
+              .select(q)
+              .eq('user_id', userId)
+              .gt('updated_at', lastPull)
+              .order('updated_at', ascending: true)
+              .range(offset, offset + pageSize - 1);
+          list = response as List;
+          fetched = true;
+          break;
+        } on PostgrestException catch (e) {
+          lastError = e;
+          final isColumnErr = e.code == '42703' ||
+              e.code == 'PGRST204' ||
+              e.message.toLowerCase().contains('column');
+          if (!isColumnErr) rethrow;
         }
+      }
 
-        if (!fetched && lastError != null) {
-          throw lastError;
-        }
+      if (!fetched && lastError != null) {
+        throw lastError;
+      }
 
         if (list.isEmpty) break;
         final ids =
