@@ -36,7 +36,6 @@ class SyncRunner {
 
 Future<int> run() async {
   int failures = 0;
-  final syncStartTime = DateTime.now().toUtc().subtract(const Duration(seconds: 10)).toIso8601String();
 
   failures += await _SyncPusher(this).pushAll();
 
@@ -46,16 +45,29 @@ Future<int> run() async {
 
   failures += await _SyncExpensesPusher(this).pushAll();
 
-  failures += await _SyncPuller(this).pullAll();
+  final pullRes = await _SyncPuller(this).pullAll();
+  failures += pullRes.failures;
+  
   failures += await openOrderSync.pull();
-  failures += await _SyncExpensesPuller(this).pullAll();
+  
+  final expPullRes = await _SyncExpensesPuller(this).pullAll();
+  failures += expPullRes.failures;
+  
   failures += await _SyncClosings(this).sync();
   failures += await _SyncSettings(this).sync();
 
   if (failures == 0) {
-    await AppSettings.instance.setLastPullTime(syncStartTime);
+    String? maxUpdatedAt = pullRes.maxUpdatedAt;
+    if (expPullRes.maxUpdatedAt != null) {
+      if (maxUpdatedAt == null || expPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
+        maxUpdatedAt = expPullRes.maxUpdatedAt;
+      }
+    }
+    if (maxUpdatedAt != null) {
+      await AppSettings.instance.setLastPullTime(maxUpdatedAt);
+    }
   }
 
   return failures;
-}
+  }
 }
