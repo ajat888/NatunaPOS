@@ -11,6 +11,7 @@ class AutoSyncScheduler {
   static const Duration _followUpDelay = Duration(milliseconds: 500);
   static const Duration _baseRetryInterval = Duration(seconds: 25);
   static const Duration _maxRetryInterval = Duration(minutes: 10);
+  static const int _maxRetryAttempts = 5;
 
   Timer? _debounce;
   Timer? _retryTimer;
@@ -58,31 +59,40 @@ class AutoSyncScheduler {
   }
 
   void _scheduleNextRetry() {
-    if (!_started) return;
-    _retryTimer?.cancel();
-    
-    final multiplier = 1 << (_retryAttempt > 5 ? 5 : _retryAttempt);
-    var delay = _baseRetryInterval * multiplier;
-    if (delay > _maxRetryInterval) {
-      delay = _maxRetryInterval;
-    }
+  if (!_started) return;
+  _retryTimer?.cancel();
 
-    _retryTimer = Timer(delay, () => _tick());
+  if (_retryAttempt >= _maxRetryAttempts) {
+    debugPrint('AutoSyncScheduler: Batas maksimal retry ($_maxRetryAttempts) tercapai. Auto-retry dihentikan.');
+    SyncStatusService.instance.markFailed(
+        'Sinkronisasi gagal berulang kali. Silakan periksa koneksi atau login ulang.');
+    return;
   }
+  
+  final multiplier = 1 << (_retryAttempt > 5 ? 5 : _retryAttempt);
+  var delay = _baseRetryInterval * multiplier;
+  if (delay > _maxRetryInterval) {
+    delay = _maxRetryInterval;
+  }
+
+  _retryTimer = Timer(delay, () => _tick());
+}
 
   Future<void> _tick() async {
-    if (!_started) return;
-    if (_inFlight) return;
-    final state = SyncStatusService.instance.state.value;
-    final pending = SyncStatusService.instance.pendingCount.value;
-    
-    if (state == SyncState.idle && pending == 0) {
-      _retryAttempt = 0;
-      _scheduleNextRetry();
-      return;
-    }
-    await _runSync();
+  if (!_started) return;
+  if (_inFlight) return;
+  if (_retryAttempt >= _maxRetryAttempts) return;
+
+  final state = SyncStatusService.instance.state.value;
+  final pending = SyncStatusService.instance.pendingCount.value;
+  
+  if (state == SyncState.idle && pending == 0) {
+    _retryAttempt = 0;
+    _scheduleNextRetry();
+    return;
   }
+  await _runSync();
+}
 
   Future<void> _runSync() async {
     if (!_started) return;
