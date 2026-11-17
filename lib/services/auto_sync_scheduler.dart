@@ -8,11 +8,14 @@ class AutoSyncScheduler {
   static final AutoSyncScheduler instance = AutoSyncScheduler._();
 
   static const Duration _debounceDelay = Duration(milliseconds: 1500);
-  static const Duration _retryInterval = Duration(seconds: 25);
   static const Duration _followUpDelay = Duration(milliseconds: 500);
+  static const Duration _baseRetryInterval = Duration(seconds: 25);
+  static const Duration _maxRetryInterval = Duration(minutes: 10);
 
   Timer? _debounce;
-  Timer? _retryTicker;
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
+
   bool _started = false;
   bool _inFlight = false;
   bool _queuedAgain = false;
@@ -25,8 +28,7 @@ class AutoSyncScheduler {
   void start() {
     if (_started) return;
     _started = true;
-    _retryTicker?.cancel();
-    _retryTicker = Timer.periodic(_retryInterval, (_) => _tick());
+    _scheduleNextRetry();
     _tick();
   }
 
@@ -34,8 +36,9 @@ class AutoSyncScheduler {
     _started = false;
     _debounce?.cancel();
     _debounce = null;
-    _retryTicker?.cancel();
-    _retryTicker = null;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryAttempt = 0;
     _inFlight = false;
     _queuedAgain = false;
     _authFailureNotified = false;
@@ -44,6 +47,8 @@ class AutoSyncScheduler {
   void scheduleSync({Duration? delay}) {
     if (!_started) return;
     _debounce?.cancel();
+    _retryTimer?.cancel();
+    _retryAttempt = 0;
     _debounce = Timer(delay ?? _debounceDelay, _runSync);
   }
 
@@ -52,60 +57,98 @@ class AutoSyncScheduler {
     await _runSync();
   }
 
+  void _scheduleNextRetry() {
+    if (!_started) return;
+    _retryTimer?.cancel();
+    
+    final multiplier = 1 << (_retryAttempt > 5 ? 5 : _retryAttempt);
+    var delay = _baseRetryInterval * multiplier;
+    if (delay > _maxRetryInterval) {
+      delay = _maxRetryInterval;
+    }
+
+    _retryTimer = Timer(delay, () => _tick());
+  }
+
   Future<void> _tick() async {
     if (!_started) return;
     if (_inFlight) return;
     final state = SyncStatusService.instance.state.value;
     final pending = SyncStatusService.instance.pendingCount.value;
-    if (state == SyncState.idle && pending == 0) return;
+    
+    if (state == SyncState.idle && pending == 0) {
+      _retryAttempt = 0;
+      _scheduleNextRetry();
+      return;
+    }
     await _runSync();
   }
 
   Future<void> _runSync() async {
-  if (!_started) return;
-  if (_inFlight) {
-    _queuedAgain = true;
-    return;
-  }
-  _inFlight = true;
-  try {
-    final service = SupabaseService();
-    if (!service.isLoggedIn) return;
-    if (service.isOfflineSession) {
-      final result = await service.tryAutoLoginAndSync();
-      if (result == AutoLoginOutcome.authRejected ||
-          result == AutoLoginOutcome.missingCredentials) {
-        _notifyAuthFailureOnce();
-        SyncStatusService.instance.markFailed(
-            'Sesi offline tidak dapat dipulihkan. Silakan login ulang.');
-        return;
-      }
-      if (result == AutoLoginOutcome.offlineError) {
-        SyncStatusService.instance
-            .markFailed('Tidak dapat terhubung ke server.');
-        return;
-      }
-      if (result == AutoLoginOutcome.notApplicable) {
-        SyncStatusService.instance
-            .markFailed('Sesi tidak valid. Silakan login ulang.');
-        return;
-      }
+    if (!_started) return;
+    if (_inFlight) {
+      _queuedAgain = true;
       return;
     }
-    await service.syncData();
-  } catch (e) {
-    debugPrint('AutoSyncScheduler run failed: $e');
-    SyncStatusService.instance
-        .markFailed('Sinkronisasi gagal: ${e.toString()}');
-  } finally {
-    _inFlight = false;
-    if (_queuedAgain && _started) {
-      _queuedAgain = false;
-      _debounce?.cancel();
-      _debounce = Timer(_followUpDelay, _runSync);
+    _inFlight = true;
+    bool stopRetry = false;
+
+    try {
+      final service = SupabaseService();
+      if (!service.isLoggedIn) return;
+
+      if (service.isOfflineSession) {
+        final result = await service.tryAutoLoginAndSync();
+        if (result == AutoLoginOutcome.authRejected ||
+            result == AutoLoginOutcome.missingCredentials) {
+          _notifyAuthFailureOnce();
+          SyncStatusService.instance.markFailed(
+              'Sesi offline tidak dapat dipulihkan. Silakan login ulang.');
+          stopRetry = true;
+          return;
+        }
+        if (result == AutoLoginOutcome.offlineError) {
+          SyncStatusService.instance
+              .markFailed('Tidak dapat terhubung ke server.');
+          _retryAttempt++;
+          return;
+        }
+        if (result == AutoLoginOutcome.notApplicable) {
+          SyncStatusService.instance
+              .markFailed('Sesi tidak valid. Silakan login ulang.');
+          stopRetry = true;
+          return;
+        }
+        _retryAttempt = 0;
+        return;
+      }
+
+      await service.syncData();
+      
+      if (SyncStatusService.instance.state.value == SyncState.failed) {
+        _retryAttempt++;
+      } else {
+        _retryAttempt = 0;
+      }
+    } catch (e) {
+      debugPrint('AutoSyncScheduler run failed: $e');
+      SyncStatusService.instance
+          .markFailed('Sinkronisasi gagal: ${e.toString()}');
+      _retryAttempt++;
+    } finally {
+      _inFlight = false;
+      if (stopRetry) {
+        _retryTimer?.cancel();
+        _retryTimer = null;
+      } else if (_queuedAgain && _started) {
+        _queuedAgain = false;
+        _debounce?.cancel();
+        _debounce = Timer(_followUpDelay, _runSync);
+      } else {
+        _scheduleNextRetry();
+      }
     }
   }
-}
 
   void _notifyAuthFailureOnce() {
     if (_authFailureNotified) return;
