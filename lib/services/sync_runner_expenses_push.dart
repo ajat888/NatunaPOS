@@ -91,39 +91,67 @@ class _SyncExpensesPusher {
     final unsynced = await _localDb.getUnsyncedExpenseCategories();
     for (final c in unsynced) {
       try {
-        if (c.id < 0) {
-          int? existingId;
-          try {
-            final probe = await _client
-                .from('expense_categories')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('name', c.name)
-                .limit(1);
-            if ((probe as List).isNotEmpty) {
-              existingId = (probe.first['id'] as num).toInt();
-            }
-          } catch (err) {
-            debugPrint('Expense category idempotency probe failed: $err');
-          }
+if (c.id < 0) {
+  int? existingId;
+  try {
+    final probe = await _client
+        .from('expense_categories')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('name', c.name)
+        .limit(1);
+    if (probe.isNotEmpty) {
+      existingId = (probe.first['id'] as num).toInt();
+    }
+  } catch (err) {
+    debugPrint('Expense category idempotency probe failed: $err');
+    failures++;
+    continue;
+  }
 
-          int newId;
-          Map<String, dynamic> response;
-          if (existingId != null) {
-            newId = existingId;
-            response = {'id': newId, 'name': c.name, 'is_active': true};
-          } else {
-            response = await _client
-                .from('expense_categories')
-                .insert({'user_id': userId, 'name': c.name, 'is_active': true})
-                .select()
-                .single();
-            newId = (response['id'] as num).toInt();
-          }
-          map[c.id] = newId;
-          await _localDb.deleteExpenseCategoryLocal(c.id, skipSync: true);
-          await _localDb.upsertExpenseCategory(ExpenseCategory.fromJson(response), skipSync: true);
-        } else {
+  int newId;
+  Map<String, dynamic> response;
+  if (existingId != null) {
+    newId = existingId;
+    response = {'id': newId, 'name': c.name, 'is_active': true};
+  } else {
+    try {
+      response = await _client
+          .from('expense_categories')
+          .insert({'user_id': userId, 'name': c.name, 'is_active': true})
+          .select()
+          .single();
+      newId = (response['id'] as num).toInt();
+    } catch (insertErr) {
+      int? recoveredId;
+      try {
+        final reProbe = await _client
+            .from('expense_categories')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('name', c.name)
+            .limit(1);
+        if (reProbe.isNotEmpty) {
+          recoveredId = (reProbe.first['id'] as num).toInt();
+        }
+      } catch (reProbeErr) {
+        debugPrint('Expense category re-probe failed: $reProbeErr');
+      }
+      
+      if (recoveredId != null) {
+        newId = recoveredId;
+        response = {'id': newId, 'name': c.name, 'is_active': true};
+      } else {
+        debugPrint('Push expense category ${c.id} insert failed: $insertErr');
+        failures++;
+        continue;
+      }
+    }
+  }
+  map[c.id] = newId;
+  await _localDb.deleteExpenseCategoryLocal(c.id, skipSync: true);
+  await _localDb.upsertExpenseCategory(ExpenseCategory.fromJson(response), skipSync: true);
+} else {
           final payload = <String, dynamic>{'name': c.name, 'is_active': true};
           final res = await _client
               .from('expense_categories')
@@ -174,50 +202,84 @@ class _SyncExpensesPusher {
           finalCategoryId = mapped;
         }
 
-        if (it.id < 0) {
-          int? existingId;
-          try {
-            final probe = await _client
-                .from('expense_items')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('category_id', finalCategoryId)
-                .eq('name', it.name)
-                .limit(1);
-            if ((probe as List).isNotEmpty) {
-              existingId = (probe.first['id'] as num).toInt();
-            }
-          } catch (err) {
-            debugPrint('Expense item idempotency probe failed: $err');
-          }
+if (it.id < 0) {
+  int? existingId;
+  try {
+    final probe = await _client
+        .from('expense_items')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('category_id', finalCategoryId)
+        .eq('name', it.name)
+        .limit(1);
+    if (probe.isNotEmpty) {
+      existingId = (probe.first['id'] as num).toInt();
+    }
+  } catch (err) {
+    debugPrint('Expense item idempotency probe failed: $err');
+    failures++;
+    continue;
+  }
 
-          int newId;
-          Map<String, dynamic> response;
-          if (existingId != null) {
-            newId = existingId;
-            response = {
-              'id': newId,
-              'category_id': finalCategoryId,
-              'name': it.name,
-              'is_active': true,
-            };
-          } else {
-            response = await _client
-                .from('expense_items')
-                .insert({
-                  'user_id': userId,
-                  'category_id': finalCategoryId,
-                  'name': it.name,
-                  'is_active': true,
-                })
-                .select()
-                .single();
-            newId = (response['id'] as num).toInt();
-          }
-          map[it.id] = newId;
-          await _localDb.deleteExpenseItemLocal(it.id, skipSync: true);
-          await _localDb.upsertExpenseItem(ExpenseItem.fromJson(response), skipSync: true);
-        } else {
+  int newId;
+  Map<String, dynamic> response;
+  if (existingId != null) {
+    newId = existingId;
+    response = {
+      'id': newId,
+      'category_id': finalCategoryId,
+      'name': it.name,
+      'is_active': true,
+    };
+  } else {
+    try {
+      response = await _client
+          .from('expense_items')
+          .insert({
+            'user_id': userId,
+            'category_id': finalCategoryId,
+            'name': it.name,
+            'is_active': true,
+          })
+          .select()
+          .single();
+      newId = (response['id'] as num).toInt();
+    } catch (insertErr) {
+      int? recoveredId;
+      try {
+        final reProbe = await _client
+            .from('expense_items')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('category_id', finalCategoryId)
+            .eq('name', it.name)
+            .limit(1);
+        if (reProbe.isNotEmpty) {
+          recoveredId = (reProbe.first['id'] as num).toInt();
+        }
+      } catch (reProbeErr) {
+        debugPrint('Expense item re-probe failed: $reProbeErr');
+      }
+      
+      if (recoveredId != null) {
+        newId = recoveredId;
+        response = {
+          'id': newId,
+          'category_id': finalCategoryId,
+          'name': it.name,
+          'is_active': true,
+        };
+      } else {
+        debugPrint('Push expense item ${it.id} insert failed: $insertErr');
+        failures++;
+        continue;
+      }
+    }
+  }
+  map[it.id] = newId;
+  await _localDb.deleteExpenseItemLocal(it.id, skipSync: true);
+  await _localDb.upsertExpenseItem(ExpenseItem.fromJson(response), skipSync: true);
+} else {
           final payload = <String, dynamic>{
             'category_id': finalCategoryId,
             'name': it.name,
