@@ -27,13 +27,20 @@ class Expense {
 
   factory Expense.fromJson(Map<String, dynamic> json) {
     final active = json['is_active'] as bool? ?? true;
-    int createdMs = 0;
-    final rawLocal = json['created_at_local'];
-    if (rawLocal is num) {
-      createdMs = rawLocal.toInt();
-    } else if (rawLocal is String) {
-      createdMs = DateTime.tryParse(rawLocal)?.millisecondsSinceEpoch ?? 0;
-    }
+int createdMs = 0;
+final rawLocal = json['created_at_local'];
+if (rawLocal is num) {
+  createdMs = rawLocal.toInt();
+} else if (rawLocal is String) {
+  createdMs = DateTime.tryParse(rawLocal)?.millisecondsSinceEpoch ?? 0;
+} else if (json['created_at'] != null) {
+  final rawCreated = json['created_at'];
+  if (rawCreated is num) {
+    createdMs = rawCreated.toInt();
+  } else if (rawCreated is String) {
+    createdMs = DateTime.tryParse(rawCreated)?.millisecondsSinceEpoch ?? 0;
+  }
+}
     return Expense(
       id: (json['id'] as num).toInt(),
       itemId: (json['item_id'] as num?)?.toInt(),

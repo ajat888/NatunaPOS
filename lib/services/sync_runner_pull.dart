@@ -123,21 +123,39 @@ Future<void> _downloadMissingImages() async {
       int offset = 0;
       const pageSize = 500;
       while (true) {
-        List<dynamic> list = const [];
-        try {
-          final response = await _client
-              .from('transactions')
-              .select(
-                  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, transaction_items(product_id, product_name, price, hpp, qty)')
-              .eq('user_id', userId)
-              .order('id', ascending: true)
-              .range(offset, offset + pageSize - 1);
-          list = response as List;
-        } on PostgrestException catch (e) {
-          if (!(e.code == '42703' ||
-              e.message.toLowerCase().contains('column'))) {
-            rethrow;
-          }
+List<dynamic> list = const [];
+const queries = [
+  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, transaction_items(product_id, product_name, price, hpp, qty)',
+  'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, transaction_items(product_id, product_name, price, hpp, qty)',
+  'id, total, created_at_local, cash_received, change_amount, table_number, order_type, transaction_items(product_id, product_name, price, hpp, qty)',
+  'id, total, created_at_local, transaction_items(product_id, product_name, price, hpp, qty)'
+];
+bool fetched = false;
+PostgrestException? lastError;
+
+for (final q in queries) {
+  try {
+    final response = await _client
+        .from('transactions')
+        .select(q)
+        .eq('user_id', userId)
+        .order('id', ascending: true)
+        .range(offset, offset + pageSize - 1);
+    list = response;
+    fetched = true;
+    break;
+  } on PostgrestException catch (e) {
+    lastError = e;
+    final isColumnErr = e.code == '42703' || 
+        e.code == 'PGRST204' || 
+        e.message.toLowerCase().contains('column');
+    if (!isColumnErr) rethrow;
+  }
+}
+
+if (!fetched && lastError != null) {
+  throw lastError;
+}
           try {
             final response = await _client
                 .from('transactions')
