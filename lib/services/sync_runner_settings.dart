@@ -38,16 +38,16 @@ class _SyncSettings {
     return failures;
   }
 
-  bool _hasLocalData(AppSettings s) {
-    final logo = s.logoPath.value;
-    final hasLogo = logo != null && File(logo).existsSync();
-    return s.storeName.value.isNotEmpty ||
-        s.storeSubtitle.value.isNotEmpty ||
-        s.storeAddress.value.isNotEmpty ||
-        s.storePhone.value.isNotEmpty ||
-        s.receiptFooter.value.isNotEmpty ||
-        hasLogo;
-  }
+bool _hasLocalData(AppSettings s) {
+  final logo = s.logoPath.value;
+  final hasLogo = !kIsWeb && logo != null && File(logo).existsSync();
+  return s.storeName.value.isNotEmpty ||
+      s.storeSubtitle.value.isNotEmpty ||
+      s.storeAddress.value.isNotEmpty ||
+      s.storePhone.value.isNotEmpty ||
+      s.receiptFooter.value.isNotEmpty ||
+      hasLogo;
+}
 
 Future<int> _push(String userId) async {
   final settings = AppSettings.instance;
@@ -55,7 +55,7 @@ Future<int> _push(String userId) async {
   try {
     String? logoUrl = settings.logoUrl;
     final localLogo = settings.logoPath.value;
-    final localExists = localLogo != null && File(localLogo).existsSync();
+final localExists = !kIsWeb && localLogo != null && File(localLogo).existsSync();
     
     if (!kIsWeb) {
       final needUpload = settings.isLogoDirty || (logoUrl == null && localExists);
