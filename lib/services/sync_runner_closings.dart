@@ -8,13 +8,22 @@ class _SyncClosings {
       : _client = r.client,
         _localDb = r.localDb;
 
-  Future<int> sync() async {
+  Future<({int failures, String? maxUpdatedAt})> sync() async {
     final userId = _client.auth.currentUser?.id;
-    if (userId == null) return 0;
+    if (userId == null) return (failures: 0, maxUpdatedAt: null);
 
     int failures = 0;
-    failures += await pushClosings(userId);
-    return failures;
+    String? maxUpdatedAt;
+
+    final pushRes = await pushClosings(userId);
+    failures += pushRes;
+    if (failures > 0) return (failures: failures, maxUpdatedAt: null);
+
+    final pullRes = await pullClosings(userId);
+    failures += pullRes.failures;
+    maxUpdatedAt = pullRes.maxUpdatedAt;
+
+    return (failures: failures, maxUpdatedAt: maxUpdatedAt);
   }
 
   Future<int> pushClosings(String userId) async {
@@ -46,5 +55,40 @@ class _SyncClosings {
       }
     }
     return failures;
+  }
+
+  Future<({int failures, String? maxUpdatedAt})> pullClosings(String userId) async {
+    try {
+      final lastPull = AppSettings.instance.lastPullTime;
+      final response = await _client
+          .from('daily_closings')
+          .select()
+          .eq('user_id', userId)
+          .gt('updated_at', lastPull)
+          .order('updated_at', ascending: true);
+
+      String? maxUpdatedAt;
+      for (final raw in (response as List)) {
+        final m = raw as Map<String, dynamic>;
+        if (m['updated_at'] != null) {
+          final u = m['updated_at'] as String;
+          if (maxUpdatedAt == null || u.compareTo(maxUpdatedAt) > 0) {
+            maxUpdatedAt = u;
+          }
+        }
+        
+        final closing = DailyClosing.fromJson(m);
+        final existing = await _localDb.getDailyClosingByDate(closing.closingDate);
+        if (existing != null && !existing.isSynced) {
+          continue;
+        }
+        
+        await _localDb.upsertPulledClosing(closing, skipSync: true);
+      }
+      return (failures: 0, maxUpdatedAt: maxUpdatedAt);
+    } catch (e) {
+      debugPrint('Pull closings failed: $e');
+      return (failures: 1, maxUpdatedAt: null);
+    }
   }
 }

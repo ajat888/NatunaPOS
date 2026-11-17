@@ -45,43 +45,35 @@ Future<int> run() async {
 
   failures += await _SyncExpensesPusher(this).pushAll();
 
-  if (failures > 0) {
-    return failures;
-  }
+  if (failures > 0) return failures;
 
   final pullRes = await _SyncPuller(this).pullAll();
   failures += pullRes.failures;
-
-  if (failures > 0) {
-    return failures;
-  }
+  if (failures > 0) return failures;
   
   final openPullRes = await openOrderSync.pull();
   failures += openPullRes.failures;
   
   final expPullRes = await _SyncExpensesPuller(this).pullAll();
   failures += expPullRes.failures;
-
-  if (failures > 0) {
-    return failures;
-  }
+  if (failures > 0) return failures;
   
-  failures += await _SyncClosings(this).sync();
+  final closingRes = await _SyncClosings(this).sync();
+  failures += closingRes.failures;
+  
   failures += await _SyncSettings(this).sync();
 
   if (failures == 0) {
     String? maxUpdatedAt = pullRes.maxUpdatedAt;
     
     if (openPullRes.maxUpdatedAt != null) {
-      if (maxUpdatedAt == null || openPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
-        maxUpdatedAt = openPullRes.maxUpdatedAt;
-      }
+      if (maxUpdatedAt == null || openPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) maxUpdatedAt = openPullRes.maxUpdatedAt;
     }
-    
     if (expPullRes.maxUpdatedAt != null) {
-      if (maxUpdatedAt == null || expPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
-        maxUpdatedAt = expPullRes.maxUpdatedAt;
-      }
+      if (maxUpdatedAt == null || expPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) maxUpdatedAt = expPullRes.maxUpdatedAt;
+    }
+    if (closingRes.maxUpdatedAt != null) {
+      if (maxUpdatedAt == null || closingRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) maxUpdatedAt = closingRes.maxUpdatedAt;
     }
 
     if (maxUpdatedAt != null) {
@@ -90,5 +82,5 @@ Future<int> run() async {
   }
 
   return failures;
-}
+  }
 }

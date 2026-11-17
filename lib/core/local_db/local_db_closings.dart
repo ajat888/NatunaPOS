@@ -1,4 +1,4 @@
-// lib/core/local_db/local_db_closings.dart
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../models/daily_closing.dart';
 import '../../services/write_notifier.dart';
@@ -34,14 +34,13 @@ mixin LocalDbClosings {
     await createTableDailyClosings(db);
   }
 
-  static Future<void> upgradeDailyClosingsV16(Database db) async {
-    try {
-      await db.execute('ALTER TABLE daily_closings ADD COLUMN is_synced INTEGER DEFAULT 0');
-    } catch (e) {
-      // ignore: avoid_print
-      print('daily_closings.is_synced already exists: $e');
-    }
+static Future<void> upgradeDailyClosingsV16(Database db) async {
+  try {
+    await db.execute('ALTER TABLE daily_closings ADD COLUMN is_synced INTEGER DEFAULT 0');
+  } catch (e) {
+    debugPrint('daily_closings.is_synced already exists: $e');
   }
+}
 
   Future<void> insertDailyClosing(DailyClosing closing, {bool skipSync = false}) async {
     final db = await database;
@@ -87,5 +86,12 @@ mixin LocalDbClosings {
     await db.update('daily_closings', {'is_synced': 1},
         where: 'id = ?', whereArgs: [id]);
     if (!skipSync) await WriteNotifier.notify();
+  }
+
+  Future<void> upsertPulledClosing(DailyClosing closing, {bool skipSync = false}) async {
+  final db = await database;
+  await db.insert('daily_closings', closing.copyWith(isSynced: true).toDb(),
+      conflictAlgorithm: ConflictAlgorithm.replace);
+  if (!skipSync) await WriteNotifier.notify();
   }
 }

@@ -1,4 +1,3 @@
-// lib/models/daily_closing.dart
 class DailyClosing {
   final int id;
   final String closingDate;
@@ -55,6 +54,29 @@ class DailyClosing {
         isSynced: (m['is_synced'] as int? ?? 1) == 1,
       );
 
+  factory DailyClosing.fromJson(Map<String, dynamic> json) {
+    return DailyClosing(
+      id: (json['id'] as num).toInt(),
+      closingDate: json['closing_date'] as String,
+      totalSales: (json['total_sales'] as num).toInt(),
+      totalTransactions: (json['total_transactions'] as num).toInt(),
+      totalHpp: (json['total_hpp'] as num).toInt(),
+      totalExpenses: (json['total_expenses'] as num).toInt(),
+      totalVoidAmount: (json['total_void_amount'] as num).toInt(),
+      voidCount: (json['void_count'] as num).toInt(),
+      cashExpected: (json['cash_expected'] as num).toInt(),
+      cashActual: (json['cash_actual'] as num).toInt(),
+      cashDifference: (json['cash_difference'] as num).toInt(),
+      closingNote: json['closing_note'] as String?,
+      closedBy: (json['closed_by'] as String?) ?? '',
+      closedAt: DateTime.fromMillisecondsSinceEpoch(
+        (json['closed_at'] as num).toInt(),
+        isUtc: true,
+      ).toLocal(),
+      isSynced: true,
+    );
+  }
+
   Map<String, dynamic> toDb() => {
         'closing_date': closingDate,
         'total_sales': totalSales,
@@ -71,4 +93,40 @@ class DailyClosing {
         'closed_at': closedAt.toUtc().millisecondsSinceEpoch,
         'is_synced': isSynced ? 1 : 0,
       };
+
+  DailyClosing copyWith({
+    int? id,
+    String? closingDate,
+    int? totalSales,
+    int? totalTransactions,
+    int? totalHpp,
+    int? totalExpenses,
+    int? totalVoidAmount,
+    int? voidCount,
+    int? cashExpected,
+    int? cashActual,
+    int? cashDifference,
+    String? closingNote,
+    String? closedBy,
+    DateTime? closedAt,
+    bool? isSynced,
+  }) {
+    return DailyClosing(
+      id: id ?? this.id,
+      closingDate: closingDate ?? this.closingDate,
+      totalSales: totalSales ?? this.totalSales,
+      totalTransactions: totalTransactions ?? this.totalTransactions,
+      totalHpp: totalHpp ?? this.totalHpp,
+      totalExpenses: totalExpenses ?? this.totalExpenses,
+      totalVoidAmount: totalVoidAmount ?? this.totalVoidAmount,
+      voidCount: voidCount ?? this.voidCount,
+      cashExpected: cashExpected ?? this.cashExpected,
+      cashActual: cashActual ?? this.cashActual,
+      cashDifference: cashDifference ?? this.cashDifference,
+      closingNote: closingNote ?? this.closingNote,
+      closedBy: closedBy ?? this.closedBy,
+      closedAt: closedAt ?? this.closedAt,
+      isSynced: isSynced ?? this.isSynced,
+    );
+  }
 }
