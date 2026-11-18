@@ -68,7 +68,7 @@ Future<void> _syncNow() async {
         ? (SyncStatusService.instance.lastErrorMessage ??
             'Sinkronisasi gagal. Coba lagi nanti.')
         : !synced
-            ? 'Sinkron belum selesai. Tunggu sebentar, lalu cek Sinkron Terakhir.'
+            ? 'Sinkron sedang berjalan atau tidak ada perubahan baru. Cek Sinkron Terakhir sebentar lagi.'
             : pending > 0
                 ? 'Tersisa $pending perubahan menunggu.'
                 : 'Sinkronisasi selesai.';

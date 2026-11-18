@@ -103,7 +103,6 @@ class AutoSyncScheduler {
     }
     if (_inFlight) {
       _queuedAgain = true;
-      SyncStatusService.instance.markFailed('Sync sebelumnya masih berjalan (antre)');
       return;
     }
     _inFlight = true;
