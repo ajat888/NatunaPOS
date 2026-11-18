@@ -174,6 +174,7 @@ Future<void> logout({bool force = false}) async {
   await _deleteSecurePassword();
   SyncStatusService.instance.reset();
   await _localDb.clearAllData();
+  await AppSettings.instance.setLastPullTime('1970-01-01T00:00:00Z');
   try {
     await _client.auth.signOut();
   } catch (e) {
