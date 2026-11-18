@@ -8,33 +8,105 @@ class _SyncExpensesPuller {
       : _client = r.client,
         _localDb = r.localDb;
 
-  Future<({int failures, String? maxUpdatedAt})> pullAll() async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return (failures: 0, maxUpdatedAt: null);
+Future<({int failures, String? maxUpdatedAt})> pullAll() async {
+  final userId = _client.auth.currentUser?.id;
+  if (userId == null) return (failures: 0, maxUpdatedAt: null);
 
-    int failures = 0;
-    String? maxUpdatedAt;
+  int failures = 0;
+  String? maxUpdatedAt;
 
-    final catRes = await pullCategories(userId);
-    failures += catRes.failures;
-    maxUpdatedAt = _maxStr(maxUpdatedAt, catRes.maxUpdatedAt);
+  final catRes = await pullCategories(userId);
+  failures += catRes.failures;
+  maxUpdatedAt = _maxStr(maxUpdatedAt, catRes.maxUpdatedAt);
+  if (catRes.failures == 0) await _cleanupOrphanExpenseCategories(userId);
 
-    final itemRes = await pullItems(userId);
-    failures += itemRes.failures;
-    maxUpdatedAt = _maxStr(maxUpdatedAt, itemRes.maxUpdatedAt);
+  final itemRes = await pullItems(userId);
+  failures += itemRes.failures;
+  maxUpdatedAt = _maxStr(maxUpdatedAt, itemRes.maxUpdatedAt);
+  if (itemRes.failures == 0) await _cleanupOrphanExpenseItems(userId);
 
-    final expRes = await pullExpenses(userId);
-    failures += expRes.failures;
-    maxUpdatedAt = _maxStr(maxUpdatedAt, expRes.maxUpdatedAt);
+  final expRes = await pullExpenses(userId);
+  failures += expRes.failures;
+  maxUpdatedAt = _maxStr(maxUpdatedAt, expRes.maxUpdatedAt);
+  if (expRes.failures == 0) await _cleanupOrphanExpenses(userId);
 
-    return (failures: failures, maxUpdatedAt: maxUpdatedAt);
-  }
+  return (failures: failures, maxUpdatedAt: maxUpdatedAt);
+}
 
   String? _maxStr(String? current, String? incoming) {
     if (incoming == null) return current;
     if (current == null) return incoming;
     return incoming.compareTo(current) > 0 ? incoming : current;
   }
+
+  Future<void> _cleanupOrphanExpenseCategories(String userId) async {
+  try {
+    final serverIds = <int>[];
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('expense_categories')
+          .select('id')
+          .eq('user_id', userId)
+          .order('id', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list = response as List;
+      serverIds.addAll(list.map((e) => (e['id'] as num).toInt()));
+      if (list.length < pageSize) break;
+      offset += pageSize;
+    }
+    await _localDb.markMissingExpenseCategoriesAsDeleted(serverIds);
+  } catch (e) {
+    debugPrint('Cleanup orphan expense categories failed: $e');
+  }
+}
+
+Future<void> _cleanupOrphanExpenseItems(String userId) async {
+  try {
+    final serverIds = <int>[];
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('expense_items')
+          .select('id')
+          .eq('user_id', userId)
+          .order('id', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list = response as List;
+      serverIds.addAll(list.map((e) => (e['id'] as num).toInt()));
+      if (list.length < pageSize) break;
+      offset += pageSize;
+    }
+    await _localDb.markMissingExpenseItemsAsDeleted(serverIds);
+  } catch (e) {
+    debugPrint('Cleanup orphan expense items failed: $e');
+  }
+}
+
+Future<void> _cleanupOrphanExpenses(String userId) async {
+  try {
+    final serverIds = <int>[];
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('expenses')
+          .select('id')
+          .eq('user_id', userId)
+          .order('id', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list = response as List;
+      serverIds.addAll(list.map((e) => (e['id'] as num).toInt()));
+      if (list.length < pageSize) break;
+      offset += pageSize;
+    }
+    await _localDb.markMissingExpensesAsDeleted(serverIds);
+  } catch (e) {
+    debugPrint('Cleanup orphan expenses failed: $e');
+  }
+}
 
   Future<({int failures, String? maxUpdatedAt})> pullCategories(String userId) async {
     try {

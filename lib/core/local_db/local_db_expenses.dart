@@ -111,4 +111,24 @@ mixin LocalDbExpenses {
         conflictAlgorithm: ConflictAlgorithm.replace);
     if (!skipSync) await WriteNotifier.notify();
   }
+
+  Future<void> markMissingExpensesAsDeleted(List<int> serverIds) async {
+  final db = await database;
+  final localActive = await db.query('expenses', columns: ['id'], where: 'is_synced = 1 AND is_deleted = 0');
+  final serverSet = serverIds.toSet();
+  final toDelete = <int>[];
+  for (final row in localActive) {
+    final id = row['id'] as int;
+    if (!serverSet.contains(id)) {
+      toDelete.add(id);
+    }
+  }
+  if (toDelete.isEmpty) return;
+  
+  final batch = db.batch();
+  for (final id in toDelete) {
+    batch.update('expenses', {'is_deleted': 1}, where: 'id = ?', whereArgs: [id]);
+  }
+  await batch.commit(noResult: true);
+  }
 }

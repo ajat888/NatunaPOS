@@ -8,33 +8,81 @@ class _SyncPuller {
       : _client = r.client,
         _localDb = r.localDb;
 
-  Future<({int failures, String? maxUpdatedAt})> pullAll() async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return (failures: 0, maxUpdatedAt: null);
+Future<({int failures, String? maxUpdatedAt})> pullAll() async {
+  final userId = _client.auth.currentUser?.id;
+  if (userId == null) return (failures: 0, maxUpdatedAt: null);
 
-    int failures = 0;
-    String? maxUpdatedAt;
+  int failures = 0;
+  String? maxUpdatedAt;
 
-    final catRes = await _pullCategories(userId);
-    failures += catRes.failures;
-    maxUpdatedAt = _maxStr(maxUpdatedAt, catRes.maxUpdatedAt);
+  final catRes = await _pullCategories(userId);
+  failures += catRes.failures;
+  maxUpdatedAt = _maxStr(maxUpdatedAt, catRes.maxUpdatedAt);
+  if (catRes.failures == 0) await _cleanupOrphanCategories(userId);
 
-    final prodRes = await _pullProducts(userId);
-    failures += prodRes.failures;
-    maxUpdatedAt = _maxStr(maxUpdatedAt, prodRes.maxUpdatedAt);
+  final prodRes = await _pullProducts(userId);
+  failures += prodRes.failures;
+  maxUpdatedAt = _maxStr(maxUpdatedAt, prodRes.maxUpdatedAt);
+  if (prodRes.failures == 0) await _cleanupOrphanProducts(userId);
 
-    final txRes = await _pullTransactions(userId);
-    failures += txRes.failures;
-    maxUpdatedAt = _maxStr(maxUpdatedAt, txRes.maxUpdatedAt);
+  final txRes = await _pullTransactions(userId);
+  failures += txRes.failures;
+  maxUpdatedAt = _maxStr(maxUpdatedAt, txRes.maxUpdatedAt);
 
-    return (failures: failures, maxUpdatedAt: maxUpdatedAt);
-  }
+  return (failures: failures, maxUpdatedAt: maxUpdatedAt);
+}
 
   String? _maxStr(String? current, String? incoming) {
     if (incoming == null) return current;
     if (current == null) return incoming;
     return incoming.compareTo(current) > 0 ? incoming : current;
   }
+
+  Future<void> _cleanupOrphanCategories(String userId) async {
+  try {
+    final serverIds = <int>[];
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('categories')
+          .select('id')
+          .eq('user_id', userId)
+          .order('id', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list = response as List;
+      serverIds.addAll(list.map((e) => (e['id'] as num).toInt()));
+      if (list.length < pageSize) break;
+      offset += pageSize;
+    }
+    await _localDb.markMissingCategoriesAsDeleted(serverIds);
+  } catch (e) {
+    debugPrint('Cleanup orphan categories failed: $e');
+  }
+}
+
+Future<void> _cleanupOrphanProducts(String userId) async {
+  try {
+    final serverIds = <int>[];
+    int offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      final response = await _client
+          .from('products')
+          .select('id')
+          .eq('user_id', userId)
+          .order('id', ascending: true)
+          .range(offset, offset + pageSize - 1);
+      final list = response as List;
+      serverIds.addAll(list.map((e) => (e['id'] as num).toInt()));
+      if (list.length < pageSize) break;
+      offset += pageSize;
+    }
+    await _localDb.markMissingProductsAsDeleted(serverIds);
+  } catch (e) {
+    debugPrint('Cleanup orphan products failed: $e');
+  }
+}
 
   Future<({int failures, String? maxUpdatedAt})> _pullCategories(String userId) async {
     try {
