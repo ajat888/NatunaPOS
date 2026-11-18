@@ -23,6 +23,7 @@ class AppSettings {
   static const String _kTableCount = 'natunapos_table_count';
   static const String _kPosCategoryOrder = 'natunapos_pos_category_order';
   static const String _kLastPullTime = 'natunapos_last_pull_time';
+  static const String _kLastCleanupTime = 'natunapos_last_cleanup_time';
 
   final ValueNotifier<String> storeName = ValueNotifier('');
   final ValueNotifier<String> storeSubtitle = ValueNotifier('');
@@ -41,12 +42,14 @@ class AppSettings {
   bool _isLogoDirty = false;
   int _updatedAtMs = 0;
   String _lastPullTime = '1970-01-01T00:00:00Z';
+  String _lastCleanupTime = '1970-01-01T00:00:00Z';
 
   String? get logoUrl => _logoUrl;
   bool get isDirty => _isDirty;
   bool get isLogoDirty => _isLogoDirty;
   int get updatedAtMs => _updatedAtMs;
   String get lastPullTime => _lastPullTime;
+  String get lastCleanupTime => _lastCleanupTime;
 
   Future<void> load() async {
     try {
@@ -65,6 +68,7 @@ class AppSettings {
       _isLogoDirty = prefs.getBool(_kLogoDirty) ?? false;
       _updatedAtMs = prefs.getInt(_kSettingsUpdatedAtMs) ?? 0;
       _lastPullTime = prefs.getString(_kLastPullTime) ?? '1970-01-01T00:00:00Z';
+      _lastCleanupTime = prefs.getString(_kLastCleanupTime) ?? '1970-01-01T00:00:00Z';
       
       final loaded = prefs.getInt(_kTableCount) ?? 20;
       tableCount.value = loaded.clamp(1, 200);
@@ -96,6 +100,12 @@ class AppSettings {
   _lastPullTime = time;
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString(_kLastPullTime, time);
+}
+
+  Future<void> setLastCleanupTime(String time) async {
+  _lastCleanupTime = time;
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_kLastCleanupTime, time);
 }
 
   Future<void> saveStoreInfo({

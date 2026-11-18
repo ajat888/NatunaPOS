@@ -15,19 +15,26 @@ Future<({int failures, String? maxUpdatedAt})> pullAll() async {
   int failures = 0;
   String? maxUpdatedAt;
 
+  final lastCleanup = DateTime.tryParse(AppSettings.instance.lastCleanupTime) ?? DateTime(1970);
+  final needCleanup = DateTime.now().difference(lastCleanup).inHours >= 24;
+
   final catRes = await _pullCategories(userId);
   failures += catRes.failures;
   maxUpdatedAt = _maxStr(maxUpdatedAt, catRes.maxUpdatedAt);
-  if (catRes.failures == 0) await _cleanupOrphanCategories(userId);
+  if (catRes.failures == 0 && needCleanup) await _cleanupOrphanCategories(userId);
 
   final prodRes = await _pullProducts(userId);
   failures += prodRes.failures;
   maxUpdatedAt = _maxStr(maxUpdatedAt, prodRes.maxUpdatedAt);
-  if (prodRes.failures == 0) await _cleanupOrphanProducts(userId);
+  if (prodRes.failures == 0 && needCleanup) await _cleanupOrphanProducts(userId);
 
   final txRes = await _pullTransactions(userId);
   failures += txRes.failures;
   maxUpdatedAt = _maxStr(maxUpdatedAt, txRes.maxUpdatedAt);
+
+  if (failures == 0 && needCleanup) {
+    await AppSettings.instance.setLastCleanupTime(DateTime.now().toUtc().toIso8601String());
+  }
 
   return (failures: failures, maxUpdatedAt: maxUpdatedAt);
 }

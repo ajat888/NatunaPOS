@@ -15,20 +15,27 @@ Future<({int failures, String? maxUpdatedAt})> pullAll() async {
   int failures = 0;
   String? maxUpdatedAt;
 
+  final lastCleanup = DateTime.tryParse(AppSettings.instance.lastCleanupTime) ?? DateTime(1970);
+  final needCleanup = DateTime.now().difference(lastCleanup).inHours >= 24;
+
   final catRes = await pullCategories(userId);
   failures += catRes.failures;
   maxUpdatedAt = _maxStr(maxUpdatedAt, catRes.maxUpdatedAt);
-  if (catRes.failures == 0) await _cleanupOrphanExpenseCategories(userId);
+  if (catRes.failures == 0 && needCleanup) await _cleanupOrphanExpenseCategories(userId);
 
   final itemRes = await pullItems(userId);
   failures += itemRes.failures;
   maxUpdatedAt = _maxStr(maxUpdatedAt, itemRes.maxUpdatedAt);
-  if (itemRes.failures == 0) await _cleanupOrphanExpenseItems(userId);
+  if (itemRes.failures == 0 && needCleanup) await _cleanupOrphanExpenseItems(userId);
 
   final expRes = await pullExpenses(userId);
   failures += expRes.failures;
   maxUpdatedAt = _maxStr(maxUpdatedAt, expRes.maxUpdatedAt);
-  if (expRes.failures == 0) await _cleanupOrphanExpenses(userId);
+  if (expRes.failures == 0 && needCleanup) await _cleanupOrphanExpenses(userId);
+
+  if (failures == 0 && needCleanup) {
+    await AppSettings.instance.setLastCleanupTime(DateTime.now().toUtc().toIso8601String());
+  }
 
   return (failures: failures, maxUpdatedAt: maxUpdatedAt);
 }

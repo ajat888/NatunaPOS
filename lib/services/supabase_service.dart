@@ -148,18 +148,11 @@ if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
     }
   }
 
-  Future<void> logout({bool force = false}) async {
+Future<void> logout({bool force = false}) async {
   AutoSyncScheduler.instance.stop();
   await PinService.instance.lock();
 
-    if (!force) {
-      if (_client.auth.currentSession != null) {
-      try {
-        await syncData();
-      } catch (e) {
-        debugPrint('Pre-logout sync failed: $e');
-      }
-    }
+  if (!force) {
     final pending = await _localDb.countPendingSync();
     if (pending > 0) {
       AutoSyncScheduler.instance.start();
@@ -215,38 +208,33 @@ if (onlineErr is AuthApiException && onlineErr.statusCode == '400') {
     }
   }
 
-  Future<AutoLoginOutcome> tryAutoLoginAndSync() async {
-    if (!isOfflineSession) {
-      if (_client.auth.currentSession != null) {
-        await syncData();
-        return AutoLoginOutcome.success;
-      }
-      return AutoLoginOutcome.notApplicable;
-    }
-    final email = _cachedOfflineEmail;
-    if (email == null) return AutoLoginOutcome.notApplicable;
-    final password = await _secureStorage.read(key: _kSecurePasswordKey);
-    if (password == null) return AutoLoginOutcome.missingCredentials;
-    try {
-      await _client.auth.signInWithPassword(email: email, password: password);
-      await _setOfflineSession(null);
-      await syncData();
-      return AutoLoginOutcome.success;
-    } on AuthException catch (e) {
-      final msg = e.message.toLowerCase();
-      final isNetwork = msg.contains('network') ||
-          msg.contains('connection') ||
-          msg.contains('socket') ||
-          msg.contains('timeout') ||
-          msg.contains('host lookup') ||
-          msg.contains('failed');
-      if (isNetwork) return AutoLoginOutcome.offlineError;
-      return AutoLoginOutcome.authRejected;
-    } catch (e) {
-      debugPrint('Auto-login failed: $e');
-      return AutoLoginOutcome.offlineError;
-    }
+Future<AutoLoginOutcome> tryAutoLoginAndSync() async {
+  if (!isOfflineSession) {
+    return AutoLoginOutcome.notApplicable;
   }
+  final email = _cachedOfflineEmail;
+  if (email == null) return AutoLoginOutcome.notApplicable;
+  final password = await _secureStorage.read(key: _kSecurePasswordKey);
+  if (password == null) return AutoLoginOutcome.missingCredentials;
+  try {
+    await _client.auth.signInWithPassword(email: email, password: password);
+    await _setOfflineSession(null);
+    return AutoLoginOutcome.success;
+  } on AuthException catch (e) {
+    final msg = e.message.toLowerCase();
+    final isNetwork = msg.contains('network') ||
+        msg.contains('connection') ||
+        msg.contains('socket') ||
+        msg.contains('timeout') ||
+        msg.contains('host lookup') ||
+        msg.contains('failed');
+    if (isNetwork) return AutoLoginOutcome.offlineError;
+    return AutoLoginOutcome.authRejected;
+  } catch (e) {
+    debugPrint('Auto-login failed: $e');
+    return AutoLoginOutcome.offlineError;
+  }
+}
 
   Future<void> syncData() async {
   if (_client.auth.currentSession == null) {
