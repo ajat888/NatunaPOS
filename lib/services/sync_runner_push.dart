@@ -30,9 +30,6 @@ class _SyncPusher {
       e.code == '23503' ||
       e.message.toLowerCase().contains('foreign key');
 
-  bool _isColumnError(PostgrestException e) =>
-      e.code == '42703' || e.message.toLowerCase().contains('column');
-
   Future<int> _pushDeletedCategories() async {
     int failures = 0;
     final deleted = await _localDb.getDeletedCategories();
@@ -490,14 +487,8 @@ if (tx.isVoided) {
           }).eq('id', tx.id);
           await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
         } on PostgrestException catch (e) {
-          if (_isColumnError(e)) {
-            debugPrint(
-                'Void columns missing on server; mark synced locally for tx ${tx.id}');
-            await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
-          } else {
-            debugPrint('Push void tx ${tx.id} failed: $e');
-            failures++;
-          }
+          debugPrint('Push void tx ${tx.id} failed: $e');
+          failures++;=
         }
       } catch (e) {
         debugPrint('Push void tx ${tx.id} failed: $e');

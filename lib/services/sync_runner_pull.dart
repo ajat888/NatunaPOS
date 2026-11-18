@@ -226,38 +226,15 @@ Future<void> _cleanupOrphanProducts(String userId) async {
       String? maxUpdatedAt;
 
       while (true) {
-        List<dynamic> list = const [];
-        const queries = [
-          'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, updated_at, transaction_items(product_id, product_name, price, hpp, qty)',
-          'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, updated_at, transaction_items(product_id, product_name, price, hpp, qty)',
-          'id, total, created_at_local, cash_received, change_amount, table_number, order_type, updated_at, transaction_items(product_id, product_name, price, hpp, qty)',
-          'id, total, created_at_local, updated_at, transaction_items(product_id, product_name, price, hpp, qty)'
-        ];
-        bool fetched = false;
-        PostgrestException? lastError;
-
-        for (final q in queries) {
-          try {
-            final response = await _client
-                .from('transactions')
-                .select(q)
-                .eq('user_id', userId)
-                .gt('updated_at', lastPull)
-                .order('updated_at', ascending: true)
-                .range(offset, offset + pageSize - 1);
-            list = response as List;
-            fetched = true;
-            break;
-          } on PostgrestException catch (e) {
-            lastError = e;
-            final isColumnErr = e.code == '42703' ||
-                e.code == 'PGRST204' ||
-                e.message.toLowerCase().contains('column');
-            if (!isColumnErr) rethrow;
-          }
-        }
-
-        if (!fetched && lastError != null) throw lastError;
+const query = 'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, updated_at, transaction_items(product_id, product_name, price, hpp, qty)';
+        final response = await _client
+            .from('transactions')
+            .select(query)
+            .eq('user_id', userId)
+            .gt('updated_at', lastPull)
+            .order('updated_at', ascending: true)
+            .range(offset, offset + pageSize - 1);
+        final List<dynamic> list = response as List;
 
         if (list.isEmpty) break;
         final ids = list.map((e) => ((e as Map)['id'] as num).toInt()).toList();
