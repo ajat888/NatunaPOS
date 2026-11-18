@@ -97,9 +97,13 @@ class AutoSyncScheduler {
 }
 
   Future<void> _runSync() async {
-    if (!_started) return;
+    if (!_started) {
+      SyncStatusService.instance.markFailed('Scheduler belum aktif (started=false)');
+      return;
+    }
     if (_inFlight) {
       _queuedAgain = true;
+      SyncStatusService.instance.markFailed('Sync sebelumnya masih berjalan (antre)');
       return;
     }
     _inFlight = true;

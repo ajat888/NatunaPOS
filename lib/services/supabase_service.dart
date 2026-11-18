@@ -248,11 +248,8 @@ Future<AutoLoginOutcome> tryAutoLoginAndSync() async {
 
   Future<void> syncData() async {
   if (_client.auth.currentSession == null) {
-    await SyncStatusService.instance.refreshPendingCount();
-    if (SyncStatusService.instance.pendingCount.value > 0) {
-      SyncStatusService.instance.markFailed(
-          'Sesi tidak aktif. Silakan login untuk sinkronisasi.');
-    }
+    SyncStatusService.instance.markFailed(
+        'Sesi tidak aktif (currentSession null). Silakan login ulang.');
     return;
   }
   final existing = _activeSync;
