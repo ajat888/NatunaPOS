@@ -113,37 +113,34 @@ class AutoSyncScheduler {
       final service = SupabaseService();
       if (!service.isLoggedIn) return;
 
-  if (service.isOfflineSession) {
-  final result = await service.tryAutoLoginAndSync();
-  if (result == AutoLoginOutcome.authRejected ||
-      result == AutoLoginOutcome.missingCredentials) {
-    _notifyAuthFailureOnce();
-    SyncStatusService.instance.markFailed(
-        'Sesi offline tidak dapat dipulihkan. Silakan login ulang.');
-    stopRetry = true;
-    return;
-  }
-  if (result == AutoLoginOutcome.offlineError) {
-    SyncStatusService.instance
-        .markFailed('Tidak dapat terhubung ke server.');
-    _retryAttempt++;
-    return;
-  }
-  if (result == AutoLoginOutcome.notApplicable) {
-    SyncStatusService.instance
-        .markFailed('Sesi tidak valid. Silakan login ulang.');
-    stopRetry = true;
-    return;
-  }
-  
-  await service.syncData();
-  if (SyncStatusService.instance.state.value == SyncState.failed) {
-    _retryAttempt++;
-  } else {
-    _retryAttempt = 0;
-  }
-  return;
-}
+      if (service.isOfflineSession) {
+        final result = await service.tryAutoLoginAndSync();
+        if (result == AutoLoginOutcome.authRejected ||
+            result == AutoLoginOutcome.missingCredentials) {
+          _notifyAuthFailureOnce();
+          SyncStatusService.instance.markFailed(
+              'Sesi offline tidak dapat dipulihkan. Silakan login ulang.');
+          stopRetry = true;
+          return;
+        }
+        if (result == AutoLoginOutcome.offlineError) {
+          SyncStatusService.instance.markFailed('Tidak dapat terhubung ke server.');
+          _retryAttempt++;
+          return;
+        }
+        if (result == AutoLoginOutcome.notApplicable) {
+          SyncStatusService.instance.markFailed('Sesi tidak valid. Silakan login ulang.');
+          stopRetry = true;
+          return;
+        }
+      }
+
+      await service.syncData();
+      if (SyncStatusService.instance.state.value == SyncState.failed) {
+        _retryAttempt++;
+      } else {
+        _retryAttempt = 0;
+      }
     } catch (e) {
       debugPrint('AutoSyncScheduler run failed: $e');
       SyncStatusService.instance
