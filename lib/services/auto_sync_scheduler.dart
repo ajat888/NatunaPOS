@@ -19,6 +19,8 @@ class AutoSyncScheduler {
 
   bool _started = false;
   bool _inFlight = false;
+  String get debugState =>
+      'started=$_started inFlight=$_inFlight queued=$_queuedAgain';
   bool _queuedAgain = false;
   bool _authFailureNotified = false;
 

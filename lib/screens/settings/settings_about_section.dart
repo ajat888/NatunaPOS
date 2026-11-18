@@ -176,6 +176,8 @@ Widget build(BuildContext context) {
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
             _infoTile('Sesi Login', SupabaseService().debugSessionInfo()),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            _infoTile('Status Scheduler', AutoSyncScheduler.instance.debugState),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
             _infoTile(
                 'Error Sync Terakhir',
                 SyncStatusService.instance.lastErrorMessage ?? '-'),

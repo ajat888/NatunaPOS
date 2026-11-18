@@ -1,5 +1,6 @@
 import '../core/file_utils.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -277,7 +278,11 @@ Future<void> _performSync() async {
       client: _client,
       localDb: _localDb,
       rng: _rng,
-    ).run();
+    ).run().timeout(
+      const Duration(minutes: 3),
+      onTimeout: () =>
+          throw TimeoutException('Sinkronisasi melewati batas waktu 3 menit'),
+    );
     if (failures > 0) {
       SyncStatusService.instance.markFailed(
           'Sinkronisasi gagal ($failures operasi). Akan dicoba lagi otomatis.');
