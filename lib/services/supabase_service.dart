@@ -56,6 +56,15 @@ class SupabaseService {
   factory SupabaseService() => _instance;
 
   SupabaseClient get _client => Supabase.instance.client;
+  String debugSessionInfo() {
+    try {
+      final s = _client.auth.currentSession;
+      if (s == null) return 'Tidak ada sesi';
+      return s.user.email ?? s.user.id;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
   final LocalDb _localDb = LocalDb.instance;
   static Future<void>? _activeSync;
   static final Random _rng = Random();

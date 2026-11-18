@@ -174,6 +174,12 @@ Widget build(BuildContext context) {
               },
             ),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            _infoTile('Sesi Login', SupabaseService().debugSessionInfo()),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            _infoTile(
+                'Error Sync Terakhir',
+                SyncStatusService.instance.lastErrorMessage ?? '-'),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
             _actionTile(
               icon: Icons.sync,
               label: 'Sinkron Sekarang',
