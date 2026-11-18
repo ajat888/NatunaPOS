@@ -1,6 +1,5 @@
 import '../core/file_utils.dart';
 import 'dart:convert';
-import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -271,26 +270,34 @@ Future<AutoLoginOutcome> tryAutoLoginAndSync() async {
 
 Future<void> _performSync() async {
   SyncStatusService.instance.markSyncing();
-  try {
-    final failures = await SyncRunner(
-      client: _client,
-      localDb: _localDb,
-      rng: _rng,
-    ).run().timeout(
-      const Duration(minutes: 3),
-      onTimeout: () =>
-          throw TimeoutException('Sinkronisasi melewati batas waktu 3 menit'),
-    );
-    if (failures > 0) {
-      SyncStatusService.instance.markFailed(
-          'Sinkronisasi gagal ($failures operasi). Akan dicoba lagi otomatis.');
-    } else {
-      await SyncStatusService.instance.markSynced();
-    }
-  } catch (e) {
-    debugPrint('syncData unexpected error: $e');
-    SyncStatusService.instance
-        .markFailed('Sinkronisasi gagal: ${e.toString()}');
+  int? failures;
+  Object? error;
+  final done = SyncRunner(
+    client: _client,
+    localDb: _localDb,
+    rng: _rng,
+  ).run().then<void>((v) {
+    failures = v;
+  }).catchError((Object e) {
+    error = e;
+  });
+
+  await Future.any([done, Future<void>.delayed(const Duration(minutes: 3))]);
+  if (failures == null && error == null) {
+    // Batas 3 menit hanya mengubah pesan. Guard tetap dipegang sampai run selesai.
+    SyncStatusService.instance.markFailed(
+        'Sinkronisasi lebih dari 3 menit dan masih berjalan. Tunggu sebentar.');
+    await done;
+  }
+
+  if (error != null) {
+    debugPrint('syncData unexpected error: $error');
+    SyncStatusService.instance.markFailed('Sinkronisasi gagal: $error');
+  } else if ((failures ?? 0) > 0) {
+    SyncStatusService.instance.markFailed(
+        'Sinkronisasi gagal (${failures ?? 0} operasi). Akan dicoba lagi otomatis.');
+  } else {
+    await SyncStatusService.instance.markSynced();
   }
 }
 

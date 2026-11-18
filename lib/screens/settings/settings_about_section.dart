@@ -56,30 +56,33 @@ class _AboutSectionState extends State<_AboutSection> {
 Future<void> _syncNow() async {
   setState(() => _busySync = true);
   try {
+    final before = SyncStatusService.instance.lastSyncedAt;
     await AutoSyncScheduler.instance.triggerNow();
     if (!mounted) return;
-    final pending = SyncStatusService.instance.pendingCount.value;
+    final after = SyncStatusService.instance.lastSyncedAt;
     final failed =
         SyncStatusService.instance.state.value == SyncState.failed;
+    final pending = SyncStatusService.instance.pendingCount.value;
+    final synced = after != null && after != before;
     final msg = failed
-        ? 'Sinkronisasi gagal. Coba lagi nanti.'
-        : pending > 0
-            ? 'Tersisa $pending perubahan menunggu.'
-            : 'Sinkronisasi selesai.';
+        ? (SyncStatusService.instance.lastErrorMessage ??
+            'Sinkronisasi gagal. Coba lagi nanti.')
+        : !synced
+            ? 'Sinkron belum selesai. Tunggu sebentar, lalu cek Sinkron Terakhir.'
+            : pending > 0
+                ? 'Tersisa $pending perubahan menunggu.'
+                : 'Sinkronisasi selesai.';
+    final Color bg = failed
+        ? AppTheme.dangerColor
+        : (synced && pending == 0 ? Colors.green : Colors.orange);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: failed ? AppTheme.dangerColor : Colors.green,
-      ),
+      SnackBar(content: Text(msg), backgroundColor: bg),
     );
   } catch (e) {
     debugPrint('Manual sync failed: $e');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sinkronisasi gagal.'),
-        backgroundColor: AppTheme.dangerColor,
-      ),
+      SnackBar(content: Text('Sinkronisasi gagal: $e')),
     );
   } finally {
     if (mounted) setState(() => _busySync = false);
