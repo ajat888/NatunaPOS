@@ -63,7 +63,7 @@ Future<void> _syncNow() async {
     final failed =
         SyncStatusService.instance.state.value == SyncState.failed;
     final pending = SyncStatusService.instance.pendingCount.value;
-    final synced = after != null && after != before;
+    final synced = after != before;
     final msg = failed
         ? (SyncStatusService.instance.lastErrorMessage ??
             'Sinkronisasi gagal. Coba lagi nanti.')
