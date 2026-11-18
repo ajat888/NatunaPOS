@@ -488,7 +488,7 @@ if (tx.isVoided) {
           await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
         } on PostgrestException catch (e) {
           debugPrint('Push void tx ${tx.id} failed: $e');
-          failures++;=
+          failures++;
         }
       } catch (e) {
         debugPrint('Push void tx ${tx.id} failed: $e');
