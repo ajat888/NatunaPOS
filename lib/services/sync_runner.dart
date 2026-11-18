@@ -48,33 +48,40 @@ Future<int> run() async {
 
   if (failures > 0) return failures;
 
-  final pullRes = await _SyncPuller(this).pullAll();
-  failures += pullRes.failures;
-  if (failures > 0) return failures;
-  
-  final openPullRes = await openOrderSync.pull();
-  failures += openPullRes.failures;
-  
-  final expPullRes = await _SyncExpensesPuller(this).pullAll();
-  failures += expPullRes.failures;
-  if (failures > 0) return failures;
-  
-  final closingRes = await _SyncClosings(this).sync();
-  failures += closingRes.failures;
-  
-  failures += await _SyncSettings(this).sync();
+  int pullFailures = 0;
 
-  if (failures == 0) {
+  final pullRes = await _SyncPuller(this).pullAll();
+  pullFailures += pullRes.failures;
+
+  final openPullRes = await openOrderSync.pull();
+  pullFailures += openPullRes.failures;
+
+  final expPullRes = await _SyncExpensesPuller(this).pullAll();
+  pullFailures += expPullRes.failures;
+
+  final closingRes = await _SyncClosings(this).sync();
+  pullFailures += closingRes.failures;
+
+  final settingsFailures = await _SyncSettings(this).sync();
+  pullFailures += settingsFailures;
+
+  if (pullFailures == 0) {
     String? maxUpdatedAt = pullRes.maxUpdatedAt;
     
     if (openPullRes.maxUpdatedAt != null) {
-      if (maxUpdatedAt == null || openPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) maxUpdatedAt = openPullRes.maxUpdatedAt;
+      if (maxUpdatedAt == null || openPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
+        maxUpdatedAt = openPullRes.maxUpdatedAt;
+      }
     }
     if (expPullRes.maxUpdatedAt != null) {
-      if (maxUpdatedAt == null || expPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) maxUpdatedAt = expPullRes.maxUpdatedAt;
+      if (maxUpdatedAt == null || expPullRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
+        maxUpdatedAt = expPullRes.maxUpdatedAt;
+      }
     }
     if (closingRes.maxUpdatedAt != null) {
-      if (maxUpdatedAt == null || closingRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) maxUpdatedAt = closingRes.maxUpdatedAt;
+      if (maxUpdatedAt == null || closingRes.maxUpdatedAt!.compareTo(maxUpdatedAt) > 0) {
+        maxUpdatedAt = closingRes.maxUpdatedAt;
+      }
     }
 
     if (maxUpdatedAt != null) {
@@ -82,6 +89,6 @@ Future<int> run() async {
     }
   }
 
-  return failures;
-  }
+  return pullFailures;
+}
 }
