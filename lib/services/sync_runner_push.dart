@@ -81,13 +81,11 @@ class _SyncPusher {
         if (c.id < 0) {
           int? existingId;
           try {
-          final probe = await _client
-                .from('products')
+            final probe = await _client
+                .from('categories')
                 .select('id')
                 .eq('user_id', userId)
-                .eq('name', p.name)
-                .eq('price', p.price)
-                .eq('is_active', true)
+                .eq('name', c.name)
                 .limit(1);
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
@@ -236,6 +234,7 @@ class _SyncPusher {
                 .from('products')
                 .select('id')
                 .eq('user_id', userId)
+                .eq('name', p.name)
                 .eq('price', p.price)
                 .eq('is_active', true)
                 .limit(1);
