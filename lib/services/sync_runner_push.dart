@@ -10,20 +10,21 @@ class _SyncPusher {
         _localDb = r.localDb,
         _rng = r.rng;
 
-  Future<int> pushAll() async {
+  Future<({int blocking, int products})> pushAll() async {
     final userId = _client.auth.currentUser?.id;
-    if (userId == null) return 0;
+    if (userId == null) return (blocking: 0, products: 0);
 
     int failures = 0;
+    int productFailures = 0;
+    productFailures += await _pushDeletedProducts();
     failures += await _pushDeletedCategories();
-    failures += await _pushDeletedProducts();
     final catRes = await _pushCategories(userId);
     failures += catRes.failures;
     failures += await _remapProductCategories(catRes.categoryIdMap);
-    failures += await _pushProducts(userId, catRes.categoryIdMap);
+    productFailures += await _pushProducts(userId, catRes.categoryIdMap);
     failures += await _pushTransactions(userId);
     failures += await _pushVoidedTransactions(userId);
-    return failures;
+    return (blocking: failures, products: productFailures);
   }
 
   bool _isFkError(PostgrestException e) =>

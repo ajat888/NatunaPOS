@@ -38,7 +38,9 @@ class SyncRunner {
 Future<int> run() async {
   int failures = 0;
 
-  failures += await _SyncPusher(this).pushAll();
+  final pushRes = await _SyncPusher(this).pushAll();
+  failures += pushRes.blocking;
+  final productFailures = pushRes.products;
 
   final openOrderSync = _SyncOpenOrder(this);
   failures += await openOrderSync.pushDeletes();
@@ -46,7 +48,7 @@ Future<int> run() async {
 
   failures += await _SyncExpensesPusher(this).pushAll();
 
-  if (failures > 0) return failures;
+  if (failures > 0) return failures + productFailures;
 
   int pullFailures = 0;
 
@@ -89,6 +91,6 @@ Future<int> run() async {
     }
   }
 
-  return pullFailures;
+  return pullFailures + productFailures;
 }
 }
