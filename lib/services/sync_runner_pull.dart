@@ -45,6 +45,12 @@ Future<({int failures, String? maxUpdatedAt})> pullAll() async {
     return incoming.compareTo(current) > 0 ? incoming : current;
   }
 
+  String _pullWatermarkWithOverlap(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return parsed.toUtc().subtract(const Duration(minutes: 5)).toIso8601String();
+  }
+
   Future<void> _cleanupOrphanCategories(String userId) async {
   try {
     final serverIds = <int>[];
@@ -93,9 +99,9 @@ Future<void> _cleanupOrphanProducts(String userId) async {
 
   Future<({int failures, String? maxUpdatedAt})> _pullCategories(String userId) async {
     try {
-      final lastPull = AppSettings.instance.lastPullTime;
-      final unsynced = await _localDb.getUnsyncedCategories();
-      final unsyncedIds = unsynced.map((e) => e.id).toSet();
+      final lastPull = _pullWatermarkWithOverlap(AppSettings.instance.lastPullTime);
+      int offset = 0;
+      const pageSize = 500;
       String? maxUpdatedAt;
 
       int offset = 0;

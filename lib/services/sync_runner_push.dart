@@ -81,11 +81,13 @@ class _SyncPusher {
         if (c.id < 0) {
           int? existingId;
           try {
-            final probe = await _client
-                .from('categories')
+          final probe = await _client
+                .from('products')
                 .select('id')
                 .eq('user_id', userId)
-                .eq('name', c.name)
+                .eq('name', p.name)
+                .eq('price', p.price)
+                .eq('is_active', true)
                 .limit(1);
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
@@ -229,18 +231,17 @@ class _SyncPusher {
 
         if (p.id < 0) {
           int? existingId;
-          try {
+          final clientUuid = p.clientUuid;
+          if (clientUuid != null) {
             final probe = await _client
                 .from('products')
                 .select('id')
                 .eq('user_id', userId)
-                .eq('client_uuid', p.clientUuid ?? '')
+                .eq('client_uuid', clientUuid)
                 .limit(1);
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
             }
-          } catch (e) {
-            debugPrint('Product idempotency probe failed: $e');
           }
 
           int newId;
@@ -273,7 +274,6 @@ class _SyncPusher {
               'category_id': finalCategoryId,
               'image_url': finalImageUrl,
               'is_active': true,
-              'client_uuid': p.clientUuid,
             };
             final response = await _sendProductInsert(userId, payload);
             newId = (response['id'] as num).toInt();
@@ -389,22 +389,18 @@ if (tx.isVoided) {
 }
 
         int? existingId;
-        try {
-          final probe = await _client
-              .from('transactions')
-              .select('id, total')
-              .eq('user_id', userId)
-              .eq('created_at_local', localCreatedMs)
-              .limit(5);
-          final matches = (probe as List).where((e) {
-            final t = ((e as Map)['total'] as num?)?.toInt();
-            return t == tx.total;
-          }).toList();
-          if (matches.isNotEmpty) {
-            existingId = ((matches.first as Map)['id'] as num).toInt();
-          }
-        } catch (e) {
-          debugPrint('Idempotency probe failed for tx ${tx.id}: $e');
+        final probe = await _client
+            .from('transactions')
+            .select('id, total')
+            .eq('user_id', userId)
+            .eq('created_at_local', localCreatedMs)
+            .limit(5);
+        final matches = (probe as List).where((e) {
+          final t = ((e as Map)['total'] as num?)?.toInt();
+          return t == tx.total;
+        }).toList();
+        if (matches.isNotEmpty) {
+          existingId = ((matches.first as Map)['id'] as num).toInt();
         }
 
         int serverTxId;
