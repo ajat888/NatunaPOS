@@ -65,9 +65,13 @@ class AutoSyncScheduler {
   _retryTimer?.cancel();
 
   if (_retryAttempt >= _maxRetryAttempts) {
-    debugPrint('AutoSyncScheduler: Batas maksimal retry ($_maxRetryAttempts) tercapai. Auto-retry dihentikan.');
+    debugPrint('AutoSyncScheduler: Batas maksimal retry ($_maxRetryAttempts) tercapai. Jeda ${_maxRetryInterval.inMinutes} menit.');
     SyncStatusService.instance.markFailed(
         'Sinkronisasi gagal berulang kali. Silakan periksa koneksi atau login ulang.');
+    _retryTimer = Timer(_maxRetryInterval, () {
+      _retryAttempt = 0;
+      unawaited(_tick());
+    });
     return;
   }
   
