@@ -133,8 +133,7 @@ Future<void> _cleanupOrphanProducts(String userId) async {
   Future<({int failures, String? maxUpdatedAt})> _pullProducts(String userId) async {
     try {
       final lastPull = AppSettings.instance.lastPullTime;
-      final unsynced = await _localDb.getUnsyncedProducts();
-      final unsyncedIds = unsynced.map((e) => e.id).toSet();
+      final unsyncedIds = await _localDb.getPendingProductIds();
       String? maxUpdatedAt;
 
       int offset = 0;

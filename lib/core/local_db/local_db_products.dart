@@ -87,6 +87,12 @@ mixin LocalDbProducts {
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
+    Future<Set<int>> getPendingProductIds() async {
+    final db = await database;
+    final maps = await db.query('products', columns: ['id'], where: 'is_synced = 0');
+    return maps.map((m) => m['id'] as int).toSet();
+  }
+
   Future<List<Product>> getDeletedProducts() async {
     final db = await database;
     final maps =
