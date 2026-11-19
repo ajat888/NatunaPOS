@@ -81,13 +81,11 @@ class _SyncPusher {
         if (c.id < 0) {
           int? existingId;
           try {
-          final probe = await _client
-                .from('products')
+            final probe = await _client
+                .from('categories')
                 .select('id')
                 .eq('user_id', userId)
-                .eq('name', p.name)
-                .eq('price', p.price)
-                .eq('is_active', true)
+                .eq('name', c.name)
                 .limit(1);
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
@@ -274,105 +272,6 @@ class _SyncPusher {
               'category_id': finalCategoryId,
               'image_url': finalImageUrl,
               'is_active': true,
-            };
-            final response = await _sendProductInsert(userId, payload);
-            newId = (response['id'] as num).toInt();
-            serverProduct = Product.fromJson(response)
-                .copyWith(localImagePath: remainingLocal);
-          }
-          serverConfirmed = true;
-
-          await _localDb.transactionalReplaceProduct(
-            oldId: p.id,
-            newProduct: serverProduct,
-            newServerId: newId,
-            skipSync: true,
-          );
-        } else {
-          final payload = <String, dynamic>{
-            'name': p.name,
-            'price': p.price,
-  Future<int> _pushProducts(
-      String userId, Map<int, int> categoryIdMap) async {
-    int failures = 0;
-    final unsynced = await _localDb.getUnsyncedProducts();
-    for (final p in unsynced) {
-      String? uploadedStoragePath;
-      bool serverConfirmed = false;
-
-      try {
-        String? finalImageUrl = p.imageUrl;
-        String? remainingLocal = p.localImagePath;
-
-        if (remainingLocal != null && !File(remainingLocal).existsSync()) {
-          debugPrint(
-              'WARNING: Local image missing for product "${p.name}" (${p.id})');
-          remainingLocal = null;
-        }
-
-        if (remainingLocal != null) {
-          final fileName =
-              'product_${DateTime.now().microsecondsSinceEpoch}_${_rng.nextInt(999999)}.jpg';
-          await _client
-              .storage
-              .from('product_images')
-              .upload(fileName, File(remainingLocal));
-          uploadedStoragePath = fileName;
-          finalImageUrl =
-              _client.storage.from('product_images').getPublicUrl(fileName);
-        }
-
-        int? finalCategoryId = p.categoryId;
-        if (finalCategoryId != null &&
-            categoryIdMap.containsKey(finalCategoryId)) {
-          finalCategoryId = categoryIdMap[finalCategoryId];
-        }
-
-        if (p.id < 0) {
-          int? existingId;
-          final clientUuid = p.clientUuid;
-          if (clientUuid != null) {
-            final probe = await _client
-                .from('products')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('client_uuid', clientUuid)
-                .limit(1);
-            if ((probe as List).isNotEmpty) {
-              existingId = (probe.first['id'] as num).toInt();
-            }
-          }
-
-          int newId;
-          Product serverProduct;
-          if (existingId != null) {
-            newId = existingId;
-            await _sendProductUpdate(newId, <String, dynamic>{
-              'name': p.name,
-              'price': p.price,
-              'hpp': p.hpp,
-              'category_id': finalCategoryId,
-              'image_url': finalImageUrl,
-              'is_active': true,
-            });
-            serverProduct = Product(
-              id: newId,
-              name: p.name,
-              price: p.price,
-              hpp: p.hpp,
-              categoryId: finalCategoryId,
-              imageUrl: finalImageUrl,
-              localImagePath: remainingLocal,
-              isSynced: true,
-            );
-          } else {
-            final payload = <String, dynamic>{
-              'name': p.name,
-              'price': p.price,
-              'hpp': p.hpp,
-              'category_id': finalCategoryId,
-              'image_url': finalImageUrl,
-              'is_active': true,
               'client_uuid': p.clientUuid,
             };
             final response = await _sendProductInsert(userId, payload);
@@ -429,104 +328,6 @@ class _SyncPusher {
     return failures;
   }
 
-  Future<int> _pushTransactions(String userId) async {
-    int failures = 0;
-
-    final pendingProductIds = <int>{};
-    try {
-      final unsyncedProducts = await _localDb.getUnsyncedProducts();
-      for (final p in unsyncedProducts) {
-        if (p.id < 0) pendingProductIds.add(p.id);
-      }
-    } catch (e) {
-      debugPrint('Build pending product ids failed: $e');
-    }
-
-    final unsynced = await _localDb.getUnsyncedTransactions();
-    for (final tx in unsynced) {
-      try {
-        if (tx.id >= 0) continue;
-
-        bool mustDefer = false;
-        for (final item in tx.items) {
-          if (item.productId != null &&
-              pendingProductIds.contains(item.productId)) {
-            mustDefer = true;
-            break;
-          }
-        }
-        if (mustDefer) {
-          debugPrint('Defer transaction ${tx.id}: menunggu sync produk lokal');
-          continue;
-        }
-
-        final localCreatedMs = tx.createdAt.millisecondsSinceEpoch;
-
-        final Map<String, dynamic> payload = {
-  'user_id': userId,
-  'total': tx.total,
-  'subtotal': tx.subtotal,
-  'bill_discount': tx.billDiscount,
-  'discount_type': tx.discountType,
-  'discount_value': tx.discountValue,
-  'tax_rate': tx.taxRate,
-  'tax_amount': tx.taxAmount,
-  'created_at_local': localCreatedMs,
-  'cash_received': tx.cashReceived,
-  'change_amount': tx.changeAmount,
-  'table_number': tx.tableNumber,
-  'order_type': tx.orderType,
-};
-if (tx.parentOrderKey != null) {
-  payload['parent_order_key'] = tx.parentOrderKey;
-}
-if (tx.isVoided) {
-  payload['is_voided'] = true;
-  payload['void_reason'] = tx.voidReason;
-  payload['voided_by'] = tx.voidedBy;
-  payload['voided_at'] =
-      (tx.voidedAt ?? DateTime.now()).toUtc().toIso8601String();
-}
-
-        int? existingId;
-        final probe = await _client
-            .from('transactions')
-            .select('id, total')
-            .eq('user_id', userId)
-            .eq('created_at_local', localCreatedMs)
-            .limit(5);
-        final matches = (probe as List).where((e) {
-          final t = ((e as Map)['total'] as num?)?.toInt();
-          return t == tx.total;
-        }).toList();
-        if (matches.isNotEmpty) {
-          existingId = ((matches.first as Map)['id'] as num).toInt();
-        }
-
-        int serverTxId;
-        if (existingId != null) {
-          serverTxId = existingId;
-          await _client
-              .from('transactions')
-              .update(payload)
-              .eq('id', serverTxId);
-          await _client
-              .from('transaction_items')
-              .delete()
-              .eq('transaction_id', serverTxId);
-        } else {
-          final response = await _client
-              .from('transactions')
-              .insert(payload)
-              .select()
-              .single();
-          serverTxId = (response['id'] as num).toInt();
-        }
-
-        for (final item in tx.items) {
-          final pushProductId =
-              (item.productId != null && item.productId! > 0)
-                  ? item.productId
   Future<int> _pushTransactions(String userId) async {
     int failures = 0;
 
