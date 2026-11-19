@@ -233,8 +233,8 @@ class _SyncPusher {
                 .from('products')
                 .select('id')
                 .eq('user_id', userId)
-                .eq('name', p.name)
                 .eq('price', p.price)
+                .eq('is_active', true)
                 .limit(1);
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
@@ -247,6 +247,14 @@ class _SyncPusher {
           Product serverProduct;
           if (existingId != null) {
             newId = existingId;
+            await _sendProductUpdate(newId, <String, dynamic>{
+              'name': p.name,
+              'price': p.price,
+              'hpp': p.hpp,
+              'category_id': finalCategoryId,
+              'image_url': finalImageUrl,
+              'is_active': true,
+            });
             serverProduct = Product(
               id: newId,
               name: p.name,
@@ -314,16 +322,7 @@ class _SyncPusher {
             debugPrint('Failed to cleanup orphan upload: $cleanupErr');
           }
         }
-
-        if (e is PostgrestException) {
-          if (e.code == '23505' || e.code == '23502') {
-            await _localDb.markProductSynced(p.id, skipSync: true);
-          } else {
-            failures++;
-          }
-        } else {
-          failures++;
-        }
+        failures++;
       }
     }
     return failures;
