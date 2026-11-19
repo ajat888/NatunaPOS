@@ -1,4 +1,6 @@
 // lib/models/product.dart
+import 'dart:math';
+
 class Product {
   final int id;
   final String name;
@@ -9,6 +11,7 @@ class Product {
   final String? localImagePath;
   final bool isSynced;
   final bool isDeleted;
+  final String? clientUuid;
 
   Product({
     required this.id,
@@ -20,6 +23,7 @@ class Product {
     this.localImagePath,
     this.isSynced = true,
     this.isDeleted = false,
+    this.clientUuid,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -59,6 +63,7 @@ class Product {
       localImagePath: map['local_image_path'] as String?,
       isSynced: (map['is_synced'] as int? ?? 1) == 1,
       isDeleted: (map['is_deleted'] as int? ?? 0) == 1,
+      clientUuid: map['client_uuid'] as String?,
     );
   }
 
@@ -73,7 +78,18 @@ class Product {
       'local_image_path': localImagePath,
       'is_synced': isSynced ? 1 : 0,
       'is_deleted': isDeleted ? 1 : 0,
+      'client_uuid': clientUuid,
     };
+  }
+
+  static String generateClientUuid() {
+    final rng = Random.secure();
+    final b = List<int>.generate(16, (_) => rng.nextInt(256));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
+        '${h.substring(16, 20)}-${h.substring(20)}';
   }
 
   static const Object _sentinel = Object();

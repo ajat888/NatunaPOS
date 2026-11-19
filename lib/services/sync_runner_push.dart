@@ -234,9 +234,7 @@ class _SyncPusher {
                 .from('products')
                 .select('id')
                 .eq('user_id', userId)
-                .eq('name', p.name)
-                .eq('price', p.price)
-                .eq('is_active', true)
+                .eq('client_uuid', p.clientUuid ?? '')
                 .limit(1);
             if ((probe as List).isNotEmpty) {
               existingId = (probe.first['id'] as num).toInt();
@@ -275,6 +273,7 @@ class _SyncPusher {
               'category_id': finalCategoryId,
               'image_url': finalImageUrl,
               'is_active': true,
+              'client_uuid': p.clientUuid,
             };
             final response = await _sendProductInsert(userId, payload);
             newId = (response['id'] as num).toInt();

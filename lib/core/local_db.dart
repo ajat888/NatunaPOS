@@ -43,7 +43,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 16,
+      version: 17,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -133,6 +133,9 @@ class LocalDb with
     if (oldVersion < 16) {
   await LocalDbClosings.upgradeDailyClosingsV16(db);
 }
+    if (oldVersion < 17) {
+      await LocalDbProducts.upgradeProductsV17(db);
+    }
   }
 
 Future<int> countPendingSync() async {

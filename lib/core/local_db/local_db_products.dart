@@ -17,7 +17,8 @@ mixin LocalDbProducts {
         image_url TEXT,
         local_image_path TEXT,
         is_synced INTEGER DEFAULT 1,
-        is_deleted INTEGER DEFAULT 0
+        is_deleted INTEGER DEFAULT 0,
+        client_uuid TEXT
       )
     ''');
   }
@@ -73,6 +74,19 @@ mixin LocalDbProducts {
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
+  static Future<void> upgradeProductsV17(Database db) async {
+    await db.execute('ALTER TABLE products ADD COLUMN client_uuid TEXT');
+    final pending = await db.query('products', columns: ['id'], where: 'id < 0');
+    for (final row in pending) {
+      await db.update(
+        'products',
+        {'client_uuid': Product.generateClientUuid()},
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+    }
+  }
+
   Future<List<Product>> getInactiveProducts() async {
     final db = await database;
     final maps =
@@ -87,7 +101,7 @@ mixin LocalDbProducts {
     return maps.map((m) => Product.fromDb(m)).toList();
   }
 
-    Future<Set<int>> getPendingProductIds() async {
+  Future<Set<int>> getPendingProductIds() async {
     final db = await database;
     final maps = await db.query('products', columns: ['id'], where: 'is_synced = 0');
     return maps.map((m) => m['id'] as int).toSet();

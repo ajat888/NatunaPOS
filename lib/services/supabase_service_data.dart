@@ -27,6 +27,7 @@ extension SupabaseServiceData on SupabaseService {
       categoryId: categoryId,
       localImagePath: localImagePath,
       isSynced: false,
+      clientUuid: Product.generateClientUuid(),
     ));
   }
 
