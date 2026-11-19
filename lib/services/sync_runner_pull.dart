@@ -281,6 +281,64 @@ const query = 'id, total, subtotal, bill_discount, discount_type, discount_value
 
           int createdAtMs = 0;
           final rawLocal = m['created_at_local'];
+  Future<({int failures, String? maxUpdatedAt})> _pullTransactions(String userId) async {
+    try {
+      final lastPull = _pullWatermarkWithOverlap(AppSettings.instance.lastPullTime);
+      int offset = 0;
+      const pageSize = 500;
+      String? maxUpdatedAt;
+
+      while (true) {
+const query = 'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, is_voided, void_reason, voided_by, voided_at, updated_at, transaction_items(product_id, product_name, price, hpp, qty)';
+        final response = await _client
+            .from('transactions')
+            .select(query)
+            .eq('user_id', userId)
+            .gt('updated_at', lastPull)
+            .order('updated_at', ascending: true)
+            .range(offset, offset + pageSize - 1);
+        final List<dynamic> list = response as List;
+
+        if (list.isEmpty) break;
+        final ids = list.map((e) => ((e as Map)['id'] as num).toInt()).toList();
+        final existing = await _localDb.existingTransactionIds(ids);
+
+        for (final raw in list) {
+          final m = raw as Map<String, dynamic>;
+          if (m['updated_at'] != null) {
+            maxUpdatedAt = _maxStr(maxUpdatedAt, m['updated_at'] as String);
+          }
+          
+          final id = (m['id'] as num).toInt();
+          if (existing.contains(id)) {
+            final isVoided = (m['is_voided'] as bool?) ?? false;
+            if (isVoided) {
+              await _localDb.updateVoidedTransactionFromPull(
+                id: id,
+                isVoided: isVoided,
+                voidReason: m['void_reason'] as String?,
+                voidedBy: m['voided_by'] as String?,
+                voidedAtMs: _parseTimestamp(m['voided_at']),
+                skipSync: true,
+              );
+            }
+            continue;
+          }
+
+          final rawItems = (m['transaction_items'] as List?) ?? const <dynamic>[];
+          final items = rawItems.map<TransactionLine>((i) {
+            final im = i as Map<String, dynamic>;
+            return TransactionLine(
+              productId: (im['product_id'] as num?)?.toInt(),
+              productName: im['product_name'] as String? ?? '',
+              price: (im['price'] as num?)?.toInt() ?? 0,
+              hpp: (im['hpp'] as num?)?.toInt() ?? 0,
+              qty: (im['qty'] as num?)?.toInt() ?? 0,
+            );
+          }).toList();
+
+          int createdAtMs = 0;
+          final rawLocal = m['created_at_local'];
           if (rawLocal is num) {
             createdAtMs = rawLocal.toInt();
           } else if (rawLocal is String) {
