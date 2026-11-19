@@ -161,12 +161,10 @@ Future<void> logout({bool force = false}) async {
   AutoSyncScheduler.instance.stop();
   await PinService.instance.lock();
 
-  if (!force) {
-    final pending = await _localDb.countPendingSync();
-    if (pending > 0) {
-      AutoSyncScheduler.instance.start();
-      throw PendingSyncException(pending);
-    }
+  final pending = await _localDb.countPendingSync();
+  if (pending > 0) {
+    AutoSyncScheduler.instance.start();
+    throw PendingSyncException(pending);
   }
 
   await _setOfflineSession(null);
