@@ -93,10 +93,12 @@ Widget build(BuildContext context) {
     title: 'NatunaPOS',
     debugShowCheckedModeBanner: false,
     theme: AppTheme.lightTheme,
-    home: SplashScreen(
-      onFinished: () =>
-          isLoggedIn ? const MainLayout() : const LoginScreen(),
-    ),
-  );
-}
+    home: kIsWeb
+        ? (isLoggedIn ? const MainLayout() : const LoginScreen())
+        : SplashScreen(
+            onFinished: () =>
+                isLoggedIn ? const MainLayout() : const LoginScreen(),
+       ),
+    );
+  }
 }
