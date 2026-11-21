@@ -9,6 +9,7 @@ import '../models/expense.dart';
 import '../services/report_service.dart';
 import '../services/pin_service.dart';
 import '../services/ai_report_service.dart';
+import '../core/fixed_cost_settings.dart';
 
 part 'reports/reports_filter_card.dart';
 part 'reports/reports_summary_cards.dart';
@@ -17,6 +18,7 @@ part 'reports/reports_pin_gate.dart';
 part 'reports/reports_ai_view.dart';
 part 'reports/reports_chart.dart';
 part 'reports/reports_top_products.dart';
+part 'reports/reports_break_even.dart';
 
 enum ReportPreset { today, yesterday, last7, last30, custom }
 
@@ -351,7 +353,9 @@ Future<void> _openAIAnalysis() async {
                       ),
                     )
                   else ...[
-                    _ReportsSummaryCards(summary: _summary!),
+                        _ReportsSummaryCards(summary: _summary!),
+                    const SizedBox(height: 16),
+                    _ReportsBreakEvenCard(summary: _summary!),
                     if (_summary!.dailySales.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _ReportsChart(

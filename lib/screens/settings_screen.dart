@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../core/theme.dart';
 import '../core/tax_settings.dart';
+import '../core/fixed_cost_settings.dart';
 import '../services/app_settings.dart';
 import '../services/auto_sync_scheduler.dart';
 import '../services/supabase_service.dart';
@@ -22,6 +23,7 @@ import 'kelola_screen.dart';
 part 'settings/settings_store_form.dart';
 part 'settings/settings_profile_form.dart';
 part 'settings/settings_tax_form.dart';
+part 'settings/settings_fixed_cost_form.dart';
 part 'settings/settings_printer_form.dart';
 part 'settings/settings_about_section.dart';
 
@@ -94,6 +96,7 @@ const SizedBox(height: 8),
               context,
               'Pajak & Diskon',
               const _TaxSection(),
+              const _FixedCostSection(),
             ),
           ),
           const SizedBox(height: 8),

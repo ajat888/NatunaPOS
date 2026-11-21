@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'core/theme.dart';
 import 'core/tax_settings.dart';
+import 'core/fixed_cost_settings.dart';
 import 'services/app_settings.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
@@ -33,6 +34,7 @@ if (kIsWeb) {
   );
 
   await TaxSettings.instance.load();
+  await FixedCostSettings.instance.load();
   await AppSettings.instance.load();
 
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
