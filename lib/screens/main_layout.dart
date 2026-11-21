@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../core/theme.dart';
@@ -267,7 +268,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _scaffoldKey.currentState?.openDrawer();
   }
 
+  bool _isHiddenOnWeb(int drawerIndex) =>
+      kIsWeb && (drawerIndex == 1 || drawerIndex == 2 || drawerIndex == 5);
+
   void _selectDestination(int drawerIndex) {
+    if (_isHiddenOnWeb(drawerIndex)) return;
     _scaffoldKey.currentState?.closeDrawer();
     if (drawerIndex == 4) {
       Navigator.push(
