@@ -19,6 +19,8 @@ part 'reports/reports_ai_view.dart';
 part 'reports/reports_chart.dart';
 part 'reports/reports_top_products.dart';
 part 'reports/reports_break_even.dart';
+part 'reports/reports_remaining_target.dart';
+part 'reports/reports_margin_table.dart';
 
 enum ReportPreset { today, yesterday, last7, last30, custom }
 
@@ -356,6 +358,8 @@ Future<void> _openAIAnalysis() async {
                         _ReportsSummaryCards(summary: _summary!),
                     const SizedBox(height: 16),
                     _ReportsBreakEvenCard(summary: _summary!),
+                    const SizedBox(height: 16),
+                    _ReportsRemainingTarget(summary: _summary!),
                     if (_summary!.dailySales.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _ReportsChart(
@@ -367,6 +371,8 @@ Future<void> _openAIAnalysis() async {
                     ],
                     const SizedBox(height: 16),
                     _ReportsTopProducts(topProducts: _summary!.topProducts),
+                    const SizedBox(height: 16),
+                    _ReportsMarginTable(products: _summary!.topProducts),
                     const SizedBox(height: 16),
                     _ReportsLists(summary: _summary!),
                   ],
