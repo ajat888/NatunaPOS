@@ -271,6 +271,27 @@ Row(
 ),
 if (_paymentMethod == 'CASH') ...[
   const SizedBox(height: 16),
+  const Text('Uang Diterima', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+  const SizedBox(height: 6),
+  TextField(
+    controller: _controller,
+    keyboardType: TextInputType.number,
+    inputFormatters: [ThousandFormatter()],
+    decoration: const InputDecoration(prefixText: 'Rp '),
+    onChanged: (_) => setState(() {}),
+  ),
+  const SizedBox(height: 12),
+  Row(
+    children: [
+      Expanded(child: OutlinedButton(onPressed: () => _setAmount(_grandTotal), child: const Text('UANG PAS'))),
+      const SizedBox(width: 8),
+      Expanded(child: OutlinedButton(onPressed: () => _setAmount(50000), child: const Text('50.000'))),
+      const SizedBox(width: 8),
+      Expanded(child: OutlinedButton(onPressed: () => _setAmount(100000), child: const Text('100.000'))),
+    ],
+  ),
+],
+const SizedBox(height: 16),
 Container(
   padding: const EdgeInsets.all(12),
   decoration: BoxDecoration(
