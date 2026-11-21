@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/local_db.dart';
+import '../core/fixed_cost_settings.dart';
+import 'break_even_math.dart';
 import 'report_service.dart';
 
 class AiReportService {
@@ -43,6 +45,9 @@ class AiReportService {
     final daily =
         await LocalDb.instance.getDailySalesBreakdown(start, end);
 
+        final monthly = FixedCostSettings.instance.currentMonthly;
+    final breakEven =
+        monthly > 0 ? await _breakEvenPayload(monthly, summary) : null;
     final payload = {
       'pin': pin,
       'report': {
@@ -61,6 +66,7 @@ class AiReportService {
         },
         'products': products,
         'daily': daily,
+        'break_even': breakEven,
         'expenses': summary.expenses
             .map((e) => {
                   'item_name': e.itemName,
@@ -123,6 +129,27 @@ class AiReportService {
         (decoded['error'] as String?) ?? 'Gagal (HTTP ${resp.statusCode})');
   }
 
+  Future<Map<String, dynamic>?> _breakEvenPayload(
+    int monthly,
+    ReportSummary summary,
+  ) async {
+    final result = <String, dynamic>{
+      'monthly': monthly,
+      ...BreakEvenMath.periodView(monthly: monthly, summary: summary),
+    };
+    final now = DateTime.now();
+    final isCurrentMonth =
+        summary.to.year == now.year && summary.to.month == now.month;
+    if (isCurrentMonth) {
+      final mtd = await ReportService.instance.buildReport(
+        from: DateTime(summary.to.year, summary.to.month, 1),
+        to: summary.to,
+      );
+      result.addAll(BreakEvenMath.remainingView(monthly: monthly, mtd: mtd));
+    }
+    return result;
+  } 
+  
   String _fmtDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'

@@ -44,6 +44,18 @@ def _build_prompt(report):
     lines.append(f"- Laba bersih: Rp {_fmt(summary.get('net_profit', 0))}")
     lines.append(f"- Void: {summary.get('void_count', 0)} transaksi senilai Rp {_fmt(summary.get('void_amount', 0))}")
     lines.append('')
+    be = report.get('break_even') or {}
+    if be:
+        lines.append('TITIK IMPAS BIAYA TETAP:')
+        lines.append(f"- Biaya tetap per bulan: Rp {_fmt(be.get('monthly', 0))}")
+        lines.append(f"- Target biaya tetap periode ini: Rp {_fmt(be.get('target_periode', 0))}")
+        lines.append(f"- Kontribusi periode ini (laba kotor dikurangi pengeluaran): Rp {_fmt(be.get('kontribusi_periode', 0))}")
+        lines.append(f"- Sisa biaya tetap yang belum tertutup: Rp {_fmt(be.get('sisa_biaya_periode', 0))}")
+        if be.get('sisa_hari') is not None:
+            lines.append(f"- Sisa hari di bulan ini: {be.get('sisa_hari', 0)}")
+            lines.append(f"- Omzet harian yang dibutuhkan untuk impas: Rp {_fmt(be.get('omzet_harian_dibutuhkan', 0))}")
+            lines.append(f"- Rata-rata omzet harian bulan ini: Rp {_fmt(be.get('omzet_harian_rata_rata', 0))}")
+        lines.append('')
 
     if products:
         lines.append('PRODUK TERJUAL (urut omzet tertinggi):')
@@ -84,7 +96,7 @@ ATURAN WAJIB:
 3. Gunakan bahasa Indonesia santai tapi profesional.
 4. Setiap saran harus KONKRET dan BISA DILAKUKAN hari ini, bukan teori.
 5. Sertakan angka nominal nyata dari data untuk mendukung analisa (misal: "selisih Rp 15.000").
-6. Format Markdown. Maksimal 300 kata. Jangan tulis "Berikut adalah..." atau kalimat pembuka, langsung ke isi.
+6. Format Markdown. Maksimal 350 kata. Jangan tulis "Berikut adalah..." atau kalimat pembuka, langsung ke isi.
 
 STRUKTUR OUTPUT (WAJIB):
 
@@ -96,6 +108,9 @@ Sebutkan pengeluaran yang nilainya besar (jika ada), atau menu dengan untung per
 
 ## 📋 Aksi Cepat (3 Langkah)
 3 langkah konkret untuk besok dengan target terukur, tanpa teori.
+
+## 🎯 Titik Impas
+1-2 kalimat. Sebut status impas dalam Rupiah: sisa biaya tetap yang belum tertutup, atau nyatakan sudah tercapai. Jika ada data sisa hari, bandingkan omzet harian yang dibutuhkan dengan rata-rata omzet harian sekarang. Jika data titik impas tidak ada di DATA LAPORAN, lewati bagian ini.
 
 ---
 
