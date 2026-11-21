@@ -317,8 +317,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         onStartTransaction: () => _selectDestination(1),
       ),
       PosScreen(key: _posKey),
-      ExpensesScreen(key: _expensesKey),
-      HistoryScreen(key: _historyKey),
+      ExpensesScreen(
+        key: _expensesKey,
+        onDataChanged: () async {
+          await _historyKey.currentState?.reloadData();
+        },
+      ),
+      HistoryScreen(
+        key: _historyKey,
+        onDataChanged: () async {
+          await _expensesKey.currentState?.reloadData();
+        },
+      ),
       const SettingsScreen(),
     ];
 

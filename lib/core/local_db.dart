@@ -12,6 +12,7 @@ import 'local_db/local_db_expense_items.dart';
 import 'local_db/local_db_expenses.dart';
 import 'local_db/local_db_voided_open_orders.dart';
 import 'local_db/local_db_reports.dart';
+import 'local_db/local_db_history.dart';
 import 'local_db/local_db_closings.dart';
 
 class LocalDb with
@@ -26,6 +27,7 @@ class LocalDb with
     LocalDbExpenses,
     LocalDbVoidedOpenOrders,
     LocalDbReports,
+    LocalDbHistory,
     LocalDbClosings {
   static final LocalDb instance = LocalDb._init();
   static Future<Database>? _dbFuture;

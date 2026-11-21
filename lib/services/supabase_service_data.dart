@@ -211,6 +211,14 @@ extension SupabaseServiceData on SupabaseService {
     return _localDb.getTodaySummary();
   }
 
+  Future<List<Transaction>> getLocalSalesForRange(DateTime from, DateTime to) async {
+    return _localDb.getSalesWithItemsBetween(from, to);
+  }
+
+  Future<Map<String, int>> getLocalSalesSummaryForRange(DateTime from, DateTime to) async {
+    return _localDb.getSalesSummaryBetween(from, to);
+  }
+
   Future<void> voidTransaction({
     required int id,
     required String reason,

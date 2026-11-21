@@ -12,7 +12,9 @@ import '../widgets/common/thousand_formatter.dart';
 part 'expenses/expense_input_dialog.dart';
 
 class ExpensesScreen extends StatefulWidget {
-  const ExpensesScreen({super.key});
+  final Future<void> Function()? onDataChanged;
+
+  const ExpensesScreen({super.key, this.onDataChanged});
 
   @override
   State<ExpensesScreen> createState() => ExpensesScreenState();
@@ -38,7 +40,10 @@ Future<void> reloadData({bool showLoading = false}) async {
     });
   }
   try {
-    final list = await _service.getLocalExpenses();
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final end = DateTime(now.year, now.month, now.day + 1);
+    final list = await _service.getLocalExpensesForRange(start, end);
     if (!mounted) return;
     setState(() {
       _expenses = list;
@@ -77,7 +82,10 @@ Future<void> reloadData({bool showLoading = false}) async {
             : AppSettings.instance.cashierName.value,
       ),
     );
-    if (result == true) await reloadData();
+    if (result == true) {
+      await reloadData();
+      await widget.onDataChanged?.call();
+    }
   }
 
   Future<void> _voidExpense(Expense exp) async {
@@ -102,6 +110,7 @@ Future<void> reloadData({bool showLoading = false}) async {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pengeluaran di-void'), backgroundColor: Colors.green));
     await reloadData();
+    await widget.onDataChanged?.call();
   }
 
 @override

@@ -95,6 +95,12 @@ class ExpenseService {
 
   Future<int> getTodayExpenseTotal() => _localDb.getTodayExpenseTotal();
 
+  Future<List<Expense>> getLocalExpensesForRange(DateTime from, DateTime to) =>
+      _localDb.getExpensesInRange(from, to);
+
+  Future<Map<String, int>> getLocalExpenseSummaryForRange(DateTime from, DateTime to) =>
+      _localDb.getExpenseSummaryBetween(from, to);
+  
   Future<List<ExpenseCategory>> getLocalExpenseCategories() =>
       _localDb.getExpenseCategories();
 
