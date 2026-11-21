@@ -164,13 +164,14 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
                   _buildDrawerItem(0, Icons.dashboard_outlined, 'Beranda'),
-                     if (!kIsWeb) _buildDrawerItem(1, Icons.point_of_sale_outlined, 'Kasir'),
+                  if (!kIsWeb) _buildDrawerItem(1, Icons.point_of_sale_outlined, 'Kasir'),
                   if (!kIsWeb) _buildDrawerItem(
                       2, Icons.account_balance_wallet_outlined, 'Pengeluaran'),
                   _buildDrawerItem(3, Icons.receipt_long_outlined, 'Riwayat'),
                   _buildDrawerItem(4, Icons.bar_chart_outlined, 'Laporan'),
                   if (!kIsWeb) _buildDrawerItem(
                       5, Icons.lock_clock_outlined, 'Closing Harian'),
+                  _buildDrawerItem(6, Icons.settings_outlined, 'Pengaturan'),
                 ],
               ),
             ),
