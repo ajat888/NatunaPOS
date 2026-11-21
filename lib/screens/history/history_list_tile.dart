@@ -77,6 +77,7 @@ class _HistoryListTile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!kIsWeb)
               IconButton(
                 icon: Icon(
                   Icons.print,
@@ -89,6 +90,7 @@ class _HistoryListTile extends StatelessWidget {
                 tooltip: tx.isVoided ? 'Cetak Ulang (VOID)' : 'Cetak Ulang',
               ),
               if (!tx.isVoided)
+              if (!kIsWeb && !tx.isVoided)
                 IconButton(
                   icon: const Icon(Icons.cancel_outlined,
                       size: 20, color: AppTheme.dangerColor),

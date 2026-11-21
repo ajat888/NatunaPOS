@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/transaction.dart';
@@ -64,6 +65,7 @@ Future<void> reloadData({bool showLoading = false}) async {
   }
 
   Future<void> _reprint(Transaction tx) async {
+    if (kIsWeb) return;
     final ok = await PrinterService.instance.printReceipt(tx);
     if (!mounted) return;
     final msg = !ok
@@ -78,7 +80,7 @@ Future<void> reloadData({bool showLoading = false}) async {
   }
 
   Future<void> _openVoidDialog(Transaction tx) async {
-    if (tx.isVoided) return;
+    if (kIsWeb || tx.isVoided) return;
     final reason = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -133,6 +135,7 @@ Future<void> reloadData({bool showLoading = false}) async {
         ),
         title: const Text('Riwayat Transaksi'),
         actions: [
+          if (!kIsWeb)
           IconButton(
             icon: const Icon(Icons.block),
             tooltip: 'Void Open Order',
