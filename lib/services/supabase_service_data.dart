@@ -142,7 +142,6 @@ extension SupabaseServiceData on SupabaseService {
       tableNumber: order.orderKey,
       orderType: order.orderType,
       paymentMethod: paymentMethod,
-      );
     );
   }
 
@@ -205,7 +204,6 @@ extension SupabaseServiceData on SupabaseService {
       tableNumber: order.orderKey,
       orderType: order.orderType,
       paymentMethod: paymentMethod,
-      );
     );
   }
 

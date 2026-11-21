@@ -441,6 +441,7 @@ mixin LocalDbTransactions {
     String? tableNumber,
     String? orderType,
     String? parentOrderKey,
+    String? paymentMethod,
     bool isVoided = false,
     String? voidReason,
     String? voidedBy,

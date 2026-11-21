@@ -168,7 +168,6 @@ class Transaction {
     Object? voidedBy = _sentinel,
     Object? voidedAt = _sentinel,
     Object? paymentMethod = _sentinel,
-}) {
   }) {
     return Transaction(
       id: id ?? this.id,
