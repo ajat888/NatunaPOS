@@ -21,6 +21,7 @@ mixin LocalDbTransactionsPay {
     required int changeAmount,
     required String? tableNumber,
     required String? orderType,
+    required String? paymentMethod,
     bool skipSync = false,
   }) async {
     final db = await database;
@@ -43,6 +44,7 @@ mixin LocalDbTransactionsPay {
         'order_type': orderType,
         'parent_order_key': null,
         'is_voided': 0,
+        'payment_method': paymentMethod,
       });
       for (final line in lines) {
         await txn.insert('transaction_items', {
@@ -87,6 +89,7 @@ mixin LocalDbTransactionsPay {
     required int changeAmount,
     required String? tableNumber,
     required String? orderType,
+    required String? paymentMethod,
     bool skipSync = false,
   }) async {
     final db = await database;
@@ -109,6 +112,7 @@ mixin LocalDbTransactionsPay {
         'order_type': orderType,
         'parent_order_key': orderKey,
         'is_voided': 0,
+        'payment_method': paymentMethod,
       });
       for (final line in lines) {
         await txn.insert('transaction_items', {

@@ -23,6 +23,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   bool _saving = false;
   String? _error;
   bool _printReceipt = true;
+  String _paymentMethod = 'CASH';
 
   int _billDiscount = 0;
   String _discountType = 'nominal';
@@ -49,13 +50,21 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   int get _taxAmount => _applyTax && _taxRate > 0 ? (_dasarPajak * _taxRate / 100).round() : 0;
   int get _grandTotal => _dasarPajak + _taxAmount;
 
-  int get _cashReceived {
-    final clean = _controller.text.replaceAll('.', '').trim();
-    return int.tryParse(clean) ?? 0;
-  }
+int get _cashReceived {
+  if (_paymentMethod == 'QRIS') return _grandTotal;
+  final clean = _controller.text.replaceAll('.', '').trim();
+  return int.tryParse(clean) ?? 0;
+}
 
-  int get _change => _cashReceived - _grandTotal;
-  bool get _canPay => _cashReceived >= _grandTotal;
+int get _change {
+  if (_paymentMethod == 'QRIS') return 0;
+  return _cashReceived - _grandTotal;
+}
+
+bool get _canPay {
+  if (_paymentMethod == 'QRIS') return true;
+  return _cashReceived >= _grandTotal;
+}
 
   void _setAmount(int amount) {
     setState(() {
@@ -89,7 +98,6 @@ Future<void> _pay() async {
     _error = null;
   });
   try {
-    // Cek koneksi printer terlebih dahulu jika user memilih cetak struk
     if (_printReceipt) {
       final isConn = await PrinterService.instance.isConnected;
       if (!isConn) {
@@ -115,6 +123,7 @@ Future<void> _pay() async {
         discountType: _discountType,
         discountValue: _discountValue,
         taxRate: _applyTax ? _taxRate : 0,
+        paymentMethod: _paymentMethod,
       );
     } else {
       await widget.service.payOpenOrder(
@@ -125,6 +134,7 @@ Future<void> _pay() async {
         discountType: _discountType,
         discountValue: _discountValue,
         taxRate: _applyTax ? _taxRate : 0,
+        paymentMethod: _paymentMethod,
       );
     }
 
@@ -234,16 +244,54 @@ Future<void> _pay() async {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text('Uang Diterima', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _controller,
-                keyboardType: TextInputType.number,
-                inputFormatters: [ThousandFormatter()],
-                decoration: const InputDecoration(prefixText: 'Rp '),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
+const Text('Metode Pembayaran', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+const SizedBox(height: 6),
+Row(
+  children: [
+    Expanded(
+      child: ChoiceChip(
+        label: const Center(child: Text('Tunai')),
+        selected: _paymentMethod == 'CASH',
+        onSelected: (val) {
+          if (val) setState(() => _paymentMethod = 'CASH');
+        },
+      ),
+    ),
+    const SizedBox(width: 8),
+    Expanded(
+      child: ChoiceChip(
+        label: const Center(child: Text('QRIS')),
+        selected: _paymentMethod == 'QRIS',
+        onSelected: (val) {
+          if (val) setState(() => _paymentMethod = 'QRIS');
+        },
+      ),
+    ),
+  ],
+),
+if (_paymentMethod == 'CASH') ...[
+  const SizedBox(height: 16),
+  const Text('Uang Diterima', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+  const SizedBox(height: 6),
+  TextField(
+    controller: _controller,
+    keyboardType: TextInputType.number,
+    inputFormatters: [ThousandFormatter()],
+    decoration: const InputDecoration(prefixText: 'Rp '),
+    onChanged: (_) => setState(() {}),
+  ),
+  const SizedBox(height: 12),
+  Row(
+    children: [
+      Expanded(child: OutlinedButton(onPressed: () => _setAmount(_grandTotal), child: const Text('UANG PAS'))),
+      const SizedBox(width: 8),
+      Expanded(child: OutlinedButton(onPressed: () => _setAmount(50000), child: const Text('50.000'))),
+      const SizedBox(width: 8),
+      Expanded(child: OutlinedButton(onPressed: () => _setAmount(100000), child: const Text('100.000'))),
+    ],
+  ),
+],
+const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(child: OutlinedButton(onPressed: () => _setAmount(_grandTotal), child: const Text('UANG PAS'))),
@@ -254,21 +302,27 @@ Future<void> _pay() async {
                 ],
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _canPay ? Colors.green.shade50 : AppTheme.dangerColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _canPay ? Colors.green.shade300 : AppTheme.dangerColor.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(_canPay ? 'Kembalian' : 'Kurang', style: TextStyle(color: _canPay ? Colors.green.shade900 : AppTheme.dangerColor, fontWeight: FontWeight.w600)),
-                    Text('Rp ${_formatter.format(_canPay ? _change : -_change)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _canPay ? Colors.green.shade900 : AppTheme.dangerColor)),
-                  ],
-                ),
-              ),
+Container(
+  padding: const EdgeInsets.all(12),
+  decoration: BoxDecoration(
+    color: _canPay ? Colors.green.shade50 : AppTheme.dangerColor.withOpacity(0.08),
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: _canPay ? Colors.green.shade300 : AppTheme.dangerColor.withOpacity(0.3)),
+  ),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        _paymentMethod == 'QRIS' ? 'Status' : (_canPay ? 'Kembalian' : 'Kurang'),
+        style: TextStyle(color: _canPay ? Colors.green.shade900 : AppTheme.dangerColor, fontWeight: FontWeight.w600),
+      ),
+      Text(
+        _paymentMethod == 'QRIS' ? 'LUNAS' : 'Rp ${_formatter.format(_canPay ? _change : -_change)}',
+        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _canPay ? Colors.green.shade900 : AppTheme.dangerColor),
+      ),
+    ],
+  ),
+),
               const SizedBox(height: 8),
               CheckboxListTile(
                 value: _printReceipt,

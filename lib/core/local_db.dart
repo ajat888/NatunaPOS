@@ -45,7 +45,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 17,
+      version: 18,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -134,9 +134,12 @@ class LocalDb with
     }
     if (oldVersion < 16) {
   await LocalDbClosings.upgradeDailyClosingsV16(db);
-}
+    }
     if (oldVersion < 17) {
       await LocalDbProducts.upgradeProductsV17(db);
+    }
+    if (oldVersion < 18) {
+  await LocalDbTransactions.upgradeTransactionsV18(db);
     }
   }
 

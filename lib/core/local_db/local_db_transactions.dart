@@ -26,10 +26,10 @@ mixin LocalDbTransactions {
         order_type TEXT,
         parent_order_key TEXT,
         is_voided INTEGER DEFAULT 0,
-        void_reason TEXT,
         voided_by TEXT,
-        voided_at INTEGER
-      )
+        voided_at INTEGER,
+        payment_method TEXT
+        )
     ''');
     await db.execute('''
       CREATE TABLE transaction_items (
@@ -173,6 +173,15 @@ mixin LocalDbTransactions {
     }
   }
 
+  static Future<void> upgradeTransactionsV18(Database db) async {
+  try {
+    await db.execute(
+        'ALTER TABLE transactions ADD COLUMN payment_method TEXT');
+  } catch (e) {
+    debugPrint('transactions.payment_method already exists: $e');
+  }
+}
+
   Future<void> insertTransaction({
     required int transactionId,
     required int total,
@@ -188,6 +197,7 @@ mixin LocalDbTransactions {
     int changeAmount = 0,
     String? tableNumber,
     String? orderType,
+    String? paymentMethod,
     bool skipSync = false,
   }) async {
     final db = await database;
@@ -210,6 +220,7 @@ mixin LocalDbTransactions {
         'order_type': orderType,
         'parent_order_key': null,
         'is_voided': 0,
+        'payment_method': paymentMethod,
       });
       for (final line in lines) {
         await txn.insert('transaction_items', {
@@ -461,6 +472,7 @@ mixin LocalDbTransactions {
           'void_reason': voidReason,
           'voided_by': voidedBy,
           'voided_at': voidedAtMs,
+          'payment_method': paymentMethod,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );

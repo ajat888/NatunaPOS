@@ -71,6 +71,7 @@ class Transaction {
   final String? voidReason;
   final String? voidedBy;
   final DateTime? voidedAt;
+  final String? paymentMethod;
 
   static const Object _sentinel = Object();
 
@@ -95,6 +96,7 @@ class Transaction {
     this.voidReason,
     this.voidedBy,
     this.voidedAt,
+    this.paymentMethod,
   });
 
   factory Transaction.fromDb(
@@ -136,6 +138,7 @@ class Transaction {
       voidReason: m['void_reason'] as String?,
       voidedBy: m['voided_by'] as String?,
       voidedAt: parsedVoidedAt,
+      paymentMethod: m['payment_method'] as String?,
     );
   }
 
@@ -164,6 +167,8 @@ class Transaction {
     Object? voidReason = _sentinel,
     Object? voidedBy = _sentinel,
     Object? voidedAt = _sentinel,
+    Object? paymentMethod = _sentinel,
+}) {
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -198,6 +203,9 @@ class Transaction {
       voidedAt: identical(voidedAt, _sentinel)
           ? this.voidedAt
           : voidedAt as DateTime?,
+      paymentMethod: identical(paymentMethod, _sentinel)
+          ? this.paymentMethod
+          : paymentMethod as String?,
     );
   }
 }

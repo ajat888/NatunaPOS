@@ -102,7 +102,8 @@ extension SupabaseServiceData on SupabaseService {
     required String discountType,
     required int discountValue,
     required double taxRate,
-  }) async {
+    required String paymentMethod,
+}) async {
     final order = await _localDb.getOpenOrder(orderKey);
     if (order == null) throw Exception('Pesanan tidak ditemukan');
 
@@ -140,6 +141,8 @@ extension SupabaseServiceData on SupabaseService {
       changeAmount: changeAmount,
       tableNumber: order.orderKey,
       orderType: order.orderType,
+      paymentMethod: paymentMethod,
+      );
     );
   }
 
@@ -152,7 +155,8 @@ extension SupabaseServiceData on SupabaseService {
     required String discountType,
     required int discountValue,
     required double taxRate,
-  }) async {
+    required String paymentMethod,
+}) async {
     final order = await _localDb.getOpenOrder(orderKey);
     if (order == null) throw Exception('Pesanan tidak ditemukan');
 
@@ -200,6 +204,8 @@ extension SupabaseServiceData on SupabaseService {
       changeAmount: changeAmount,
       tableNumber: order.orderKey,
       orderType: order.orderType,
+      paymentMethod: paymentMethod,
+      );
     );
   }
 
