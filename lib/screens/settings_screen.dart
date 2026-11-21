@@ -96,7 +96,10 @@ const SizedBox(height: 8),
               context,
               'Pajak & Diskon',
               const _TaxSection(),
-          _SettingsMenuItem(
+            ),
+          ),
+          const SizedBox(height: 8),
+              _SettingsMenuItem(
             icon: Icons.payments_outlined,
             title: 'Biaya Tetap',
             subtitle: 'Gaji dan sewa per bulan untuk titik impas',
