@@ -120,20 +120,6 @@ class _AlreadyClosedView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReportsScreen()),
-              );
-            },
-            icon: const Icon(Icons.bar_chart_outlined),
-            label: const Text('LIHAT LAPORAN'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
           const SizedBox(height: 100),
         ],
       ),

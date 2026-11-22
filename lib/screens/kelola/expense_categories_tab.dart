@@ -79,11 +79,11 @@ class _ExpenseCategoriesTab extends StatelessWidget {
                       trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
+                            if (!kIsWeb) IconButton(
                                 icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
                                 onPressed: () => _showCategoryDialog(context, existing: category),
                                 tooltip: 'Edit'),
-                            IconButton(
+                            if (!kIsWeb) IconButton(
                                 icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor),
                                 onPressed: () => _confirmDeleteCategory(context, category),
                                 tooltip: 'Nonaktifkan'),
@@ -92,6 +92,7 @@ class _ExpenseCategoriesTab extends StatelessWidget {
                   );
                 },
               ),
+        if (!kIsWeb)
         Positioned(
             right: 16,
             bottom: 16,

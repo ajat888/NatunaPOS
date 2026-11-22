@@ -93,10 +93,10 @@ class _ExpenseItemsScreenState extends State<_ExpenseItemsScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
+                        if (!kIsWeb) IconButton(
                             icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
                             onPressed: () => _showItemDialog(existing: item)),
-                        IconButton(
+                        if (!kIsWeb) IconButton(
                             icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor),
                             onPressed: () => _confirmDelete(item)),
                       ],
@@ -105,7 +105,9 @@ class _ExpenseItemsScreenState extends State<_ExpenseItemsScreen> {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: kIsWeb
+          ? null
+          : FloatingActionButton.extended(
         onPressed: () => _showItemDialog(),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,

@@ -130,11 +130,12 @@ class _CategoriesTab extends StatelessWidget {
                             trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (!state._showInactiveCategories)
+                                  if (!state._showInactiveCategories && !kIsWeb)
                                     IconButton(
                                         icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
                                         onPressed: () => _showCategoryDialog(context, existing: category),
                                         tooltip: 'Edit'),
+                                  if (!kIsWeb)
                                   IconButton(
                                       icon: Icon(state._showInactiveCategories ? Icons.restore : Icons.delete_outline,
                                           color: state._showInactiveCategories ? Colors.green : AppTheme.dangerColor),
@@ -148,7 +149,7 @@ class _CategoriesTab extends StatelessWidget {
             ),
           ],
         ),
-        if (!state._showInactiveCategories)
+        if (!state._showInactiveCategories && !kIsWeb)
           Positioned(
               right: 16,
               bottom: 16,

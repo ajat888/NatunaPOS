@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -55,6 +56,7 @@ class SettingsScreen extends StatelessWidget {
   ),
 ),
 const SizedBox(height: 8),
+          if (!kIsWeb) ...[
           _SettingsMenuItem(
             icon: Icons.storefront_outlined,
             title: 'Info Toko',
@@ -66,6 +68,8 @@ const SizedBox(height: 8),
             ),
           ),
           const SizedBox(height: 8),
+          ],
+          if (!kIsWeb) ...[
           _SettingsMenuItem(
             icon: Icons.person_outline,
             title: 'Profil Kasir',
@@ -77,6 +81,8 @@ const SizedBox(height: 8),
             ),
           ),
           const SizedBox(height: 8),
+          ],
+          if (!kIsWeb) ...[
           _SettingsMenuItem(
             icon: Icons.print_outlined,
             title: 'Printer & Struk',
@@ -88,6 +94,8 @@ const SizedBox(height: 8),
             ),
           ),
           const SizedBox(height: 8),
+          ],
+          if (!kIsWeb) ...[
           _SettingsMenuItem(
             icon: Icons.receipt_long_outlined,
             title: 'Pajak & Diskon',
@@ -99,7 +107,9 @@ const SizedBox(height: 8),
             ),
           ),
           const SizedBox(height: 8),
-              _SettingsMenuItem(
+          ],
+          if (!kIsWeb) ...[
+          _SettingsMenuItem(
             icon: Icons.payments_outlined,
             title: 'Biaya Tetap',
             subtitle: 'Gaji dan sewa per bulan untuk titik impas',
@@ -110,6 +120,7 @@ const SizedBox(height: 8),
             ),
           ),
           const SizedBox(height: 8),
+          ],
           _SettingsMenuItem(
             icon: Icons.info_outline,
             title: 'Tentang Aplikasi',
