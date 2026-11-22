@@ -391,8 +391,6 @@ Widget _buildSmartInsight(BuildContext context) {
             const SizedBox(height: 6),
             _row('Tidak diketahui', 'Rp ${fmt.format(summary.unknownPaymentTotal)}', bold: false),
           ],
-            bold: false,
-          ),
         ],
       ),
     );
