@@ -384,7 +384,15 @@ Widget _buildSmartInsight(BuildContext context) {
           const SizedBox(height: 6),
           _row(
             'Penerimaan Non-Tunai (QRIS/Transfer)',
-            'Rp 0', // Placeholder
+          _row(
+            'Penerimaan Non-Tunai (QRIS)',
+            'Rp ${fmt.format(summary.qrisTotal)}',
+            bold: false,
+          ),
+          if (summary.unknownPaymentTotal > 0) ...[
+            const SizedBox(height: 6),
+            _row('Tidak diketahui', 'Rp ${fmt.format(summary.unknownPaymentTotal)}', bold: false),
+          ],
             bold: false,
           ),
         ],

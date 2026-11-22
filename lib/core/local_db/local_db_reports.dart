@@ -46,11 +46,29 @@ Future<Map<String, int>> getSalesSummaryBetween(
     final r = await db.rawQuery(
       'SELECT COALESCE(SUM(cash_received - change_amount), 0) AS c '
       'FROM transactions '
-      'WHERE is_deleted = 0 AND is_voided = 0 '
+      'WHERE is_deleted = 0 AND is_voided = 0 AND payment_method = \'CASH\' '
       'AND created_at >= ? AND created_at < ?',
       [from.toUtc().millisecondsSinceEpoch, to.toUtc().millisecondsSinceEpoch],
     );
     return (r.first['c'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<Map<String, int>> getNonCashSummaryBetween(
+      DateTime from, DateTime to) async {
+    final db = await database;
+    final f = from.toUtc().millisecondsSinceEpoch;
+    final t = to.toUtc().millisecondsSinceEpoch;
+    final r = await db.rawQuery(
+      'SELECT '
+      '(SELECT COALESCE(SUM(total), 0) FROM transactions WHERE is_deleted = 0 AND is_voided = 0 AND payment_method = \'QRIS\' AND created_at >= ? AND created_at < ?) AS q, '
+      '(SELECT COALESCE(SUM(total), 0) FROM transactions WHERE is_deleted = 0 AND is_voided = 0 AND payment_method IS NULL AND created_at >= ? AND created_at < ?) AS u',
+      [f, t, f, t],
+    );
+    final row = r.first;
+    return {
+      'qris': (row['q'] as num?)?.toInt() ?? 0,
+      'unknown': (row['u'] as num?)?.toInt() ?? 0,
+    };
   }
 
   Future<Map<String, int>> getVoidTransactionsSummaryBetween(

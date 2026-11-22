@@ -375,6 +375,7 @@ class _SyncPusher {
   'change_amount': tx.changeAmount,
   'table_number': tx.tableNumber,
   'order_type': tx.orderType,
+  'payment_method': tx.paymentMethod,
 };
 if (tx.parentOrderKey != null) {
   payload['parent_order_key'] = tx.parentOrderKey;

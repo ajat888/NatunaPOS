@@ -17,6 +17,8 @@ class ReportSummary {
   final int totalVoidOpenOrderAmount;
   final int voidOpenOrderCount;
   final int cashExpected;
+  final int qrisTotal;
+  final int unknownPaymentTotal;
   final List<Transaction> transactions;
   final List<Expense> expenses;
   final List<VoidedOpenOrder> voidedOpenOrders;
@@ -37,6 +39,8 @@ class ReportSummary {
     required this.totalVoidOpenOrderAmount,
     required this.voidOpenOrderCount,
     required this.cashExpected,
+    this.qrisTotal = 0,
+    this.unknownPaymentTotal = 0,
     required this.transactions,
     required this.expenses,
     required this.voidedOpenOrders,
@@ -66,6 +70,7 @@ class ReportService {
     final sales = await db.getSalesSummaryBetween(start, end);
     final hpp = await db.getHppBetween(start, end);
     final cash = await db.getCashExpectedBetween(start, end);
+    final nonCash = await db.getNonCashSummaryBetween(start, end);
     final voidTx = await db.getVoidTransactionsSummaryBetween(start, end);
     final expSum = await db.getExpenseSummaryBetween(start, end);
     final transactions = await db.getTransactionsBetween(start, end);
@@ -100,6 +105,8 @@ class ReportService {
       totalVoidOpenOrderAmount: voidOpenAmount,
       voidOpenOrderCount: voidedOpenOrders.length,
       cashExpected: cash,
+      qrisTotal: nonCash['qris'] ?? 0,
+      unknownPaymentTotal: nonCash['unknown'] ?? 0,
       transactions: transactions,
       expenses: expenses,
       voidedOpenOrders: voidedOpenOrders,
