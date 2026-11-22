@@ -58,7 +58,8 @@ class _ProductCard extends StatelessWidget {
                             ? AppTheme.textLightColor
                             : AppTheme.primaryColor,
                         fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
+                if (!kIsWeb) const SizedBox(height: 8),
+                if (!kIsWeb)
                 Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [

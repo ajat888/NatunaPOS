@@ -170,7 +170,8 @@ extension _MainLayoutDrawerExt on _MainLayoutState {
                     _buildDrawerItem(
                         2, Icons.account_balance_wallet_outlined, 'Pengeluaran'),
                   _buildDrawerItem(3, Icons.receipt_long_outlined, 'Riwayat'),
-                  _buildDrawerItem(4, Icons.bar_chart_outlined, 'Laporan'),
+                  if (kIsWeb)
+                    _buildDrawerItem(4, Icons.bar_chart_outlined, 'Laporan'),
                   if (!kIsWeb)
                     _buildDrawerItem(
                         5, Icons.lock_clock_outlined, 'Closing Harian'),

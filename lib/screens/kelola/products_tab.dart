@@ -166,7 +166,7 @@ class _ProductsTab extends StatelessWidget {
             ),
           ],
         ),
-        if (!state._showInactive)
+        if (!state._showInactive && !kIsWeb)
           Positioned(
               right: 16,
               bottom: 16,

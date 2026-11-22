@@ -271,8 +271,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool _isHiddenOnWeb(int drawerIndex) =>
       kIsWeb && (drawerIndex == 1 || drawerIndex == 2 || drawerIndex == 5);
 
+  // Laporan hanya tersedia di web; aplikasi native tidak menampilkannya.
+  bool _isHiddenOnNative(int drawerIndex) => !kIsWeb && drawerIndex == 4;
+
   void _selectDestination(int drawerIndex) {
-    if (_isHiddenOnWeb(drawerIndex)) return;
+    if (_isHiddenOnWeb(drawerIndex) || _isHiddenOnNative(drawerIndex)) return;
     _scaffoldKey.currentState?.closeDrawer();
     if (drawerIndex == 4) {
       Navigator.push(
