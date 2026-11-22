@@ -383,8 +383,6 @@ Widget _buildSmartInsight(BuildContext context) {
           ),
           const SizedBox(height: 6),
           _row(
-            'Penerimaan Non-Tunai (QRIS/Transfer)',
-          _row(
             'Penerimaan Non-Tunai (QRIS)',
             'Rp ${fmt.format(summary.qrisTotal)}',
             bold: false,

@@ -231,7 +231,7 @@ Future<void> _cleanupOrphanProducts(String userId) async {
       String? maxUpdatedAt;
 
       while (true) {
-const query = 'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, payment_method, is_voided, void_reason, voided_by, voided_at, updated_at, transaction_items(product_id, product_name, price, hpp, qty)';qty)';
+const query = 'id, total, subtotal, bill_discount, discount_type, discount_value, tax_rate, tax_amount, created_at_local, cash_received, change_amount, table_number, order_type, parent_order_key, payment_method, is_voided, void_reason, voided_by, voided_at, updated_at, transaction_items(product_id, product_name, price, hpp, qty)';
         final response = await _client
             .from('transactions')
             .select(query)
