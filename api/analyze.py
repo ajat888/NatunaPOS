@@ -37,10 +37,12 @@ def _delta(cur, prev):
     return 'sama'
 
 
-def _pola_hari(daily):
-    # Rata-rata omzet per nama hari, dari seluruh tanggal dalam periode.
+def _pola_hari(daily, exclude_date=None):
+    # Rata-rata omzet per nama hari. Tanggal yang belum selesai dikecualikan.
     per_hari = {}
     for d in daily:
+        if exclude_date and d.get('date') == exclude_date:
+            continue
         try:
             wd = datetime.strptime(d.get('date', ''), '%Y-%m-%d').weekday()
         except Exception:
@@ -101,7 +103,8 @@ def _build_prompt(report):
         lines.append(f"- Void: {_delta(summary.get('void_amount', 0), comparison.get('void_amount', 0))}")
         lines.append('')
 
-    pola = _pola_hari(daily)
+    partial_date = period.get('to') if period.get('partial_until') else None
+    pola = _pola_hari(daily, partial_date)
     if pola:
         lines.append('POLA HARI (rata-rata penjualan per nama hari, seluruh periode):')
         for name, avg, n in pola:
