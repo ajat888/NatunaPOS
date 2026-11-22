@@ -45,13 +45,22 @@ class AiReportService {
     final daily =
         await LocalDb.instance.getDailySalesBreakdown(start, end);
 
+    final cutoff = _todayCutoff(end);
+    final comparison = await _comparisonPayload(start, end, cutoff);
+    final hourly =
+        await LocalDb.instance.getHourlySalesBreakdown(start, end);
+
         final monthly = FixedCostSettings.instance.currentMonthly;
     final breakEven =
         monthly > 0 ? await _breakEvenPayload(monthly, summary) : null;
     final payload = {
       'pin': pin,
       'report': {
-        'period': {'from': _fmtDate(from), 'to': _fmtDate(to)},
+        'period': {
+          'from': _fmtDate(from),
+          'to': _fmtDate(to),
+          'partial_until': cutoff != null ? _fmtHm(cutoff) : null,
+        },
         'summary': {
           'total_sales': summary.totalSales,
           'total_transactions': summary.totalTransactions,
@@ -67,6 +76,8 @@ class AiReportService {
         'products': products,
         'daily': daily,
         'break_even': breakEven,
+        'comparison': comparison,
+        'hourly': hourly,
         'expenses': summary.expenses
             .map((e) => {
                   'item_name': e.itemName,
@@ -150,6 +161,53 @@ class AiReportService {
     return result;
   } 
   
+  // Jika periode mencakup hari ini, kembalikan waktu sekarang agar
+  // periode pembanding bisa dibatasi pada jam yang sama.
+  DateTime? _todayCutoff(DateTime end) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final lastDay = end.subtract(const Duration(days: 1));
+    return lastDay.isBefore(todayStart) ? null : now;
+  }
+
+  // Periode pembanding: jendela dengan panjang sama tepat sebelum periode.
+  Future<Map<String, dynamic>> _comparisonPayload(
+    DateTime start,
+    DateTime end,
+    DateTime? cutoff,
+  ) async {
+    final days = end.difference(start).inDays;
+    final prevStart = DateTime(start.year, start.month, start.day - days);
+    final prevEnd = cutoff != null
+        ? DateTime(cutoff.year, cutoff.month, cutoff.day - days,
+            cutoff.hour, cutoff.minute, cutoff.second)
+        : DateTime(end.year, end.month, end.day - days);
+    final db = LocalDb.instance;
+    final sales = await db.getSalesSummaryBetween(prevStart, prevEnd);
+    final hpp = await db.getHppBetween(prevStart, prevEnd);
+    final expenses = await db.getExpenseSummaryBetween(prevStart, prevEnd);
+    final voids =
+        await db.getVoidTransactionsSummaryBetween(prevStart, prevEnd);
+    return {
+      'period': {
+        'from': _fmtDate(prevStart),
+        'to': cutoff != null
+            ? _fmtDate(prevEnd)
+            : _fmtDate(prevEnd.subtract(const Duration(days: 1))),
+        'until_time': cutoff != null ? _fmtHm(prevEnd) : null,
+      },
+      'total_sales': sales['total'] ?? 0,
+      'total_transactions': sales['count'] ?? 0,
+      'total_hpp': hpp,
+      'total_expenses': expenses['total'] ?? 0,
+      'void_amount': voids['total'] ?? 0,
+    };
+  }
+
+  String _fmtHm(DateTime d) =>
+      '${d.hour.toString().padLeft(2, '0')}:'
+      '${d.minute.toString().padLeft(2, '0')}';
+
   String _fmtDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'

@@ -1,6 +1,7 @@
 import os
 import json
 import time
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 import requests
 from api._shared import verify_jwt, validate_pin, verify_pin
@@ -24,6 +25,43 @@ def _fmt(n):
         return str(n)
 
 
+DAY_NAMES = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+
+
+def _delta(cur, prev):
+    d = int(cur or 0) - int(prev or 0)
+    if d > 0:
+        return f"naik Rp {_fmt(d)}"
+    if d < 0:
+        return f"turun Rp {_fmt(-d)}"
+    return 'sama'
+
+
+def _pola_hari(daily):
+    # Rata-rata omzet per nama hari, dari seluruh tanggal dalam periode.
+    per_hari = {}
+    for d in daily:
+        try:
+            wd = datetime.strptime(d.get('date', ''), '%Y-%m-%d').weekday()
+        except Exception:
+            continue
+        total, count = per_hari.get(wd, (0, 0))
+        per_hari[wd] = (total + int(d.get('sales', 0) or 0), count + 1)
+    rows = [(DAY_NAMES[wd], total // count, count)
+            for wd, (total, count) in per_hari.items()]
+    return sorted(rows, key=lambda x: x[1], reverse=True)
+
+
+def _jam_ramai(hourly):
+    rows = []
+    for h in hourly:
+        try:
+            rows.append((int(h.get('hour', 0)), int(h.get('sales', 0) or 0)))
+        except Exception:
+            continue
+    return sorted(rows, key=lambda x: x[1], reverse=True)[:5]
+
+
 def _build_prompt(report):
     period = report.get('period', {}) or {}
     summary = report.get('summary', {}) or {}
@@ -31,9 +69,13 @@ def _build_prompt(report):
     daily = report.get('daily', []) or []
     expenses = report.get('expenses', []) or []
     voids = report.get('voids', []) or []
+    comparison = report.get('comparison') or {}
+    hourly = report.get('hourly') or []
 
     lines = []
-    lines.append(f"PERIODE: {period.get('from', '?')} s/d {period.get('to', '?')}")
+    lines.append(f"PERIODE UTAMA: {period.get('from', '?')} s/d {period.get('to', '?')}")
+    if period.get('partial_until'):
+        lines.append(f"(data baru sampai pukul {period['partial_until']}, periode ini belum selesai)")
     lines.append('')
     lines.append('RINGKASAN:')
     lines.append(f"- Total pemasukan: Rp {_fmt(summary.get('total_sales', 0))}")
@@ -44,6 +86,35 @@ def _build_prompt(report):
     lines.append(f"- Laba bersih: Rp {_fmt(summary.get('net_profit', 0))}")
     lines.append(f"- Void: {summary.get('void_count', 0)} transaksi senilai Rp {_fmt(summary.get('void_amount', 0))}")
     lines.append('')
+
+    if comparison:
+        cp = comparison.get('period', {}) or {}
+        until = f" sampai pukul {cp['until_time']}" if cp.get('until_time') else ''
+        cur_gross = int(summary.get('total_sales', 0) or 0) - int(summary.get('total_hpp', 0) or 0)
+        prev_gross = int(comparison.get('total_sales', 0) or 0) - int(comparison.get('total_hpp', 0) or 0)
+        lines.append('PEMBANDING (periode sebelumnya dengan panjang sama):')
+        lines.append(f"- Periode: {cp.get('from', '?')} s/d {cp.get('to', '?')}{until}")
+        lines.append(f"- Penjualan periode utama dibanding pembanding: {_delta(summary.get('total_sales', 0), comparison.get('total_sales', 0))}")
+        lines.append(f"- Transaksi: {summary.get('total_transactions', 0)} vs {comparison.get('total_transactions', 0)}")
+        lines.append(f"- Untung kotor: {_delta(cur_gross, prev_gross)}")
+        lines.append(f"- Pengeluaran: {_delta(summary.get('total_expenses', 0), comparison.get('total_expenses', 0))}")
+        lines.append(f"- Void: {_delta(summary.get('void_amount', 0), comparison.get('void_amount', 0))}")
+        lines.append('')
+
+    pola = _pola_hari(daily)
+    if pola:
+        lines.append('POLA HARI (rata-rata penjualan per nama hari, seluruh periode):')
+        for name, avg, n in pola:
+            lines.append(f"- {name}: rata-rata Rp {_fmt(avg)} dari {n} hari")
+        lines.append('')
+
+    jam = _jam_ramai(hourly)
+    if jam:
+        lines.append('JAM RAMAI (akumulasi penjualan per jam, seluruh periode):')
+        for h, sales in jam:
+            lines.append(f"- Pukul {h:02d}:00 sampai {h:02d}:59: Rp {_fmt(sales)}")
+        lines.append('')
+
     be = report.get('break_even') or {}
     if be:
         lines.append('TITIK IMPAS BIAYA TETAP:')
@@ -63,8 +134,8 @@ def _build_prompt(report):
             lines.append(
                 f"- {p.get('name', '?')}: {p.get('qty_sold', 0)} porsi terjual, "
                 f"omzet Rp {_fmt(p.get('revenue', 0))}, untung Rp {_fmt(p.get('profit', 0))}, "
-                f"margin Rp {_fmt(p.get('unit_profit', 0))}/porsi "
-                f"(harga jual Rp {_fmt(p.get('unit_price', 0))}, HPP Rp {_fmt(p.get('unit_hpp', 0))})"
+                f"untung per porsi Rp {_fmt(p.get('unit_profit', 0))} "
+                f"(harga jual Rp {_fmt(p.get('unit_price', 0))}, modal bahan Rp {_fmt(p.get('unit_hpp', 0))})"
             )
         lines.append('')
 
@@ -88,29 +159,29 @@ def _build_prompt(report):
 
     data_text = '\n'.join(lines)
 
-    return f"""Anda adalah analis bisnis untuk warung/resto kecil di Indonesia.
+    return f"""Anda adalah pendamping bisnis untuk pemilik warung/resto kecil di Indonesia. Pemilik ini awam akuntansi dan perlu informasi yang cepat dipahami.
 
 ATURAN WAJIB:
-1. DILARANG menggunakan persentase (%). Semua angka dalam nominal Rupiah atau jumlah absolut.
-2. DILARANG menghitung ulang atau menyebutkan Total Omzet, Total Pengeluaran, atau Laba Bersih. Angka tersebut sudah ditampilkan besar-besar di layar HP pengguna. Fokus Anda adalah INSIGHT (analisa), bukan kalkulasi dasar.
-3. Gunakan bahasa Indonesia santai tapi profesional.
-4. Setiap saran harus KONKRET dan BISA DILAKUKAN hari ini, bukan teori.
-5. Sertakan angka nominal nyata dari data untuk mendukung analisa (misal: "selisih Rp 15.000").
-6. Format Markdown. Maksimal 350 kata. Jangan tulis "Berikut adalah..." atau kalimat pembuka, langsung ke isi.
+1. DILARANG menggunakan persentase (%). Gunakan Rupiah atau jumlah absolut.
+2. Total periode utama sudah tampil di layar, jadi jangan diulang. Sebut angka pembanding dan selisihnya saja.
+3. DILARANG mengarang angka. Semua angka harus berasal dari DATA LAPORAN.
+4. Gunakan bahasa Indonesia sehari-hari. Ganti istilah: HPP menjadi "modal bahan", margin menjadi "untung per porsi", laba kotor menjadi "untung sebelum biaya operasional".
+5. Setiap saran harus KONKRET, bisa dilakukan minggu ini, dan menyebut target Rupiah.
+6. Format Markdown, maksimal 400 kata. Jangan tulis kalimat pembuka, langsung ke isi.
 
 STRUKTUR OUTPUT (WAJIB):
 
-## 🌟 Fokus Besok
-1-2 kalimat. Pilih 2 menu dengan untung per porsi tertinggi DAN volume penjualan bagus. Beri saran promosi konkret.
+## 📊 Hari Ini vs Pembanding
+2-3 poin. Sebut apakah penjualan naik atau turun dibanding pembanding, berapa selisihnya dalam Rupiah, dan kemungkinan penyebabnya dari data. Jika ada "sampai pukul", periode utama belum selesai, jadi jelaskan singkat bahwa perbandingannya dibatasi jam yang sama.
 
-## ⚠️ Pemborosan & Kerugian
-Sebutkan pengeluaran yang nilainya besar (jika ada), atau menu dengan untung per porsi di bawah Rp 2.000 / HPP lebih besar dari harga jual. Sebut kerugian nominalnya.
+## ⚠️ Perhatikan
+Hal yang perlu diwaspadai: void yang tidak wajar (sebut nominal dan siapa yang melakukannya), pengeluaran besar, atau menu dengan untung per porsi kecil. Jika tidak ada, tulis "Tidak ada yang mendesak."
 
-## 📋 Aksi Cepat (3 Langkah)
-3 langkah konkret untuk besok dengan target terukur, tanpa teori.
+## 🚀 Strategi 7 Hari Ke Depan
+3 langkah konkret. Gunakan POLA HARI dan JAM RAMAI untuk menentukan kapan promosi dan persiapan stok paling penting. Setiap langkah menyebut target Rupiah yang realistis dari data.
 
 ## 🎯 Titik Impas
-1-2 kalimat. Sebut status impas dalam Rupiah: sisa biaya tetap yang belum tertutup, atau nyatakan sudah tercapai. Jika ada data sisa hari, bandingkan omzet harian yang dibutuhkan dengan rata-rata omzet harian sekarang. Jika data titik impas tidak ada di DATA LAPORAN, lewati bagian ini.
+1-2 kalimat dalam Rupiah. Hanya jika ada data TITIK IMPAS BIAYA TETAP. Jika tidak ada, lewati bagian ini.
 
 ---
 
