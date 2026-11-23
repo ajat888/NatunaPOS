@@ -98,6 +98,7 @@ class _SyncPusher {
           Map<String, dynamic> response;
           if (existingId != null) {
             newId = existingId;
+            await _client.from('categories').update({'is_active': true}).eq('id', newId);
             response = {'id': newId, 'name': c.name, 'is_active': true};
           } else {
             response = await _client
@@ -113,7 +114,6 @@ class _SyncPusher {
         } else {
           final payload = <String, dynamic>{
             'name': c.name,
-            'is_active': true,
           };
           final res = await _client
               .from('categories')
@@ -123,6 +123,7 @@ class _SyncPusher {
           if ((res as List).isEmpty) {
             payload['id'] = c.id;
             payload['user_id'] = userId;
+            payload['is_active'] = true;
             await _client.from('categories').insert(payload);
           }
           await _localDb.upsertCategory(c.copyWith(isSynced: true), skipSync: true);
@@ -171,6 +172,7 @@ class _SyncPusher {
           .select();
       if ((res as List).isEmpty) {
         payload['id'] = id;
+        payload['is_active'] = true;
         await _client.from('products').insert(payload);
       }
     } on PostgrestException catch (e) {
@@ -183,6 +185,7 @@ class _SyncPusher {
             .select();
         if ((res as List).isEmpty) {
           payload['id'] = id;
+          payload['is_active'] = true;
           await _client.from('products').insert(payload);
         }
       } else {
@@ -294,7 +297,6 @@ class _SyncPusher {
             'hpp': p.hpp,
             'category_id': finalCategoryId,
             'image_url': finalImageUrl,
-            'is_active': true,
           };
           await _sendProductUpdate(p.id, payload);
           serverConfirmed = true;
