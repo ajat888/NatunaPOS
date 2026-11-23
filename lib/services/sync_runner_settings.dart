@@ -78,6 +78,7 @@ final localExists = !kIsWeb && localLogo != null && File(localLogo).existsSync()
         'user_id': userId,
         'tax_enabled': tax.isEnabled,
         'tax_rate': tax.currentRate,
+        'fixed_cost_monthly': FixedCostSettings.instance.currentMonthly,
       };
 
       final existing = await _client
@@ -166,6 +167,13 @@ Future<int> _pull(String userId) async {
         enabled: row['tax_enabled'] as bool? ?? false,
         rate: (row['tax_rate'] as num?)?.toDouble() ?? 11.0,
       );
+
+      // Hanya diterapkan jika kolom sudah ada di server, agar nilai lokal tidak tertimpa 0.
+      if (row['fixed_cost_monthly'] != null) {
+        await FixedCostSettings.instance.applyFromServer(
+          (row['fixed_cost_monthly'] as num).toInt(),
+        );
+      }
 
       return 0;
     } catch (e) {
