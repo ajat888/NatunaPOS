@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/local_db.dart';
 import '../core/tax_settings.dart';
+import '../core/fixed_cost_settings.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
