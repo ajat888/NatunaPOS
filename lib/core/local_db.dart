@@ -45,7 +45,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 18,
+      version: 19,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -58,6 +58,7 @@ class LocalDb with
     await LocalDbAuth.createTableAuthCache(db);
     await LocalDbOpenOrders.createTableOpenOrders(db);
     await LocalDbOpenOrders.createTableDeletedOpenOrderKeys(db);
+    await LocalDbOpenOrders.createTablePendingOpenOrderKeys(db);
     await LocalDbExpenseCategories.createTableExpenseCategories(db);
     await LocalDbExpenseItems.createTableExpenseItems(db);
     await LocalDbExpenses.createTableExpenses(db);
@@ -140,6 +141,9 @@ class LocalDb with
     }
     if (oldVersion < 18) {
   await LocalDbTransactions.upgradeTransactionsV18(db);
+    }
+    if (oldVersion < 19) {
+      await LocalDbOpenOrders.createTablePendingOpenOrderKeys(db);
     }
   }
 
