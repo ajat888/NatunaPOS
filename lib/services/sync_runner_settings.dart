@@ -8,6 +8,7 @@ class _SyncSettings {
   Future<int> sync() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return 0;
+    if (kIsWeb) return _pull(userId);
 
     final settings = AppSettings.instance;
     int failures = 0;
