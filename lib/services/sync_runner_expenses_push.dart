@@ -113,6 +113,7 @@ if (c.id < 0) {
   Map<String, dynamic> response;
   if (existingId != null) {
     newId = existingId;
+    await _client.from('expense_categories').update({'is_active': true}).eq('id', newId);
     response = {'id': newId, 'name': c.name, 'is_active': true};
   } else {
     try {
@@ -140,6 +141,7 @@ if (c.id < 0) {
       
       if (recoveredId != null) {
         newId = recoveredId;
+        await _client.from('expense_categories').update({'is_active': true}).eq('id', newId);
         response = {'id': newId, 'name': c.name, 'is_active': true};
       } else {
         debugPrint('Push expense category ${c.id} insert failed: $insertErr');
@@ -152,7 +154,7 @@ if (c.id < 0) {
   await _localDb.deleteExpenseCategoryLocal(c.id, skipSync: true);
   await _localDb.upsertExpenseCategory(ExpenseCategory.fromJson(response), skipSync: true);
 } else {
-          final payload = <String, dynamic>{'name': c.name, 'is_active': true};
+          final payload = <String, dynamic>{'name': c.name};
           final res = await _client
               .from('expense_categories')
               .update(payload)
@@ -161,6 +163,7 @@ if (c.id < 0) {
           if ((res as List).isEmpty) {
             payload['id'] = c.id;
             payload['user_id'] = userId;
+            payload['is_active'] = true;
             await _client.from('expense_categories').insert(payload);
           }
           await _localDb.upsertExpenseCategory(c.copyWith(isSynced: true), skipSync: true);
@@ -225,6 +228,7 @@ if (it.id < 0) {
   Map<String, dynamic> response;
   if (existingId != null) {
     newId = existingId;
+    await _client.from('expense_items').update({'is_active': true}).eq('id', newId);
     response = {
       'id': newId,
       'category_id': finalCategoryId,
@@ -263,6 +267,7 @@ if (it.id < 0) {
       
       if (recoveredId != null) {
         newId = recoveredId;
+        await _client.from('expense_items').update({'is_active': true}).eq('id', newId);
         response = {
           'id': newId,
           'category_id': finalCategoryId,
@@ -283,7 +288,6 @@ if (it.id < 0) {
           final payload = <String, dynamic>{
             'category_id': finalCategoryId,
             'name': it.name,
-            'is_active': true,
           };
           final res = await _client
               .from('expense_items')
@@ -293,6 +297,7 @@ if (it.id < 0) {
           if ((res as List).isEmpty) {
             payload['id'] = it.id;
             payload['user_id'] = userId;
+            payload['is_active'] = true;
             await _client.from('expense_items').insert(payload);
           }
           await _localDb.upsertExpenseItem(it.copyWith(isSynced: true), skipSync: true);
