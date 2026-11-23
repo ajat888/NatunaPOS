@@ -30,6 +30,14 @@ mixin LocalDbOpenOrders {
         'CREATE INDEX IF NOT EXISTS idx_open_items_key ON open_order_items(order_key)');
   }
 
+  static Future<void> createTablePendingOpenOrderKeys(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pending_open_order_keys (
+        order_key TEXT PRIMARY KEY
+      )
+    ''');
+  }
+
   static Future<void> createTableDeletedOpenOrderKeys(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS deleted_open_order_keys (
@@ -102,6 +110,7 @@ mixin LocalDbOpenOrders {
         'table_number': tableNumber,
         'created_at': DateTime.now().millisecondsSinceEpoch,
       });
+      if (!skipSync) await markOpenOrderPending(txn, orderKey);
       for (final line in lines) {
         await txn.insert('open_order_items', {
           'order_key': orderKey,
@@ -123,6 +132,7 @@ mixin LocalDbOpenOrders {
   }) async {
     final db = await database;
     await db.transaction((txn) async {
+      if (!skipSync) await markOpenOrderPending(txn, orderKey);
       for (final line in lines) {
         if (line.productId != null) {
           final existing = await txn.query('open_order_items',
@@ -152,6 +162,13 @@ mixin LocalDbOpenOrders {
 
   Future<void> updateOpenOrderItemQty(int itemId, int qty, {bool skipSync = false}) async {
     final db = await database;
+    if (!skipSync) {
+      final rows = await db.query('open_order_items',
+          columns: ['order_key'], where: 'id = ?', whereArgs: [itemId], limit: 1);
+      if (rows.isNotEmpty) {
+        await markOpenOrderPending(db, rows.first['order_key'] as String);
+      }
+    }
     if (qty <= 0) {
       await db.delete('open_order_items', where: 'id = ?', whereArgs: [itemId]);
     } else {
@@ -168,6 +185,8 @@ mixin LocalDbOpenOrders {
           where: 'order_key = ?', whereArgs: [orderKey]);
       await txn
           .delete('open_orders', where: 'order_key = ?', whereArgs: [orderKey]);
+      await txn.delete('pending_open_order_keys',
+          where: 'order_key = ?', whereArgs: [orderKey]);
       await txn.insert(
         'deleted_open_order_keys',
         {
@@ -233,6 +252,42 @@ mixin LocalDbOpenOrders {
     if (!skipSync) await WriteNotifier.notify();
   }
 
+  // Order yang berubah di perangkat ini dan belum terkirim ke server.
+  Future<void> markOpenOrderPending(DatabaseExecutor exec, String orderKey) async {
+    await exec.insert(
+      'pending_open_order_keys',
+      {'order_key': orderKey},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  Future<Set<String>> getPendingOpenOrderKeys() async {
+    final db = await database;
+    final rows = await db.query('pending_open_order_keys');
+    return rows.map((r) => r['order_key'] as String).toSet();
+  }
+
+  Future<void> clearPendingOpenOrderKey(String orderKey) async {
+    final db = await database;
+    await db.delete('pending_open_order_keys',
+        where: 'order_key = ?', whereArgs: [orderKey]);
+  }
+
+  // Membuang order lokal tanpa tombstone dan tanpa push. Dipakai saat order
+  // sudah tidak ada di server, misalnya karena sudah dibayar di perangkat lain.
+  Future<int> removeLocalOpenOrderOnly(String orderKey) async {
+    final db = await database;
+    int removed = 0;
+    await db.transaction((txn) async {
+      await txn.delete('open_order_items',
+          where: 'order_key = ?', whereArgs: [orderKey]);
+      removed = await txn.delete('open_orders',
+          where: 'order_key = ?', whereArgs: [orderKey]);
+    });
+    if (removed > 0) await WriteNotifier.notify();
+    return removed;
+  }
+
   Future<List<String>> getDeletedOpenOrderKeys() async {
     final db = await database;
     final maps = await db.query('deleted_open_order_keys');
@@ -286,6 +341,13 @@ mixin LocalDbOpenOrders {
 
   Future<void> remapOpenOrderItemProductId(int oldId, int newId, {bool skipSync = false}) async {
     final db = await database;
+    if (!skipSync) {
+      final affected = await db.query('open_order_items',
+          columns: ['order_key'], where: 'product_id = ?', whereArgs: [oldId], distinct: true);
+      for (final r in affected) {
+        await markOpenOrderPending(db, r['order_key'] as String);
+      }
+    }
     await db.update(
       'open_order_items',
       {'product_id': newId},

@@ -55,7 +55,13 @@ class _SyncOpenOrder {
     if (userId == null) return 0;
 
     int failures = 0;
-    final orders = await _localDb.getOpenOrders();
+    // Hanya kirim order yang berubah di perangkat ini. Order lain (misalnya
+    // yang sudah dibayar di perangkat lain) jangan dibuat ulang di server.
+    final pending = await _localDb.getPendingOpenOrderKeys();
+    if (pending.isEmpty) return 0;
+    final orders = (await _localDb.getOpenOrders())
+        .where((o) => pending.contains(o.orderKey))
+        .toList();
     if (orders.isEmpty) return 0;
 
     final Map<String, int> serverIdByKey = {};
@@ -147,6 +153,8 @@ if (existingId != null) {
             }
           }
         }
+
+        await _localDb.clearPendingOpenOrderKey(order.orderKey);
       } catch (e) {
         debugPrint('Push open order ${order.orderKey} failed: $e');
         failures++;
@@ -204,6 +212,27 @@ Future<({int failures, String? maxUpdatedAt})> pull() async {
         skipSync: true,
       );
     }
+    // Buang order lokal yang sudah tidak ada di server, misalnya karena dibayar
+    // di perangkat lain. Order yang belum terkirim (pending) tidak disentuh.
+    try {
+      final keyRes = await _client
+          .from('open_orders')
+          .select('order_key')
+          .eq('user_id', userId);
+      final serverKeys = (keyRes as List)
+          .map((r) => (r as Map)['order_key'] as String)
+          .toSet();
+      final pendingKeys = await _localDb.getPendingOpenOrderKeys();
+      final localOrders = await _localDb.getOpenOrders();
+      for (final o in localOrders) {
+        if (!serverKeys.contains(o.orderKey) && !pendingKeys.contains(o.orderKey)) {
+          await _localDb.removeLocalOpenOrderOnly(o.orderKey);
+        }
+      }
+    } catch (e) {
+      debugPrint('Reconcile open orders failed: $e');
+    }
+
     return (failures: 0, maxUpdatedAt: maxUpdatedAt);
   } catch (e) {
     debugPrint('Pull open orders failed: $e');
