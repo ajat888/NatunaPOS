@@ -15,7 +15,8 @@ class _SyncClosings {
     int failures = 0;
     String? maxUpdatedAt;
 
-    final pushRes = await pushClosings(userId);
+    // Web hanya membaca; tidak boleh push closing dari salinan lokal.
+    final pushRes = kIsWeb ? 0 : await pushClosings(userId);
     failures += pushRes;
     if (failures > 0) return (failures: failures, maxUpdatedAt: null);
 
