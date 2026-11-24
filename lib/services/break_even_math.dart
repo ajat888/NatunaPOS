@@ -29,12 +29,13 @@ class BreakEvenMath {
     final gap = monthly - (mtd.grossProfit - mtd.totalExpenses);
     final marginRatio =
         mtd.totalSales > 0 ? mtd.grossProfit / mtd.totalSales : 0.0;
+    final unknown = gap > 0 && marginRatio <= 0;
     final needed = gap > 0 && marginRatio > 0 ? gap / marginRatio : 0.0;
     final perDay = remainingDays > 0 ? needed / remainingDays : 0.0;
     final avgDaily = mtd.totalSales / mtd.to.day;
     return <String, dynamic>{
       'sisa_hari': remainingDays,
-      'omzet_harian_dibutuhkan': perDay.round(),
+      'omzet_harian_dibutuhkan': unknown ? null : perDay.round(),
       'omzet_harian_rata_rata': avgDaily.round(),
     };
   }

@@ -81,6 +81,19 @@ class _ReportsRemainingTarget extends StatelessWidget {
       );
     }
 
+    if (gap > 0 && marginRatio <= 0) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: decoration,
+        child: Text(
+          mtd.totalSales <= 0
+              ? 'Belum bisa dihitung: belum ada penjualan bulan ini'
+              : 'Belum bisa dihitung: margin kotor bulan ini nol atau minus',
+          style: const TextStyle(fontSize: 13, color: AppTheme.textLightColor),
+        ),
+      );
+    }
+
     final paceOk = avgDaily >= perDayNeeded;
     final paceGap = perDayNeeded - avgDaily;
 
@@ -102,9 +115,9 @@ class _ReportsRemainingTarget extends StatelessWidget {
           _tgtRow('Sisa hari', '$remainingDays hari'),
           _tgtRow('Sisa biaya tetap yang belum tertutup',
               'Rp ${fmt.format(gap)}'),
-          _tgtRow('Omzet harian yang dibutuhkan',
+          _tgtRow('Total omzet harian yang dibutuhkan (sisa hari)',
               'Rp ${fmt.format(perDayNeeded.round())}'),
-          _tgtRow('Rata-rata omzet harian sekarang',
+          _tgtRow('Rata-rata omzet harian (total) bulan ini',
               'Rp ${fmt.format(avgDaily.round())}'),
           const SizedBox(height: 8),
           Text(

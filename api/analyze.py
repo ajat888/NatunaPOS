@@ -51,7 +51,7 @@ def _pola_hari(daily, exclude_date=None):
         per_hari[wd] = (total + int(d.get('sales', 0) or 0), count + 1)
     rows = [(DAY_NAMES[wd], total // count, count)
             for wd, (total, count) in per_hari.items()]
-    return sorted(rows, key=lambda x: x[1], reverse=True)
+    return sorted(rows, key=lambda x: (x[2] >= 4, x[1]), reverse=True)
 
 
 def _jam_ramai(hourly):
@@ -108,7 +108,10 @@ def _build_prompt(report):
     if pola:
         lines.append('POLA HARI (rata-rata penjualan per nama hari, seluruh periode):')
         for name, avg, n in pola:
-            lines.append(f"- {name}: rata-rata Rp {_fmt(avg)} dari {n} hari")
+            if n < 4:
+                lines.append(f"- {name}: belum cukup data ({n} hari)")
+            else:
+                lines.append(f"- {name}: rata-rata Rp {_fmt(avg)} dari {n} hari")
         lines.append('')
 
     jam = _jam_ramai(hourly)
@@ -127,7 +130,11 @@ def _build_prompt(report):
         lines.append(f"- Sisa biaya tetap yang belum tertutup: Rp {_fmt(be.get('sisa_biaya_periode', 0))}")
         if be.get('sisa_hari') is not None:
             lines.append(f"- Sisa hari di bulan ini: {be.get('sisa_hari', 0)}")
-            lines.append(f"- Omzet harian yang dibutuhkan untuk impas: Rp {_fmt(be.get('omzet_harian_dibutuhkan', 0))}")
+            need = be.get('omzet_harian_dibutuhkan')
+            if need is None:
+                lines.append("- Total omzet harian yang dibutuhkan untuk impas: belum bisa dihitung (penjualan atau margin kotor bulan ini nol atau minus)")
+            else:
+                lines.append(f"- Total omzet harian yang dibutuhkan untuk impas (seluruh omzet per hari di sisa bulan, BUKAN tambahan di atas rata-rata sekarang): Rp {_fmt(need)}")
             lines.append(f"- Rata-rata omzet harian bulan ini: Rp {_fmt(be.get('omzet_harian_rata_rata', 0))}")
         lines.append('')
 
@@ -148,8 +155,10 @@ def _build_prompt(report):
             lines.append(f"- {d.get('date', '?')}: Rp {_fmt(d.get('sales', 0))} dari {d.get('tx_count', 0)} transaksi")
         lines.append('')
 
+    lines.append(f"Total pengeluaran (semua entri): Rp {_fmt(summary.get('total_expenses', 0))}")
+    lines.append('')
     if expenses:
-        lines.append(f'PENGELUARAN ({len(expenses)} entri, ditampilkan maks 30):')
+        lines.append(f'PENGELUARAN ({len(expenses)} entri, ditampilkan maks 30 di bawah ini; angka total di atas mencakup semua entri):')
         for e in expenses[:30]:
             lines.append(f"- {e.get('item_name', '?')} ({e.get('category_name', '?')}): Rp {_fmt(e.get('amount', 0))} pada {e.get('created_at', '?')}")
         lines.append('')
@@ -171,6 +180,7 @@ ATURAN WAJIB:
 4. Gunakan bahasa Indonesia sehari-hari. Ganti istilah: HPP menjadi "modal bahan", margin menjadi "untung per porsi", laba kotor menjadi "untung sebelum biaya operasional".
 5. Setiap saran harus KONKRET, bisa dilakukan minggu ini, dan menyebut target Rupiah.
 6. Format Markdown, maksimal 400 kata. Jangan tulis kalimat pembuka, langsung ke isi.
+7. "Total omzet harian yang dibutuhkan" adalah TOTAL omzet per hari di sisa bulan, BUKAN tambahan di atas rata-rata sekarang. Bandingkan langsung dengan "Rata-rata omzet harian (total)". Jika POLA HARI menulis "belum cukup data", jangan menyebut rata-rata untuk hari itu. Angka apa pun yang tidak ada di DATA LAPORAN dilarang ditulis.
 
 STRUKTUR OUTPUT (WAJIB):
 

@@ -92,6 +92,14 @@ class _ReportsBreakEvenCard extends StatelessWidget {
               color: AppTheme.textLightColor,
             ),
           ),
+          const SizedBox(height: 6),
+          const Text(
+            'Jika sewa, listrik, atau gaji sudah dicatat sebagai pengeluaran, sebaiknya tidak diisi lagi di pengaturan biaya tetap.',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppTheme.textLightColor,
+            ),
+          ),
         ],
       ),
     );

@@ -377,7 +377,7 @@ Widget _buildSmartInsight(BuildContext context) {
           
           // PEMISAHAN TUNAI & NON-TUNAI
           _row(
-            'Penerimaan Tunai (Cash)',
+            'Uang tunai dari penjualan (belum dikurangi belanja dari laci)',
             'Rp ${fmt.format(summary.cashExpected)}',
             bold: true,
           ),
@@ -452,7 +452,7 @@ Widget _buildSmartInsight(BuildContext context) {
             SizedBox(height: 4),
             Text('Laba Kotor dikurangi Pengeluaran Operasional (listrik, gaji, bahan tambahan, dll). Ini adalah uang bersih yang Anda kantongi.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
             SizedBox(height: 12),
-            Text('Penerimaan Tunai (Cash)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
+            Text('Uang tunai dari penjualan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
             SizedBox(height: 4),
             Text('Uang fisik (tunai) yang seharusnya ada di laci kasir dari penjualan. Belum dikurangi pengeluaran.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
           ],
