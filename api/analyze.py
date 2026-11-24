@@ -191,7 +191,13 @@ STRUKTUR OUTPUT (WAJIB):
 Hal yang perlu diwaspadai: void yang tidak wajar (sebut nominal dan siapa yang melakukannya), pengeluaran besar, atau menu dengan untung per porsi kecil. Jika tidak ada, tulis "Tidak ada yang mendesak."
 
 ## 🚀 Strategi 7 Hari Ke Depan
-3 langkah konkret. Gunakan POLA HARI dan JAM RAMAI untuk menentukan kapan promosi dan persiapan stok paling penting. Setiap langkah menyebut target Rupiah yang realistis dari data.
+3 langkah konkret. Pilih menu HANYA dari bagian PRODUK TERJUAL, dengan aturan:
+- Promosikan menu dengan untung per porsi TINGGI tetapi qty terjual RENDAH (potensi belum tergali), atau menu untung tinggi yang sudah laku untuk didorong volumenya.
+- Hindari mempromosikan menu dengan untung per porsi kecil kecuali sebagai pancingan dan sebutkan kerugiannya.
+- Tulis perhitungan singkat dari angka data, misalnya: untung per porsi Rp X × target porsi per hari Y = Rp Z per hari. Jangan menulis target yang tidak bisa diturunkan dari angka DATA LAPORAN.
+- Jangan mengarang harga paket, diskon, atau paket baru yang tidak ada di data. Jika menyarankan paket atau diskon, tulis hanya sebagai uji coba dan sebutkan angka modal yang dipakai.
+- Gunakan POLA HARI dan JAM RAMAI hanya untuk menentukan waktu promosi, bukan untuk memilih menu.
+- Jika TITIK IMPAS menunjukkan kebutuhan omzet harian jauh di atas rata-rata sekarang, katakan terus terang bahwa promosi saja tidak cukup untuk impas bulan ini.
 
 ## 🎯 Titik Impas
 1-2 kalimat dalam Rupiah. Hanya jika ada data TITIK IMPAS BIAYA TETAP. Jika tidak ada, lewati bagian ini.
