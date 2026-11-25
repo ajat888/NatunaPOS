@@ -225,7 +225,7 @@ Future<void> _cleanupOrphanProducts(String userId) async {
 
   Future<({int failures, String? maxUpdatedAt})> _pullTransactions(String userId) async {
     try {
-      final lastPull = _pullWatermarkWithOverlap(AppSettings.instance.lastPullTime);
+      final lastPull = _pullWatermarkWithOverlap(AppSettings.instance.lastTxPullTime);
       int offset = 0;
       const pageSize = 500;
       String? maxUpdatedAt;
@@ -240,6 +240,7 @@ const query = 'id, total, subtotal, bill_discount, discount_type, discount_value
             .order('updated_at', ascending: true)
             .range(offset, offset + pageSize - 1);
         final List<dynamic> list = response as List;
+        String? pageMax;
 
         if (list.isEmpty) break;
         final ids = list.map((e) => ((e as Map)['id'] as num).toInt()).toList();
@@ -249,6 +250,7 @@ const query = 'id, total, subtotal, bill_discount, discount_type, discount_value
           final m = raw as Map<String, dynamic>;
           if (m['updated_at'] != null) {
             maxUpdatedAt = _maxStr(maxUpdatedAt, m['updated_at'] as String);
+            pageMax = _maxStr(pageMax, m['updated_at'] as String);
           }
           
           final id = (m['id'] as num).toInt();
@@ -317,6 +319,9 @@ const query = 'id, total, subtotal, bill_discount, discount_type, discount_value
             voidedAtMs: _parseTimestamp(m['voided_at']),
             skipSync: true,
           );
+        }
+        if (pageMax != null) {
+          await AppSettings.instance.setLastTxPullTime(pageMax);
         }
         if (list.length < pageSize) break;
         offset += pageSize;

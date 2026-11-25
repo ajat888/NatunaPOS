@@ -24,6 +24,7 @@ class AppSettings {
   static const String _kPosCategoryOrder = 'natunapos_pos_category_order';
   static const String _kLastPullTime = 'natunapos_last_pull_time';
   static const String _kLastCleanupTime = 'natunapos_last_cleanup_time';
+    String? _lastTxPullTime;
 
   final ValueNotifier<String> storeName = ValueNotifier('');
   final ValueNotifier<String> storeSubtitle = ValueNotifier('');
@@ -50,7 +51,8 @@ class AppSettings {
   int get updatedAtMs => _updatedAtMs;
   String get lastPullTime => _lastPullTime;
   String get lastCleanupTime => _lastCleanupTime;
-
+  String get lastTxPullTime => _lastTxPullTime ?? _lastPullTime;
+  
   Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -69,6 +71,7 @@ class AppSettings {
       _updatedAtMs = prefs.getInt(_kSettingsUpdatedAtMs) ?? 0;
       _lastPullTime = prefs.getString(_kLastPullTime) ?? '1970-01-01T00:00:00Z';
       _lastCleanupTime = prefs.getString(_kLastCleanupTime) ?? '1970-01-01T00:00:00Z';
+      _lastTxPullTime = prefs.getString(_kLastTxPullTime);
       
       final loaded = prefs.getInt(_kTableCount) ?? 20;
       tableCount.value = loaded.clamp(1, 200);
@@ -108,6 +111,12 @@ class AppSettings {
   await prefs.setString(_kLastCleanupTime, time);
 }
 
+  Future<void> setLastTxPullTime(String time) async {
+    _lastTxPullTime = time;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastTxPullTime, time);
+  }
+  
   Future<void> saveStoreInfo({
     required String name,
     required String subtitle,
