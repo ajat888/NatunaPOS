@@ -24,8 +24,9 @@ class AppSettings {
   static const String _kPosCategoryOrder = 'natunapos_pos_category_order';
   static const String _kLastPullTime = 'natunapos_last_pull_time';
   static const String _kLastCleanupTime = 'natunapos_last_cleanup_time';
-    String? _lastTxPullTime;
-
+  static const String _kLastTxPullTime = 'natunapos_last_tx_pull_time';
+  String? _lastTxPullTime;
+  
   final ValueNotifier<String> storeName = ValueNotifier('');
   final ValueNotifier<String> storeSubtitle = ValueNotifier('');
   final ValueNotifier<String> storeAddress = ValueNotifier('');
