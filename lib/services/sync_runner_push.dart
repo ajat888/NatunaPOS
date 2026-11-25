@@ -4,7 +4,7 @@ class _SyncPusher {
   final SupabaseClient _client;
   final LocalDb _localDb;
   final Random _rng;
-
+  int _rejected = 0;
   _SyncPusher(SyncRunner r)
       : _client = r.client,
         _localDb = r.localDb,
@@ -24,12 +24,20 @@ class _SyncPusher {
     productFailures += await _pushProducts(userId, catRes.categoryIdMap);
     failures += await _pushTransactions(userId);
     failures += await _pushVoidedTransactions(userId);
-    return (blocking: failures, products: productFailures);
+    return (blocking: failures, products: productFailures + _rejected);
   }
 
   bool _isFkError(PostgrestException e) =>
       e.code == '23503' ||
       e.message.toLowerCase().contains('foreign key');
+
+  bool _isPermanentRejection(Object e) {
+    if (e is! PostgrestException) return false;
+    final code = e.code ?? '';
+    return code.startsWith('22') ||
+        code.startsWith('23') ||
+        code.startsWith('42');
+  }
 
   Future<int> _pushDeletedCategories() async {
     int failures = 0;
@@ -130,7 +138,11 @@ class _SyncPusher {
         }
       } catch (e) {
         debugPrint('Sync category ${c.id} failed: $e');
-        failures++;
+        if (_isPermanentRejection(e)) {
+          _rejected++;
+        } else {
+          failures++;
+        }
       }
     }
     return (failures: failures, categoryIdMap: map);
@@ -324,7 +336,11 @@ class _SyncPusher {
             debugPrint('Failed to cleanup orphan upload: $cleanupErr');
           }
         }
-        failures++;
+        if (_isPermanentRejection(e)) {
+          _rejected++;
+        } else {
+          failures++;
+        }
       }
     }
     return failures;
@@ -461,7 +477,11 @@ if (tx.isVoided) {
         await _localDb.replaceTransactionId(oldId: tx.id, newId: serverTxId, skipSync: true);
       } catch (e) {
         debugPrint('Sync transaction ${tx.id} failed: $e');
-        failures++;
+        if (_isPermanentRejection(e)) {
+          _rejected++;
+        } else {
+          failures++;
+        }
       }
     }
     return failures;
@@ -486,11 +506,19 @@ if (tx.isVoided) {
           await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
         } on PostgrestException catch (e) {
           debugPrint('Push void tx ${tx.id} failed: $e');
-          failures++;
+          if (_isPermanentRejection(e)) {
+            _rejected++;
+          } else {
+            failures++;
+          }
         }
       } catch (e) {
         debugPrint('Push void tx ${tx.id} failed: $e');
-        failures++;
+        if (_isPermanentRejection(e)) {
+          _rejected++;
+        } else {
+          failures++;
+        }
       }
     }
     return failures;

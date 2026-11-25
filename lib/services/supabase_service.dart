@@ -1,4 +1,5 @@
 import '../core/file_utils.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -67,6 +68,8 @@ class SupabaseService {
   }
   final LocalDb _localDb = LocalDb.instance;
   static Future<void>? _activeSync;
+  static const Duration _syncSoftLimit = Duration(minutes: 3);
+  static const Duration _syncAbandonAfter = Duration(minutes: 2);
   static final Random _rng = Random();
 
   final _secureStorage = const FlutterSecureStorage();
@@ -278,12 +281,23 @@ Future<void> _performSync() async {
     error = e;
   });
 
-  await Future.any([done, Future<void>.delayed(const Duration(minutes: 3))]);
-  if (failures == null && error == null) {
-    // Batas 3 menit hanya mengubah pesan. Guard tetap dipegang sampai run selesai.
+  final finishedSoft = await Future.any<bool>([
+    done.then<bool>((_) => true),
+    Future<bool>.delayed(_syncSoftLimit, () => false),
+  ]);
+  if (!finishedSoft) {
     SyncStatusService.instance.markFailed(
         'Sinkronisasi lebih dari 3 menit dan masih berjalan. Tunggu sebentar.');
-    await done;
+    final finishedAbandon = await Future.any<bool>([
+      done.then<bool>((_) => true),
+      Future<bool>.delayed(_syncAbandonAfter, () => false),
+    ]);
+    if (!finishedAbandon) {
+      SyncStatusService.instance.markFailed(
+          'Sinkronisasi terhenti karena koneksi. Akan dicoba lagi otomatis.');
+      unawaited(done);
+      return;
+    }
   }
 
   if (error != null) {
