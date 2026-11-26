@@ -153,6 +153,7 @@ AutoSyncScheduler.instance
     .scheduleSync(delay: const Duration(seconds: 1));
 
 if (_logoutAfter) {
+  if (!mounted) return;
   if (!await confirmRejectedLogout(context)) {
     if (!mounted) return;
     messenger.showSnackBar(

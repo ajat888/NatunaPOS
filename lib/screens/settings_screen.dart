@@ -196,8 +196,8 @@ class _LogoutSectionState extends State<_LogoutSection> {
       ),
     );
     if (confirmed != true) return;
-    if (!await confirmRejectedLogout(context)) return;
     if (!mounted) return;
+    if (!await confirmRejectedLogout(context)) return;
 
     setState(() => _busy = true);
 
