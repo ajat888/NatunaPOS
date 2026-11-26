@@ -295,8 +295,7 @@ Future<void> _performSync() async {
     if (!finishedAbandon) {
       SyncStatusService.instance.markFailed(
           'Sinkronisasi terhenti karena koneksi. Akan dicoba lagi otomatis.');
-      unawaited(done);
-      return;
+      await done;
     }
   }
 

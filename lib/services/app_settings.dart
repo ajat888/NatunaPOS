@@ -52,7 +52,7 @@ class AppSettings {
   int get updatedAtMs => _updatedAtMs;
   String get lastPullTime => _lastPullTime;
   String get lastCleanupTime => _lastCleanupTime;
-  String get lastTxPullTime => _lastTxPullTime ?? _lastPullTime;
+  String get lastTxPullTime => _lastTxPullTime ?? '1970-01-01T00:00:00Z';
   
   Future<void> load() async {
     try {

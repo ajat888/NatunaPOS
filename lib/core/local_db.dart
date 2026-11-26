@@ -45,7 +45,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 19,
+      version: 20,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -145,6 +145,10 @@ class LocalDb with
     if (oldVersion < 19) {
       await LocalDbOpenOrders.createTablePendingOpenOrderKeys(db);
     }
+    if (oldVersion < 20) {
+      await db.execute('ALTER TABLE transactions ADD COLUMN sync_rejected INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE products ADD COLUMN sync_rejected INTEGER DEFAULT 0');
+    }
   }
 
 Future<int> countPendingSync() async {
@@ -153,7 +157,7 @@ Future<int> countPendingSync() async {
     SELECT
       (SELECT COUNT(*) FROM products            WHERE is_synced = 0)
     + (SELECT COUNT(*) FROM categories          WHERE is_synced = 0)
-    + (SELECT COUNT(*) FROM transactions        WHERE is_synced = 0)
+    + (SELECT COUNT(*) FROM transactions        WHERE is_synced = 0 AND sync_rejected = 0)
     + (SELECT COUNT(*) FROM expense_categories  WHERE is_synced = 0)
     + (SELECT COUNT(*) FROM expense_items       WHERE is_synced = 0)
     + (SELECT COUNT(*) FROM expenses            WHERE is_synced = 0)

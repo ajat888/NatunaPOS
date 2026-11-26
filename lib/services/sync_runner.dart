@@ -54,7 +54,7 @@ Future<int> run() async {
     failures += await _SyncExpensesPusher(this).pushAll();
   }
 
-  if (failures > 0) return failures + productFailures;
+  if (failures > 0) return failures;
 
   int pullFailures = 0;
 
@@ -97,6 +97,6 @@ Future<int> run() async {
     }
   }
 
-  return pullFailures + productFailures;
+  return pullFailures;
 }
 }

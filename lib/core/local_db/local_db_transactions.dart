@@ -425,6 +425,13 @@ mixin LocalDbTransactions {
     if (!skipSync) await WriteNotifier.notify();
   }
 
+  Future<void> markTransactionRejected(int id, {bool skipSync = false}) async {
+    final db = await database;
+    await db.update('transactions', {'is_synced': 1, 'sync_rejected': 1},
+        where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
+  }
+
   Future<void> insertPulledTransaction({
     required int id,
     required int total,

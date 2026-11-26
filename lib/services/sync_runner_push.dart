@@ -175,34 +175,23 @@ class _SyncPusher {
     }
   }
 
-  Future<void> _sendProductUpdate(int id, Map<String, dynamic> payload) async {
+  Future<void> _sendProductUpdate(String userId, int id, Map<String, dynamic> payload) async {
     try {
-      final res = await _client
-          .from('products')
-          .update(payload)
-          .eq('id', id)
-          .select();
+      final res = await _client.from('products').update(payload).eq('id', id).select();
       if ((res as List).isEmpty) {
-        payload['id'] = id;
-        payload['is_active'] = true;
-        await _client.from('products').insert(payload);
+        await _client.from('products').insert({
+          ...payload,
+          'id': id,
+          'user_id': userId,
+          'is_active': true,
+        });
       }
     } on PostgrestException catch (e) {
       if (_isFkError(e) && payload['category_id'] != null) {
-        payload['category_id'] = null;
-        final res = await _client
-            .from('products')
-            .update(payload)
-            .eq('id', id)
-            .select();
-        if ((res as List).isEmpty) {
-          payload['id'] = id;
-          payload['is_active'] = true;
-          await _client.from('products').insert(payload);
-        }
-      } else {
-        rethrow;
+        await _sendProductUpdate(userId, id, {...payload, 'category_id': null});
+        return;
       }
+      rethrow;
     }
   }
 
@@ -224,7 +213,7 @@ class _SyncPusher {
           remainingLocal = null;
         }
 
-        if (remainingLocal != null) {
+        if (remainingLocal != null && (p.imageUrl == null || p.imageUrl!.isEmpty)) {
           final fileName =
               'product_${DateTime.now().microsecondsSinceEpoch}_${_rng.nextInt(999999)}.jpg';
           await _client
@@ -261,7 +250,7 @@ class _SyncPusher {
           Product serverProduct;
           if (existingId != null) {
             newId = existingId;
-            await _sendProductUpdate(newId, <String, dynamic>{
+            await _sendProductUpdate(userId, newId, <String, dynamic>{
               'name': p.name,
               'price': p.price,
               'hpp': p.hpp,
@@ -310,7 +299,7 @@ class _SyncPusher {
             'category_id': finalCategoryId,
             'image_url': finalImageUrl,
           };
-          await _sendProductUpdate(p.id, payload);
+              await _sendProductUpdate(userId, p.id, payload);
           serverConfirmed = true;
 
           await _localDb.upsertProduct(Product(
@@ -479,6 +468,7 @@ if (tx.isVoided) {
         debugPrint('Sync transaction ${tx.id} failed: $e');
         if (_isPermanentRejection(e)) {
           _rejected++;
+          await _localDb.markTransactionRejected(tx.id, skipSync: true);
         } else {
           failures++;
         }
