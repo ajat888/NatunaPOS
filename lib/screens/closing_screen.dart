@@ -164,6 +164,15 @@ if (_logoutAfter) {
     await _load();
     return;
   }
+      try {
+        await SupabaseService().logout();
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Closing berhasil disimpan. Anda telah logout.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
         await navigator.pushAndRemoveUntil(
   MaterialPageRoute(builder: (_) => const LoginScreen()),
   (route) => false,

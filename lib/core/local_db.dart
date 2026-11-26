@@ -161,8 +161,8 @@ Future<int> countPendingSync() async {
   final db = await database;
   final result = await db.rawQuery('''
     SELECT
-      (SELECT COUNT(*) FROM products            WHERE is_synced = 0)
-    + (SELECT COUNT(*) FROM categories          WHERE is_synced = 0)
+      (SELECT COUNT(*) FROM products            WHERE is_synced = 0 AND sync_rejected = 0)
+    + (SELECT COUNT(*) FROM categories          WHERE is_synced = 0 AND sync_rejected = 0)
     + (SELECT COUNT(*) FROM transactions        WHERE is_synced = 0 AND sync_rejected = 0)
     + (SELECT COUNT(*) FROM expense_categories  WHERE is_synced = 0)
     + (SELECT COUNT(*) FROM expense_items       WHERE is_synced = 0)
@@ -174,6 +174,22 @@ Future<int> countPendingSync() async {
   if (v is int) return v;
   if (v is num) return v.toInt();
   return 0;
+}
+
+Future<Map<String, int>> countRejectedSync() async {
+  final db = await database;
+  final result = await db.rawQuery('''
+    SELECT
+      (SELECT COUNT(*) FROM products     WHERE sync_rejected = 1) AS products,
+      (SELECT COUNT(*) FROM categories   WHERE sync_rejected = 1) AS categories,
+      (SELECT COUNT(*) FROM transactions WHERE sync_rejected = 1) AS transactions
+  ''');
+  final row = result.first;
+  return {
+    'products': (row['products'] as int?) ?? 0,
+    'categories': (row['categories'] as int?) ?? 0,
+    'transactions': (row['transactions'] as int?) ?? 0,
+  };
 }
 
   Future<void> clearAllData() async {
