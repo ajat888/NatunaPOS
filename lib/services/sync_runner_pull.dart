@@ -162,7 +162,7 @@ Future<void> _cleanupOrphanProducts(String userId) async {
             maxUpdatedAt = _maxStr(maxUpdatedAt, raw['updated_at'] as String);
           }
           if (unsyncedIds.contains(p.id)) continue;
-          await _localDb.upsertProduct(p, skipSync: true);
+          await _localDb.upsertProductFromPull(p);
         }
         if (list.length < pageSize) break;
         offset += pageSize;

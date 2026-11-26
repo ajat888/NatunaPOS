@@ -176,6 +176,27 @@ mixin LocalDbProducts {
     if (!skipSync) await WriteNotifier.notify();
   }
 
+  Future<void> upsertProductFromPull(Product product) async {
+    final db = await database;
+    final existing = await db.query(
+      'products',
+      columns: ['image_url', 'local_image_path', 'client_uuid', 'sync_rejected'],
+      where: 'id = ?',
+      whereArgs: [product.id],
+      limit: 1,
+    );
+    final row = product.toDb();
+    if (existing.isNotEmpty) {
+      final old = existing.first;
+      final sameImage = old['image_url'] == product.imageUrl;
+      row['local_image_path'] = sameImage ? old['local_image_path'] : null;
+      row['client_uuid'] = old['client_uuid'];
+      row['sync_rejected'] = old['sync_rejected'];
+    }
+    await db.insert('products', row,
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   Future<void> deleteProduct(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
