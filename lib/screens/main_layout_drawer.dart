@@ -6,70 +6,100 @@ class _SyncBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<SyncState>(
-      valueListenable: SyncStatusService.instance.state,
-      builder: (context, state, _) {
-        return ValueListenableBuilder<int>(
-          valueListenable: SyncStatusService.instance.pendingCount,
-          builder: (context, pendingCount, __) {
-            IconData icon;
-            Color color;
-            String label;
-            String tooltip;
-            switch (state) {
-              case SyncState.syncing:
-                icon = Icons.sync;
-                color = AppTheme.primaryColor;
-                label = 'SYNC';
-                tooltip = 'Menyinkronkan...';
-                break;
-              case SyncState.pending:
-                icon = Icons.cloud_upload_outlined;
-                color = Colors.orange.shade800;
-                label = '$pendingCount';
-                tooltip = '$pendingCount perubahan menunggu. Ketuk untuk sync.';
-                break;
-              case SyncState.failed:
-                icon = Icons.cloud_off;
-                color = AppTheme.dangerColor;
-                label = 'GAGAL';
-                tooltip = 'Sinkronisasi gagal. Ketuk untuk coba lagi.';
-                break;
-              case SyncState.idle:
-                icon = Icons.cloud_done_outlined;
-                color = Colors.green.shade700;
-                label = 'OK';
-                tooltip = 'Semua data tersinkron. Ketuk untuk sync manual.';
-                break;
-            }
-            return Tooltip(
-              message: tooltip,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: onTap,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+    return ValueListenableBuilder<int>(
+      valueListenable: SyncStatusService.instance.rejectedCount,
+      builder: (context, rejected, _) {
+        return ValueListenableBuilder<SyncState>(
+          valueListenable: SyncStatusService.instance.state,
+          builder: (context, state, __) {
+            return ValueListenableBuilder<int>(
+              valueListenable: SyncStatusService.instance.pendingCount,
+              builder: (context, pendingCount, ___) {
+                IconData icon;
+                Color color;
+                String label;
+                String tooltip;
+                switch (state) {
+                  case SyncState.syncing:
+                    icon = Icons.sync;
+                    color = AppTheme.primaryColor;
+                    label = 'SYNC';
+                    tooltip = 'Menyinkronkan...';
+                    break;
+                  case SyncState.pending:
+                    icon = Icons.cloud_upload_outlined;
+                    color = Colors.orange.shade800;
+                    label = '$pendingCount';
+                    tooltip = '$pendingCount perubahan menunggu. Ketuk untuk sync.';
+                    break;
+                  case SyncState.failed:
+                    icon = Icons.cloud_off;
+                    color = AppTheme.dangerColor;
+                    label = 'GAGAL';
+                    tooltip = 'Sinkronisasi gagal. Ketuk untuk coba lagi.';
+                    break;
+                  case SyncState.idle:
+                    icon = Icons.cloud_done_outlined;
+                    color = Colors.green.shade700;
+                    label = 'OK';
+                    tooltip = 'Semua data tersinkron. Ketuk untuk sync manual.';
+                    break;
+                }
+                final hasRejected = rejected > 0;
+                return Tooltip(
+                  message: hasRejected
+                      ? '$rejected data ditolak server. Ketuk untuk melihat.'
+                      : tooltip,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 13, color: color),
-                      const SizedBox(width: 4),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
+                    onTap: hasRejected
+                        ? () => unawaited(showRejectedSyncDialog(context))
+                        : onTap,
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 13, color: color),
+                          const SizedBox(width: 4),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: color,
+                            ),
+                          ),
+                          if (hasRejected) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.dangerColor,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '$rejected DITOLAK',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );

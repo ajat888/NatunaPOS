@@ -18,6 +18,7 @@ import '../services/sync_status_service.dart';
 import '../services/update_service.dart';
 import '../services/printer_service.dart';
 import '../widgets/common/main_menu_scope.dart';
+import '../widgets/common/rejected_sync_dialog.dart';
 import 'login_screen.dart';
 import 'kelola_screen.dart';
 
@@ -195,6 +196,7 @@ class _LogoutSectionState extends State<_LogoutSection> {
       ),
     );
     if (confirmed != true) return;
+    if (!await confirmRejectedLogout(context)) return;
     if (!mounted) return;
 
     setState(() => _busy = true);

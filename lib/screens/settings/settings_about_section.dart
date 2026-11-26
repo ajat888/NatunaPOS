@@ -174,6 +174,13 @@ Widget build(BuildContext context) {
               valueListenable: SyncStatusService.instance.pendingCount,
               builder: (context, pending, _) {
                 return _infoTile('Menunggu Sinkron', '$pending perubahan');
+            ValueListenableBuilder<int>(
+              valueListenable: SyncStatusService.instance.rejectedCount,
+              builder: (context, rejected, _) {
+                return _infoTile('Data Ditolak Server', '$rejected data');
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
               },
             ),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),

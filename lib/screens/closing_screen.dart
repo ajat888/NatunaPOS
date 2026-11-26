@@ -10,6 +10,7 @@ import '../services/supabase_service.dart';
 import '../services/auto_sync_scheduler.dart';
 import '../services/sync_status_service.dart';
 import '../widgets/common/thousand_formatter.dart';
+import '../widgets/common/rejected_sync_dialog.dart';
 import 'login_screen.dart';
 
 part 'closing/already_closed_view.dart';
@@ -152,15 +153,17 @@ AutoSyncScheduler.instance
     .scheduleSync(delay: const Duration(seconds: 1));
 
 if (_logoutAfter) {
-      try {
-        await SupabaseService().logout();
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Closing berhasil disimpan. Anda telah logout.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
+  if (!await confirmRejectedLogout(context)) {
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Closing berhasil disimpan. Logout dibatalkan.'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    await _load();
+    return;
+  }
         await navigator.pushAndRemoveUntil(
   MaterialPageRoute(builder: (_) => const LoginScreen()),
   (route) => false,

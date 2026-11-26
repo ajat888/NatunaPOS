@@ -17,6 +17,7 @@ import '../services/auto_sync_scheduler.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
 import '../widgets/common/main_menu_scope.dart';
+import '../widgets/common/rejected_sync_dialog.dart';
 
 part 'main_layout_drawer.dart';
 
@@ -186,7 +187,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   Future<void> _handleLogout() async {
     _scaffoldKey.currentState?.closeDrawer();
-
+    if (!await confirmRejectedLogout(context)) return;
+    
     try {
       await _service.logout();
     } on PendingSyncException catch (e) {
