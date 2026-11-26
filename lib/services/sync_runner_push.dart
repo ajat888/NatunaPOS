@@ -140,6 +140,7 @@ class _SyncPusher {
         debugPrint('Sync category ${c.id} failed: $e');
         if (_isPermanentRejection(e)) {
           _rejected++;
+          await _localDb.markCategoryRejected(c.id, skipSync: true);
         } else {
           failures++;
         }
@@ -327,6 +328,7 @@ class _SyncPusher {
         }
         if (_isPermanentRejection(e)) {
           _rejected++;
+          await _localDb.markProductRejected(p.id, skipSync: true);
         } else {
           failures++;
         }
@@ -502,14 +504,15 @@ if (tx.isVoided) {
             failures++;
           }
         }
-      } catch (e) {
-        debugPrint('Push void tx ${tx.id} failed: $e');
-        if (_isPermanentRejection(e)) {
-          _rejected++;
-        } else {
-          failures++;
+        } on PostgrestException catch (e) {
+          debugPrint('Push void tx ${tx.id} failed: $e');
+          if (_isPermanentRejection(e)) {
+            _rejected++;
+            await _localDb.markTransactionRejected(tx.id, skipSync: true);
+          } else {
+            failures++;
+          }
         }
-      }
     }
     return failures;
   }

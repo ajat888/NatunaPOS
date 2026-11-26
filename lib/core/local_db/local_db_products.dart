@@ -210,6 +210,13 @@ mixin LocalDbProducts {
     if (!skipSync) await WriteNotifier.notify();
   }
 
+  Future<void> markProductRejected(int id, {bool skipSync = false}) async {
+    final db = await database;
+    await db.update('products', {'is_synced': 1, 'sync_rejected': 1},
+        where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
+  }
+
   Future<void> remapProductCategory(int oldCategoryId, int newCategoryId, {bool skipSync = false}) async {
     final db = await database;
     await db.update(

@@ -45,7 +45,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 20,
+      version: 21,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -64,6 +64,9 @@ class LocalDb with
     await LocalDbExpenses.createTableExpenses(db);
     await LocalDbVoidedOpenOrders.createTableVoidedOpenOrders(db);
     await LocalDbClosings.createTableDailyClosings(db);
+    await db.execute('ALTER TABLE transactions ADD COLUMN sync_rejected INTEGER DEFAULT 0');
+    await db.execute('ALTER TABLE products ADD COLUMN sync_rejected INTEGER DEFAULT 0');
+    await db.execute('ALTER TABLE categories ADD COLUMN sync_rejected INTEGER DEFAULT 0');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -148,6 +151,9 @@ class LocalDb with
     if (oldVersion < 20) {
       await db.execute('ALTER TABLE transactions ADD COLUMN sync_rejected INTEGER DEFAULT 0');
       await db.execute('ALTER TABLE products ADD COLUMN sync_rejected INTEGER DEFAULT 0');
+    }
+    if (oldVersion < 21) {
+      await db.execute('ALTER TABLE categories ADD COLUMN sync_rejected INTEGER DEFAULT 0');
     }
   }
 

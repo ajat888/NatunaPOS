@@ -146,4 +146,11 @@ mixin LocalDbCategories {
   }
   await batch.commit(noResult: true);
   }
+
+  Future<void> markCategoryRejected(int id, {bool skipSync = false}) async {
+    final db = await database;
+    await db.update('categories', {'is_synced': 1, 'sync_rejected': 1},
+        where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
+  }
 }
