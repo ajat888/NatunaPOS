@@ -39,14 +39,10 @@ class SyncRunner {
 Future<int> run() async {
   int failures = 0;
 
-  // Web hanya membaca. Push dari salinan lokal web akan membuat ulang
-  // data yang sudah dibayar atau dihapus di native.
-  int productFailures = 0;
   final openOrderSync = _SyncOpenOrder(this);
   if (!kIsWeb) {
     final pushRes = await _SyncPusher(this).pushAll();
     failures += pushRes.blocking;
-    productFailures = pushRes.products;
 
     failures += await openOrderSync.pushDeletes();
     failures += await openOrderSync.pushUpserts();
