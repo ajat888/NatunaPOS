@@ -16,8 +16,14 @@ class ExpenseService {
   }
 
   Future<void> updateExpenseCategory({required int id, required String name}) async {
-    await _localDb.upsertExpenseCategory(
-        ExpenseCategory(id: id, name: name.trim(), isSynced: false));
+    final categories = await _localDb.getExpenseCategories();
+    final isStock = categories.any((c) => c.id == id && c.isStock);
+    await _localDb.upsertExpenseCategory(ExpenseCategory(
+        id: id, name: name.trim(), isSynced: false, isStock: isStock));
+  }
+
+  Future<void> setExpenseCategoryStock(int id, bool isStock) async {
+    await _localDb.setExpenseCategoryStock(id, isStock);
   }
 
   Future<void> deleteExpenseCategory(int id) async {

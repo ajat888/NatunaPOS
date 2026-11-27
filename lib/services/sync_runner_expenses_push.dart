@@ -113,13 +113,16 @@ if (c.id < 0) {
   Map<String, dynamic> response;
   if (existingId != null) {
     newId = existingId;
-    await _client.from('expense_categories').update({'is_active': true}).eq('id', newId);
-    response = {'id': newId, 'name': c.name, 'is_active': true};
+    await _client
+        .from('expense_categories')
+        .update({'is_active': true, 'is_stock': c.isStock})
+        .eq('id', newId);
+    response = {'id': newId, 'name': c.name, 'is_active': true, 'is_stock': c.isStock};
   } else {
     try {
       response = await _client
           .from('expense_categories')
-          .insert({'user_id': userId, 'name': c.name, 'is_active': true})
+          .insert({'user_id': userId, 'name': c.name, 'is_active': true, 'is_stock': c.isStock})
           .select()
           .single();
       newId = (response['id'] as num).toInt();
@@ -138,11 +141,14 @@ if (c.id < 0) {
       } catch (reProbeErr) {
         debugPrint('Expense category re-probe failed: $reProbeErr');
       }
-      
+
       if (recoveredId != null) {
         newId = recoveredId;
-        await _client.from('expense_categories').update({'is_active': true}).eq('id', newId);
-        response = {'id': newId, 'name': c.name, 'is_active': true};
+        await _client
+            .from('expense_categories')
+            .update({'is_active': true, 'is_stock': c.isStock})
+            .eq('id', newId);
+        response = {'id': newId, 'name': c.name, 'is_active': true, 'is_stock': c.isStock};
       } else {
         debugPrint('Push expense category ${c.id} insert failed: $insertErr');
         failures++;
@@ -154,7 +160,7 @@ if (c.id < 0) {
   await _localDb.deleteExpenseCategoryLocal(c.id, skipSync: true);
   await _localDb.upsertExpenseCategory(ExpenseCategory.fromJson(response), skipSync: true);
 } else {
-          final payload = <String, dynamic>{'name': c.name};
+          final payload = <String, dynamic>{'name': c.name, 'is_stock': c.isStock};
           final res = await _client
               .from('expense_categories')
               .update(payload)

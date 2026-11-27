@@ -66,6 +66,7 @@ class AiReportService {
           'total_transactions': summary.totalTransactions,
           'total_hpp': summary.totalHpp,
           'total_expenses': summary.totalExpenses,
+          'total_stock_purchases': summary.totalStockPurchases,
           'gross_profit': summary.grossProfit,
           'net_profit': summary.netProfit,
           'void_count': summary.totalVoidCount,

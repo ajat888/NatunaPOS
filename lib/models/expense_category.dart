@@ -3,12 +3,14 @@ class ExpenseCategory {
   final String name;
   final bool isSynced;
   final bool isDeleted;
+  final bool isStock;
 
   ExpenseCategory({
     required this.id,
     required this.name,
     this.isSynced = true,
     this.isDeleted = false,
+    this.isStock = false,
   });
 
   factory ExpenseCategory.fromJson(Map<String, dynamic> json) {
@@ -18,6 +20,7 @@ class ExpenseCategory {
       name: json['name'] as String? ?? '',
       isSynced: true,
       isDeleted: !active,
+      isStock: json['is_stock'] as bool? ?? false,
     );
   }
 
@@ -27,6 +30,7 @@ class ExpenseCategory {
       name: map['name'] as String,
       isSynced: (map['is_synced'] as int? ?? 1) == 1,
       isDeleted: (map['is_deleted'] as int? ?? 0) == 1,
+      isStock: (map['is_stock'] as int? ?? 0) == 1,
     );
   }
 
@@ -36,6 +40,7 @@ class ExpenseCategory {
       'name': name,
       'is_synced': isSynced ? 1 : 0,
       'is_deleted': isDeleted ? 1 : 0,
+      'is_stock': isStock ? 1 : 0,
     };
   }
 
@@ -46,12 +51,14 @@ class ExpenseCategory {
     Object? name = _sentinel,
     Object? isSynced = _sentinel,
     Object? isDeleted = _sentinel,
+    Object? isStock = _sentinel,
   }) {
     return ExpenseCategory(
       id: identical(id, _sentinel) ? this.id : id as int,
       name: identical(name, _sentinel) ? this.name : name as String,
       isSynced: identical(isSynced, _sentinel) ? this.isSynced : isSynced as bool,
       isDeleted: identical(isDeleted, _sentinel) ? this.isDeleted : isDeleted as bool,
+      isStock: identical(isStock, _sentinel) ? this.isStock : isStock as bool,
     );
   }
 

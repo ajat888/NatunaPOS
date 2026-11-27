@@ -92,15 +92,20 @@ Future<Map<String, int>> getSalesSummaryBetween(
       DateTime from, DateTime to) async {
     final db = await database;
     final r = await db.rawQuery(
-      'SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS t '
-      'FROM expenses WHERE is_deleted = 0 '
-      'AND created_at >= ? AND created_at < ?',
+      'SELECT COUNT(*) AS c, '
+      'COALESCE(SUM(CASE WHEN ec.is_stock = 1 THEN 0 ELSE e.amount END), 0) AS t, '
+      'COALESCE(SUM(CASE WHEN ec.is_stock = 1 THEN e.amount ELSE 0 END), 0) AS s '
+      'FROM expenses e '
+      'LEFT JOIN expense_categories ec ON ec.id = e.category_id '
+      'WHERE e.is_deleted = 0 '
+      'AND e.created_at >= ? AND e.created_at < ?',
       [from.toUtc().millisecondsSinceEpoch, to.toUtc().millisecondsSinceEpoch],
     );
     final row = r.first;
     return {
       'count': (row['c'] as num?)?.toInt() ?? 0,
       'total': (row['t'] as num?)?.toInt() ?? 0,
+      'stock': (row['s'] as num?)?.toInt() ?? 0,
     };
   }
 

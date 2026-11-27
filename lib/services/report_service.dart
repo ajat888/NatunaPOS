@@ -12,6 +12,7 @@ class ReportSummary {
   final int totalItems;
   final int totalHpp;
   final int totalExpenses;
+  final int totalStockPurchases;
   final int totalVoidAmount;
   final int voidTransactionCount;
   final int totalVoidOpenOrderAmount;
@@ -34,6 +35,7 @@ class ReportSummary {
     required this.totalItems,
     required this.totalHpp,
     required this.totalExpenses,
+    this.totalStockPurchases = 0,
     required this.totalVoidAmount,
     required this.voidTransactionCount,
     required this.totalVoidOpenOrderAmount,
@@ -100,6 +102,7 @@ class ReportService {
       totalItems: sales['items'] ?? 0,
       totalHpp: hpp,
       totalExpenses: expSum['total'] ?? 0,
+      totalStockPurchases: expSum['stock'] ?? 0,
       totalVoidAmount: voidTx['total'] ?? 0,
       voidTransactionCount: voidTx['count'] ?? 0,
       totalVoidOpenOrderAmount: voidOpenAmount,

@@ -75,10 +75,19 @@ class _ExpenseCategoriesTab extends StatelessWidget {
                       title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textColor)),
                       subtitle: Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text('$count item', style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13))),
+                          child: Text(category.isStock ? '$count item • Belanja bahan, tidak mengurangi untung' : '$count item', style: const TextStyle(color: AppTheme.textLightColor, fontSize: 13))),
                       trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (!kIsWeb) Tooltip(
+                                message: 'Aktifkan jika ini belanja bahan',
+                                child: Switch(
+                                    value: category.isStock,
+                                    activeColor: AppTheme.primaryColor,
+                                    onChanged: (v) async {
+                                      await state._expenseService.setExpenseCategoryStock(category.id, v);
+                                      await state.reloadData();
+                                    })),
                             if (!kIsWeb) IconButton(
                                 icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
                                 onPressed: () => _showCategoryDialog(context, existing: category),

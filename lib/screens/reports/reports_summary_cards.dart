@@ -320,6 +320,9 @@ Widget _buildSmartInsight(BuildContext context) {
               danger: summary.netProfit < 0, 
               positive: summary.netProfit >= 0),
 
+          const SizedBox(height: 6),
+          _row('Belanja bahan (tidak mengurangi untung)', 'Rp ${fmt.format(summary.totalStockPurchases)}'),
+          
           const SizedBox(height: 16),
           const Divider(height: 20, color: Color(0xFFE2E8F0)),
           

@@ -11,7 +11,8 @@ mixin LocalDbExpenseCategories {
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         is_synced INTEGER DEFAULT 1,
-        is_deleted INTEGER DEFAULT 0
+        is_deleted INTEGER DEFAULT 0,
+        is_stock INTEGER DEFAULT 0
       )
     ''');
   }
@@ -88,6 +89,13 @@ mixin LocalDbExpenseCategories {
     if (!skipSync) await WriteNotifier.notify();
   }
 
+  Future<void> setExpenseCategoryStock(int id, bool isStock, {bool skipSync = false}) async {
+    final db = await database;
+    await db.update('expense_categories', {'is_stock': isStock ? 1 : 0, 'is_synced': 0},
+        where: 'id = ?', whereArgs: [id]);
+    if (!skipSync) await WriteNotifier.notify();
+  }
+  
   Future<void> restoreExpenseCategory(int id, {bool skipSync = false}) async {
     final db = await database;
     await db.update('expense_categories', {'is_deleted': 0, 'is_synced': 0},
