@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/breakpoints.dart';
-import '../core/theme.dart';
-import '../core/local_db.dart';
 import '../core/fixed_cost_settings.dart';
-import '../services/supabase_service.dart';
+import '../core/local_db.dart';
+import '../core/theme.dart';
+import '../services/auto_sync_scheduler.dart';
 import '../services/expense_service.dart';
+import '../services/supabase_service.dart';
 import '../services/sync_status_service.dart';
 import '../widgets/common/main_menu_scope.dart';
+
+part 'dashboard/dashboard_target_card.dart';
+part 'dashboard/dashboard_signal_cards.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onStartTransaction;
@@ -20,53 +25,81 @@ class DashboardScreen extends StatefulWidget {
 class DashboardScreenState extends State<DashboardScreen> {
   final _service = SupabaseService();
   final _expenseService = ExpenseService.instance;
-  final _localDb = LocalDb.instance;
-  
+
   int _totalSales = 0;
   int _transactionCount = 0;
   int _totalExpenses = 0;
-  int _openOrdersCount = 0;
+  int _totalHpp = 0;
+  int _voidCount = 0;
+  int _voidTotal = 0;
+  int _openOrderCount = 0;
+  int _openOrderValue = 0;
+  int _oldestOrderMinutes = 0;
+  int _monthlyFixedCost = 0;
+  List<Map<String, dynamic>> _topProducts = const [];
   bool _isLoading = true;
+  Timer? _reloadDebounce;
 
   @override
   void initState() {
     super.initState();
-    _load();
-    // Mendengarkan perubahan pending count sebagai proxy untuk write notifier
-    SyncStatusService.instance.pendingCount.addListener(_onPendingCountChanged);
+    SyncStatusService.instance.pendingCount.addListener(_onPendingChanged);
+    unawaited(_load());
   }
 
   @override
   void dispose() {
-    SyncStatusService.instance.pendingCount.removeListener(_onPendingCountChanged);
+    _reloadDebounce?.cancel();
+    SyncStatusService.instance.pendingCount.removeListener(_onPendingChanged);
     super.dispose();
   }
 
-  void _onPendingCountChanged() {
-    _loadOpenOrders();
-  }
-
-  Future<void> _loadOpenOrders() async {
-    try {
-      final orders = await _localDb.getOpenOrders();
+  void _onPendingChanged() {
+    if (!mounted) return;
+    _reloadDebounce?.cancel();
+    _reloadDebounce = Timer(const Duration(milliseconds: 400), () {
       if (!mounted) return;
-      setState(() {
-        _openOrdersCount = orders.length;
-      });
-    } catch (_) {}
+      unawaited(_load());
+    });
   }
 
   Future<void> _load() async {
     try {
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day);
+      final end = DateTime(now.year, now.month, now.day + 1);
       final summary = await _service.getTodaySummary();
       final expenses = await _expenseService.getTodayExpenseTotal();
-      final orders = await _localDb.getOpenOrders();
+      final hpp = await LocalDb.instance.getHppBetween(start, end);
+      final voided =
+          await LocalDb.instance.getVoidTransactionsSummaryBetween(start, end);
+      final orders = await LocalDb.instance.getOpenOrders();
+      final performance =
+          await LocalDb.instance.getProductPerformanceBetween(start, end);
+      await FixedCostSettings.instance.load();
       if (!mounted) return;
+      final ranked = List<Map<String, dynamic>>.from(performance)
+        ..sort((a, b) => ((b['qty_sold'] as int?) ?? 0)
+            .compareTo((a['qty_sold'] as int?) ?? 0));
+      var openValue = 0;
+      var oldest = 0;
+      for (final order in orders) {
+        openValue += order.subtotal;
+        final age = now.difference(order.createdAt).inMinutes;
+        if (age > oldest) oldest = age;
+      }
       setState(() {
         _totalSales = summary['total'] ?? 0;
         _transactionCount = summary['count'] ?? 0;
         _totalExpenses = expenses;
-        _openOrdersCount = orders.length;
+        _totalHpp = hpp;
+        _voidCount = voided['count'] ?? 0;
+        _voidTotal = voided['total'] ?? 0;
+        _openOrderCount = orders.length;
+        _openOrderValue = openValue;
+        _oldestOrderMinutes = oldest;
+        _monthlyFixedCost = FixedCostSettings.instance.currentMonthly;
+        _topProducts = ranked.take(3).toList();
         _isLoading = false;
       });
     } catch (_) {
@@ -84,6 +117,9 @@ class DashboardScreenState extends State<DashboardScreen> {
     final formatCurrency = NumberFormat.decimalPattern('id');
     final size = Breakpoints.of(context);
     final isCompact = size.isCompact;
+    final kontribusi = _totalSales - _totalHpp - _totalExpenses;
+    final marginRatio =
+        _totalSales > 0 ? (_totalSales - _totalHpp) / _totalSales : 0.0;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -96,306 +132,229 @@ class DashboardScreenState extends State<DashboardScreen> {
         title: const Text('Beranda'),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _load,
-              tooltip: 'Muat ulang'),
+            icon: const Icon(Icons.point_of_sale),
+            onPressed: widget.onStartTransaction,
+            tooltip: 'Mulai Transaksi',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _load,
+            tooltip: 'Muat ulang',
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: widget.onStartTransaction,
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_shopping_cart),
-        label: const Text('MULAI TRANSAKSI'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Ringkasan Hari Ini',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildTacticalSignals(formatCurrency: formatCurrency),
-            const SizedBox(height: 24),
-            ValueListenableBuilder<int>(
-              valueListenable: FixedCostSettings.instance.monthly,
-              builder: (context, monthlyFixed, _) {
-                final now = DateTime.now();
-                final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-                final dailyFixedCost = monthlyFixed > 0 ? (monthlyFixed / daysInMonth).round() : 0;
-                final kontribusiHarian = _totalSales - _totalExpenses;
-                final labaBersihSebenarnya = kontribusiHarian - dailyFixedCost;
-                final targetHarian = dailyFixedCost;
-                final progress = targetHarian > 0 ? (_totalSales / targetHarian).clamp(0.0, 1.0) : 1.0;
-                final isBepReached = _totalSales >= targetHarian && targetHarian > 0;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (targetHarian > 0) ...[
-                      _buildBepProgress(
-                        targetHarian: targetHarian,
-                        totalSales: _totalSales,
-                        progress: progress,
-                        isBepReached: isBepReached,
-                        formatCurrency: formatCurrency,
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                    if (isCompact) ...[
-                      _buildSummaryCard(
-                        title: 'Total Penjualan',
-                        value: _isLoading ? '—' : 'Rp ${formatCurrency.format(_totalSales)}',
-                        icon: Icons.account_balance_wallet_outlined,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildSummaryCard(
-                        title: 'Jumlah Transaksi',
-                        value: _isLoading ? '—' : '$_transactionCount',
-                        icon: Icons.receipt_outlined,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildSummaryCard(
-                        title: 'Pengeluaran',
-                        value: _isLoading ? '—' : '- Rp ${formatCurrency.format(_totalExpenses)}',
-                        icon: Icons.money_off,
-                        isDanger: _totalExpenses > 0,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildSummaryCard(
-                        title: 'Laba Bersih (Estimasi)',
-                        value: _isLoading ? '—' : 'Rp ${formatCurrency.format(labaBersihSebenarnya)}',
-                        icon: Icons.trending_up,
-                        isDanger: labaBersihSebenarnya < 0,
-                        isPositive: labaBersihSebenarnya >= 0,
-                      ),
-                    ] else ...[
-                      Row(
-                        children: [
-                          _buildSummaryCard(
-                            title: 'Total Penjualan',
-                            value: _isLoading ? '—' : 'Rp ${formatCurrency.format(_totalSales)}',
-                            icon: Icons.account_balance_wallet_outlined,
-                            expanded: true,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildSummaryCard(
-                            title: 'Jumlah Transaksi',
-                            value: _isLoading ? '—' : '$_transactionCount',
-                            icon: Icons.receipt_outlined,
-                            expanded: true,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          _buildSummaryCard(
-                            title: 'Pengeluaran',
-                            value: _isLoading ? '—' : '- Rp ${formatCurrency.format(_totalExpenses)}',
-                            icon: Icons.money_off,
-                            isDanger: _totalExpenses > 0,
-                            expanded: true,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildSummaryCard(
-                            title: 'Laba Bersih (Estimasi)',
-                            value: _isLoading ? '—' : 'Rp ${formatCurrency.format(labaBersihSebenarnya)}',
-                            icon: Icons.trending_up,
-                            isDanger: labaBersihSebenarnya < 0,
-                            isPositive: labaBersihSebenarnya >= 0,
-                            expanded: true,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 80), // Ruang untuk FAB
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTacticalSignals({required NumberFormat formatCurrency}) {
-    return ValueListenableBuilder<int>(
-      valueListenable: SyncStatusService.instance.pendingCount,
-      builder: (context, pendingCount, _) {
-        return ValueListenableBuilder<SyncState>(
-          valueListenable: SyncStatusService.instance.state,
-          builder: (context, syncState, _) {
-            final hasSyncIssue = pendingCount > 0 || syncState == SyncState.failed;
-            final hasOpenOrders = _openOrdersCount > 0;
-
-            if (!hasSyncIssue && !hasOpenOrders) return const SizedBox.shrink();
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sinyal Taktis',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (hasOpenOrders)
-                  _buildSignalCard(
-                    icon: Icons.restaurant_menu,
-                    title: 'Pesanan Aktif',
-                    subtitle: '$_openOrdersCount pesanan belum dibayar',
-                    color: Colors.orange.shade700,
-                    onTap: widget.onStartTransaction,
-                  ),
-                if (hasOpenOrders && hasSyncIssue) const SizedBox(height: 12),
-                if (hasSyncIssue)
-                  _buildSignalCard(
-                    icon: syncState == SyncState.failed ? Icons.sync_problem : Icons.cloud_upload_outlined,
-                    title: syncState == SyncState.failed ? 'Sinkronisasi Gagal' : 'Data Tertunda',
-                    subtitle: syncState == SyncState.failed 
-                        ? 'Cek koneksi internet Anda' 
-                        : '$pendingCount perubahan belum terkirim ke server',
-                    color: AppTheme.dangerColor,
-                    onTap: () {
-                      SupabaseService().syncData();
-                    },
-                  ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildSignalCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: color),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBepProgress({
-    required int targetHarian,
-    required int totalSales,
-    required double progress,
-    required bool isBepReached,
-    required NumberFormat formatCurrency,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Target BEP Harian',
+                'Ringkasan Hari Ini',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,
                 ),
               ),
-              Text(
-                isBepReached ? 'TERCAPAI' : 'BELUM TERCAPAI',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: isBepReached ? Colors.green.shade700 : AppTheme.dangerColor,
+              const SizedBox(height: 24),
+              if (isCompact) ...[
+                _buildSummaryCard(
+                  title: 'Total Penjualan',
+                  value: _isLoading
+                      ? '—'
+                      : 'Rp ${formatCurrency.format(_totalSales)}',
+                  icon: Icons.account_balance_wallet_outlined,
                 ),
+                const SizedBox(height: 16),
+                _buildSummaryCard(
+                  title: 'Jumlah Transaksi',
+                  value: _isLoading ? '—' : '$_transactionCount',
+                  icon: Icons.receipt_outlined,
+                ),
+                const SizedBox(height: 16),
+                _buildSummaryCard(
+                  title: 'Pengeluaran',
+                  value: _isLoading
+                      ? '—'
+                      : '- Rp ${formatCurrency.format(_totalExpenses)}',
+                  icon: Icons.money_off,
+                  isDanger: _totalExpenses > 0,
+                ),
+                const SizedBox(height: 16),
+                _buildSummaryCard(
+                  title: 'Kontribusi Harian',
+                  value: _isLoading
+                      ? '—'
+                      : 'Rp ${formatCurrency.format(kontribusi)}',
+                  icon: Icons.trending_up,
+                  isDanger: kontribusi < 0,
+                  isPositive: kontribusi >= 0,
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    _buildSummaryCard(
+                      title: 'Total Penjualan',
+                      value: _isLoading
+                          ? '—'
+                          : 'Rp ${formatCurrency.format(_totalSales)}',
+                      icon: Icons.account_balance_wallet_outlined,
+                      expanded: true,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildSummaryCard(
+                      title: 'Jumlah Transaksi',
+                      value: _isLoading ? '—' : '$_transactionCount',
+                      icon: Icons.receipt_outlined,
+                      expanded: true,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _buildSummaryCard(
+                      title: 'Pengeluaran',
+                      value: _isLoading
+                          ? '—'
+                          : '- Rp ${formatCurrency.format(_totalExpenses)}',
+                      icon: Icons.money_off,
+                      isDanger: _totalExpenses > 0,
+                      expanded: true,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildSummaryCard(
+                      title: 'Kontribusi Harian',
+                      value: _isLoading
+                          ? '—'
+                          : 'Rp ${formatCurrency.format(kontribusi)}',
+                      icon: Icons.trending_up,
+                      isDanger: kontribusi < 0,
+                      isPositive: kontribusi >= 0,
+                      expanded: true,
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              _DashboardTargetCard(
+                isLoading: _isLoading,
+                monthlyFixedCost: _monthlyFixedCost,
+                contribution: kontribusi,
+                marginRatio: marginRatio,
               ),
+              const SizedBox(height: 16),
+              const _DashboardSyncCard(),
+              if (_openOrderCount > 0) ...[
+                const SizedBox(height: 16),
+                _DashboardOpenOrdersCard(
+                  count: _openOrderCount,
+                  value: _openOrderValue,
+                  oldestMinutes: _oldestOrderMinutes,
+                  onTap: widget.onStartTransaction,
+                ),
+              ],
+              if (_voidCount > 0) ...[
+                const SizedBox(height: 16),
+                _DashboardVoidCard(count: _voidCount, total: _voidTotal),
+              ],
+              if (_topProducts.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _DashboardTopProductsCard(products: _topProducts),
+              ],
+              const SizedBox(height: 24),
+              if (_transactionCount == 0)
+                _buildCallToAction(isCompact: isCompact),
             ],
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 12,
-              backgroundColor: const Color(0xFFE2E8F0),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isBepReached ? Colors.green.shade700 : AppTheme.primaryColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCallToAction({required bool isCompact}) {
+    if (isCompact) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Siap melayani pelanggan?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
+            const SizedBox(height: 8),
+            const Text(
+              'Buka menu Kasir untuk mulai membuat pesanan baru.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppTheme.primaryColor,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+              ),
+              onPressed: widget.onStartTransaction,
+              child: const Text('MULAI TRANSAKSI'),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Siap melayani pelanggan?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Buka menu Kasir untuk mulai membuat pesanan baru.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Omzet: Rp ${formatCurrency.format(totalSales)}',
-                style: const TextStyle(fontSize: 14, color: AppTheme.textLightColor),
-              ),
-              Text(
-                'Target: Rp ${formatCurrency.format(targetHarian)}',
-                style: const TextStyle(fontSize: 14, color: AppTheme.textLightColor),
-              ),
-            ],
+          const SizedBox(width: 16),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppTheme.primaryColor,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+            ),
+            onPressed: widget.onStartTransaction,
+            child: const Text('MULAI TRANSAKSI'),
           ),
         ],
       ),
@@ -423,13 +382,19 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, color: isDanger ? AppTheme.dangerColor : AppTheme.textLightColor, size: 20),
+              Icon(icon,
+                  color: isDanger
+                      ? AppTheme.dangerColor
+                      : AppTheme.textLightColor,
+                  size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDanger ? AppTheme.dangerColor : AppTheme.textLightColor,
+                  color: isDanger
+                      ? AppTheme.dangerColor
+                      : AppTheme.textLightColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -441,7 +406,11 @@ class DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: isDanger ? AppTheme.dangerColor : (isPositive ? Colors.green.shade700 : AppTheme.textColor),
+              color: isDanger
+                  ? AppTheme.dangerColor
+                  : (isPositive
+                      ? Colors.green.shade700
+                      : AppTheme.textColor),
             ),
           ),
         ],
