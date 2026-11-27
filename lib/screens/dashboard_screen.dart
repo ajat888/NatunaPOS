@@ -112,6 +112,11 @@ class DashboardScreenState extends State<DashboardScreen> {
     await _load();
   }
 
+  Future<void> _refreshAll() async {
+    await AutoSyncScheduler.instance.triggerNow();
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final formatCurrency = NumberFormat.decimalPattern('id');
@@ -138,13 +143,13 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _load,
+            onPressed: _refreshAll,
             tooltip: 'Muat ulang',
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: _refreshAll,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
