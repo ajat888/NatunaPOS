@@ -328,6 +328,8 @@ class HistoryScreenState extends State<HistoryScreen> {
           ..._buildBodySlivers(formatCurrency),
         ],
       ),
+    );
+  }
 
   List<Widget> _buildBodySlivers(NumberFormat formatCurrency) {
     if (_isLoading) {
@@ -410,3 +412,4 @@ class HistoryScreenState extends State<HistoryScreen> {
       ),
     ];
   }
+}
