@@ -46,7 +46,7 @@ class AiReportService {
         await LocalDb.instance.getDailySalesBreakdown(start, end);
 
     final cutoff = _todayCutoff(end);
-    final comparison = await _comparisonPayload(start, end, cutoff);
+    final comparison = await _comparisonPayload(start, end);
     final hourly =
         await LocalDb.instance.getHourlySalesBreakdown(start, end);
 
@@ -170,18 +170,13 @@ class AiReportService {
     return lastDay.isBefore(todayStart) ? null : now;
   }
 
-  // Periode pembanding: jendela dengan panjang sama tepat sebelum periode.
   Future<Map<String, dynamic>> _comparisonPayload(
     DateTime start,
     DateTime end,
-    DateTime? cutoff,
   ) async {
     final days = end.difference(start).inDays;
     final prevStart = DateTime(start.year, start.month, start.day - days);
-    final prevEnd = cutoff != null
-        ? DateTime(cutoff.year, cutoff.month, cutoff.day - days,
-            cutoff.hour, cutoff.minute, cutoff.second)
-        : DateTime(end.year, end.month, end.day - days);
+    final prevEnd = DateTime(end.year, end.month, end.day - days);
     final db = LocalDb.instance;
     final sales = await db.getSalesSummaryBetween(prevStart, prevEnd);
     final hpp = await db.getHppBetween(prevStart, prevEnd);
@@ -191,10 +186,8 @@ class AiReportService {
     return {
       'period': {
         'from': _fmtDate(prevStart),
-        'to': cutoff != null
-            ? _fmtDate(prevEnd)
-            : _fmtDate(prevEnd.subtract(const Duration(days: 1))),
-        'until_time': cutoff != null ? _fmtHm(prevEnd) : null,
+        'to': _fmtDate(prevEnd.subtract(const Duration(days: 1))),
+        'until_time': null,
       },
       'total_sales': sales['total'] ?? 0,
       'total_transactions': sales['count'] ?? 0,

@@ -94,7 +94,7 @@ def _build_prompt(report):
         until = f" sampai pukul {cp['until_time']}" if cp.get('until_time') else ''
         cur_gross = int(summary.get('total_sales', 0) or 0) - int(summary.get('total_hpp', 0) or 0)
         prev_gross = int(comparison.get('total_sales', 0) or 0) - int(comparison.get('total_hpp', 0) or 0)
-        lines.append('PEMBANDING (periode sebelumnya dengan panjang sama):')
+        lines.append('PEMBANDING (periode penuh sebelumnya dengan panjang sama):')
         lines.append(f"- Periode: {cp.get('from', '?')} s/d {cp.get('to', '?')}{until}")
         lines.append(f"- Penjualan periode utama dibanding pembanding: {_delta(summary.get('total_sales', 0), comparison.get('total_sales', 0))}")
         lines.append(f"- Transaksi: {summary.get('total_transactions', 0)} vs {comparison.get('total_transactions', 0)}")
@@ -176,7 +176,7 @@ def _build_prompt(report):
 ATURAN WAJIB:
 1. DILARANG menggunakan persentase (%). Gunakan Rupiah atau jumlah absolut.
 2. Total periode utama sudah tampil di layar, jadi jangan diulang. Sebut angka pembanding dan selisihnya saja.
-3. DILARANG mengarang angka. Semua angka harus berasal dari DATA LAPORAN.
+3. DILARANG mengarang angka. Semua angka harus berasal dari DATA LAPORAN. Angka 0 pada PEMBANDING hanya berarti tidak ada data pada periode pembanding. DILARANG menyimpulkan sebab, misalnya "belum ada penjualan", tanpa dasar data.
 4. Gunakan bahasa Indonesia sehari-hari. Ganti istilah: HPP menjadi "modal bahan", margin menjadi "untung per porsi", laba kotor menjadi "untung sebelum biaya operasional".
 5. Setiap saran harus KONKRET, bisa dilakukan minggu ini, dan menyebut target Rupiah.
 6. Format Markdown, maksimal 400 kata. Jangan tulis kalimat pembuka, langsung ke isi.
@@ -185,7 +185,7 @@ ATURAN WAJIB:
 STRUKTUR OUTPUT (WAJIB):
 
 ## 📊 Hari Ini vs Pembanding
-2-3 poin. Sebut apakah penjualan naik atau turun dibanding pembanding, berapa selisihnya dalam Rupiah, dan kemungkinan penyebabnya dari data. Jika ada "sampai pukul", periode utama belum selesai, jadi jelaskan singkat bahwa perbandingannya dibatasi jam yang sama.
+2-3 poin. Sebut apakah penjualan naik atau turun dibanding pembanding, berapa selisihnya dalam Rupiah, dan kemungkinan penyebabnya dari data. Jika data menyebut "belum selesai", jelaskan singkat bahwa pembanding adalah hari penuh sehingga selisihnya belum final.
 
 ## ⚠️ Perhatikan
 Hal yang perlu diwaspadai: void yang tidak wajar (sebut nominal dan siapa yang melakukannya), pengeluaran besar, atau menu dengan untung per porsi kecil. Jika tidak ada, tulis "Tidak ada yang mendesak."
