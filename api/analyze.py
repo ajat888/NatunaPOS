@@ -216,7 +216,7 @@ def _build_prompt(report):
     lines.append(f"- Pemasukan: Rp {_fmt(summary.get('total_sales', 0))}")
     lines.append(f"- Total transaksi: {summary.get('total_transactions', 0)}")
     lines.append(f"- Modal bahan (HPP): Rp {_fmt(summary.get('total_hpp', 0))}")
-    lines.append(f"- Pengeluaran lain: Rp {_fmt(summary.get('total_expenses', 0))}")
+    lines.append(f"- Belanja bahan (stok, tidak mengurangi untung): Rp {_fmt(summary.get('total_stock_purchases', 0))}")
     lines.append(f"- Untung kotor: Rp {_fmt(summary.get('gross_profit', 0))}")
     lines.append(f"- Untung bersih: Rp {_fmt(summary.get('net_profit', 0))}")
     lines.append(f"- Void: {summary.get('void_count', 0)} transaksi senilai Rp {_fmt(summary.get('void_amount', 0))}")
@@ -233,6 +233,7 @@ def _build_prompt(report):
         lines.append(f"- Transaksi: {summary.get('total_transactions', 0)} vs {comparison.get('total_transactions', 0)}")
         lines.append(f"- Untung kotor: {_delta(cur_gross, prev_gross)}")
         lines.append(f"- Pengeluaran lain: {_delta(summary.get('total_expenses', 0), comparison.get('total_expenses', 0))}")
+        lines.append(f"- Belanja bahan (stok, tidak mengurangi untung): Rp {_fmt(summary.get('total_stock_purchases', 0))}")
         lines.append(f"- Void: {_delta(summary.get('void_amount', 0), comparison.get('void_amount', 0))}")
         lines.append('')
 

@@ -45,7 +45,7 @@ class LocalDb with
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 21,
+      version: 22,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -155,7 +155,13 @@ class LocalDb with
     if (oldVersion < 21) {
       await db.execute('ALTER TABLE categories ADD COLUMN sync_rejected INTEGER DEFAULT 0');
     }
-  }
+    if (oldVersion < 22) {
+      try {
+        await db.execute('ALTER TABLE expense_categories ADD COLUMN is_stock INTEGER DEFAULT 0');
+      } catch (e) {
+        debugPrint('expense_categories.is_stock already exists: $e');
+      }
+    }
 
 Future<int> countPendingSync() async {
   final db = await database;
