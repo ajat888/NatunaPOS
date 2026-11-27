@@ -276,115 +276,137 @@ class HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _HistoryDateBar(
-            date: _selectedDate,
-            isToday: _isToday,
-            onPrev: () => _shiftDate(-1),
-            onNext: _isToday ? null : () => _shiftDate(1),
-            onPick: _pickDate,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _HistorySummaryCards(
-              salesTotal: _salesTotal,
-              salesCount: _salesCount,
-              expenseTotal: _expenseTotal,
-              expenseCount: _expenseCount,
-              formatCurrency: formatCurrency,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Wrap(
-              spacing: 8,
-              children: HistoryFilter.values.map((filter) {
-                final selected = _filter == filter;
-                return ChoiceChip(
-                  label: Text(_filterLabel(filter)),
-                  selected: selected,
-                  onSelected: (_) => setState(() => _filter = filter),
-                  selectedColor: AppTheme.primaryColor.withOpacity(0.12),
-                  labelStyle: TextStyle(
-                    color: selected
-                        ? AppTheme.primaryColor
-                        : AppTheme.textLightColor,
-                    fontWeight:
-                        selected ? FontWeight.bold : FontWeight.normal,
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _HistoryDateBar(
+                  date: _selectedDate,
+                  isToday: _isToday,
+                  onPrev: () => _shiftDate(-1),
+                  onNext: _isToday ? null : () => _shiftDate(1),
+                  onPick: _pickDate,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _HistorySummaryCards(
+                    salesTotal: _salesTotal,
+                    salesCount: _salesCount,
+                    expenseTotal: _expenseTotal,
+                    expenseCount: _expenseCount,
+                    formatCurrency: formatCurrency,
                   ),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                );
-              }).toList(),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Wrap(
+                    spacing: 8,
+                    children: HistoryFilter.values.map((filter) {
+                      final selected = _filter == filter;
+                      return ChoiceChip(
+                        label: Text(_filterLabel(filter)),
+                        selected: selected,
+                        onSelected: (_) => setState(() => _filter = filter),
+                        selectedColor: AppTheme.primaryColor.withOpacity(0.12),
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? AppTheme.primaryColor
+                              : AppTheme.textLightColor,
+                          fontWeight:
+                              selected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
             ),
           ),
-          Expanded(child: _buildBody(formatCurrency)),
+          ..._buildBodySlivers(formatCurrency),
         ],
       ),
-    );
-  }
 
-  Widget _buildBody(NumberFormat formatCurrency) {
+  List<Widget> _buildBodySlivers(NumberFormat formatCurrency) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ];
     }
     if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_errorMessage!,
-                style: const TextStyle(color: AppTheme.dangerColor)),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => reloadData(showLoading: true),
-              child: const Text('Coba Lagi'),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_errorMessage!,
+                    style: const TextStyle(color: AppTheme.dangerColor)),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => reloadData(showLoading: true),
+                  child: const Text('Coba Lagi'),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      );
+      ];
     }
     final items = _visibleEntries;
     if (items.isEmpty) {
-      return const Center(
-        child: Text('Belum ada riwayat pada tanggal ini.',
-            style: TextStyle(color: AppTheme.textLightColor)),
-      );
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text('Belum ada riwayat pada tanggal ini.',
+                style: TextStyle(color: AppTheme.textLightColor)),
+          ),
+        ),
+      ];
     }
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final entry = items[index];
-        final tx = entry.transaction;
-        final exp = entry.expense;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _HistoryTypeLabel(kind: entry.kind),
-            const SizedBox(height: 4),
-            if (tx != null)
-              _HistoryListTile(
-                transaction: tx,
-                formatCurrency: formatCurrency,
-                dateFormat: dateFormat,
-                displayTable: _displayTable(tx),
-                onReprint: () => _reprint(tx),
-                onVoid: () => _openVoidDialog(tx),
-              )
-            else if (exp != null)
-              _HistoryExpenseTile(
-                expense: exp,
-                formatCurrency: formatCurrency,
-                dateFormat: dateFormat,
-                onVoid: () => _voidExpense(exp),
-              ),
-          ],
-        );
-      },
-    );
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        sliver: SliverList.separated(
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final entry = items[index];
+            final tx = entry.transaction;
+            final exp = entry.expense;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _HistoryTypeLabel(kind: entry.kind),
+                const SizedBox(height: 4),
+                if (tx != null)
+                  _HistoryListTile(
+                    transaction: tx,
+                    formatCurrency: formatCurrency,
+                    dateFormat: dateFormat,
+                    displayTable: _displayTable(tx),
+                    onReprint: () => _reprint(tx),
+                    onVoid: () => _openVoidDialog(tx),
+                  )
+                else if (exp != null)
+                  _HistoryExpenseTile(
+                    expense: exp,
+                    formatCurrency: formatCurrency,
+                    dateFormat: dateFormat,
+                    onVoid: () => _voidExpense(exp),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    ];
   }
-}
