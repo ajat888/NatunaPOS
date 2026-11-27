@@ -102,13 +102,19 @@ class DashboardScreenState extends State<DashboardScreen> {
         _topProducts = ranked.take(3).toList();
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Dashboard load failed: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
 
   Future<void> refresh() async {
+    await _refreshAll();
+  }
+
+  Future<void> _refreshAll() async {
+    await AutoSyncScheduler.instance.triggerNow();
     await _load();
   }
 
@@ -138,13 +144,13 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _load,
+            onPressed: _refreshAll,
             tooltip: 'Muat ulang',
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: _refreshAll,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),

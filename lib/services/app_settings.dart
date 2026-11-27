@@ -25,6 +25,7 @@ class AppSettings {
   static const String _kLastPullTime = 'natunapos_last_pull_time';
   static const String _kLastCleanupTime = 'natunapos_last_cleanup_time';
   static const String _kLastTxPullTime = 'natunapos_last_tx_pull_time';
+  static const String _kTxFullPullDone = 'natunapos_tx_full_pull_v1_done';
   String? _lastTxPullTime;
   
   final ValueNotifier<String> storeName = ValueNotifier('');
@@ -73,6 +74,7 @@ class AppSettings {
       _lastPullTime = prefs.getString(_kLastPullTime) ?? '1970-01-01T00:00:00Z';
       _lastCleanupTime = prefs.getString(_kLastCleanupTime) ?? '1970-01-01T00:00:00Z';
       _lastTxPullTime = prefs.getString(_kLastTxPullTime);
+
       
       final loaded = prefs.getInt(_kTableCount) ?? 20;
       tableCount.value = loaded.clamp(1, 200);
@@ -106,6 +108,14 @@ class AppSettings {
   await prefs.setString(_kLastPullTime, time);
 }
 
+  Future<void> ensureTxFullPullOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_kTxFullPullDone) ?? false) return;
+    _lastTxPullTime = '1970-01-01T00:00:00Z';
+    await prefs.setString(_kLastTxPullTime, _lastTxPullTime!);
+    await prefs.setBool(_kTxFullPullDone, true);
+  }
+  
   Future<void> setLastCleanupTime(String time) async {
   _lastCleanupTime = time;
   final prefs = await SharedPreferences.getInstance();

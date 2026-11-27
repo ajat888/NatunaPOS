@@ -225,6 +225,7 @@ Future<void> _cleanupOrphanProducts(String userId) async {
 
   Future<({int failures, String? maxUpdatedAt})> _pullTransactions(String userId) async {
     try {
+      await AppSettings.instance.ensureTxFullPullOnce();
       final lastPull = _pullWatermarkWithOverlap(AppSettings.instance.lastTxPullTime);
       int offset = 0;
       const pageSize = 500;
