@@ -124,9 +124,10 @@ Future<void> _checkPinStatus() async {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gagal memuat laporan'),
+        SnackBar(
+          content: Text('Gagal memuat laporan: $e'),
           backgroundColor: AppTheme.dangerColor,
+          duration: const Duration(seconds: 10),
         ),
       );
     }
