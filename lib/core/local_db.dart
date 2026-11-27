@@ -162,6 +162,7 @@ class LocalDb with
         debugPrint('expense_categories.is_stock already exists: $e');
       }
     }
+  }
 
 Future<int> countPendingSync() async {
   final db = await database;
