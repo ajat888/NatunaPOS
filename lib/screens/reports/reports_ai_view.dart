@@ -106,7 +106,7 @@ class _AiAnalysisSheet extends StatelessWidget {
                       const SizedBox(height: 24),
                       const Center(
                         child: Text(
-                          'Hasil analisis dihasilkan oleh AI (Groq). Gunakan sebagai saran, bukan kebenaran mutlak.',
+                          'Analisis ini dibuat otomatis oleh AI dari data laporan di atas. Angka utamanya tetap bisa Anda cek di layar Laporan.',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 11, color: AppTheme.textLightColor),
                         ),

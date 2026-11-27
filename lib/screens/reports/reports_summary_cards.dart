@@ -14,41 +14,38 @@ Widget build(BuildContext context) {
     children: [
       _buildSmartInsight(context),
       const SizedBox(height: 12),
-      // KOTAK 1: UANG MASUK (Full Width)
       _summaryCard(
-        'Uang Masuk',
+        'Pemasukan',
         'Rp ${fmt.format(summary.totalSales)}',
         Icons.account_balance_wallet_outlined,
-        subtitle: '${summary.totalTransactions} transaksi',
+        subtitle: 'Dari ${summary.totalTransactions} transaksi',
       ),
       const SizedBox(height: 8),
-      // KOTAK 2 & 3: UANG KELUAR & SISA BERSIH (Split)
       Row(
         children: [
           Expanded(
             child: _summaryCard(
-              'Uang Keluar',
-              '- Rp ${fmt.format(totalOut)}',
+              'Total Biaya',
+              'Rp ${fmt.format(totalOut)}',
               Icons.money_off,
               danger: totalOut > 0,
-              subtitle: 'Belanja + Operasional',
+              subtitle: 'Modal bahan + pengeluaran lain',
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _summaryCard(
-              'Sisa Bersih',
+              'Untung Bersih',
               'Rp ${fmt.format(summary.netProfit)}',
               Icons.trending_up,
               danger: summary.netProfit < 0,
               positive: summary.netProfit >= 0,
-              subtitle: summary.netProfit >= 0 ? 'Laba' : 'Rugi',
+              subtitle: summary.netProfit >= 0 ? 'Untung' : 'Rugi',
             ),
           ),
         ],
       ),
       const SizedBox(height: 16),
-      // DETAIL AKUNTANSI (Bungkus dengan ExpansionTile agar rapi)
       Container(
         decoration: BoxDecoration(
           color: AppTheme.surfaceColor,
@@ -59,7 +56,7 @@ Widget build(BuildContext context) {
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             title: const Text(
-              'Lihat Detail Akuntansi',
+              'Lihat Rincian Perhitungan',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             iconColor: AppTheme.primaryColor,
@@ -67,8 +64,8 @@ Widget build(BuildContext context) {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: _detailsCard(context, fmt, summary.totalTransactions > 0 
-                    ? (summary.totalSales / summary.totalTransactions).round() 
+                child: _detailsCard(context, fmt, summary.totalTransactions > 0
+                    ? (summary.totalSales / summary.totalTransactions).round()
                     : 0),
               ),
             ],
@@ -88,7 +85,8 @@ Widget _buildSmartInsight(BuildContext context) {
     final sortedExp = List<Expense>.from(summary.expenses)
       ..sort((a, b) => b.amount.compareTo(a.amount));
     final top = sortedExp.first;
-    topExpenseText = ' Pengeluaran terbesar Anda: ${top.itemName} (Rp ${fmt.format(top.amount)}).';
+    topExpenseText =
+        ' Pengeluaran lain terbesar: ${top.itemName} (Rp ${fmt.format(top.amount)}).';
   }
 
   if (summary.netProfit < 0) {
@@ -96,24 +94,27 @@ Widget _buildSmartInsight(BuildContext context) {
       context,
       icon: Icons.warning_amber_rounded,
       color: AppTheme.dangerColor,
-      title: 'Perhatian: Bisnis Rugi',
-      message: 'Total uang keluar melebihi Uang Masuk (Omzet).$topExpenseText Segera kurangi pengeluaran atau evaluasi harga jual.',
+      title: 'Periode ini rugi',
+      message:
+          'Total biaya lebih besar dari pemasukan, selisihnya Rp ${fmt.format(-summary.netProfit)}.$topExpenseText Kurangi pengeluaran lain atau naikkan harga jual.',
     );
-  } else if (summary.totalExpenses > (summary.totalSales * 0.3)) {
+  } else if (summary.totalExpenses * 3 > summary.totalSales) {
     return _insightBanner(
       context,
       icon: Icons.info_outline,
       color: Colors.orange.shade800,
-      title: 'Peringatan Pengeluaran',
-      message: 'Pengeluaran Anda mencapai lebih dari 30% dari Omzet.$topExpenseText Cek kembali apakah belanja ini mendesak.',
+      title: 'Pengeluaran lain tinggi',
+      message:
+          'Pengeluaran lain Rp ${fmt.format(summary.totalExpenses)} lebih dari sepertiga pemasukan.$topExpenseText Cek lagi apakah belanja ini perlu.',
     );
   } else {
     return _insightBanner(
       context,
       icon: Icons.check_circle_outline,
       color: Colors.green.shade700,
-      title: 'Bisnis Sehat',
-      message: 'Laba bersih positif dan pengeluaran terkendali. Pertahankan!',
+      title: 'Periode ini untung',
+      message:
+          'Untung bersih Rp ${fmt.format(summary.netProfit)}. Pantau terus pengeluaran lain.',
     );
   }
 }
@@ -238,7 +239,7 @@ Widget _buildSmartInsight(BuildContext context) {
           Row(
             children: [
               const Text(
-                'ALUR LABA RUGI',
+                'CARA MENGHITUNG UNTUNG',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -264,7 +265,7 @@ Widget _buildSmartInsight(BuildContext context) {
           const SizedBox(height: 12),
           
           // Alur Perhitungan Laba Bersih
-          _row('Omzet (Total Penjualan)', 'Rp ${fmt.format(summary.totalSales)}', bold: true),
+          _row('Pemasukan (omzet)',  'Rp ${fmt.format(summary.totalSales)}', bold: true),
           const SizedBox(height: 6),
           
           // PROGRESS BAR VISUAL
@@ -279,10 +280,10 @@ Widget _buildSmartInsight(BuildContext context) {
               Expanded(
                 child: Row(
                   children: [
-                    const Text('(-) HPP (Modal Bahan)', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
+                    const Text('(-) Modal bahan (HPP)',  style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
                     const SizedBox(width: 4),
                     InkWell(
-                      onTap: () => _showSpecificInfo(context, 'HPP (Harga Pokok Penjualan)', 'Biaya modal bahan baku yang melekat pada menu yang terjual hari ini. Contoh: harga daging, beras, dan sayur di piring pelanggan.'),
+                      onTap: () => _showSpecificInfo(context, 'Modal bahan (HPP)', 'Modal bahan dari setiap menu yang terjual. Contoh: harga daging, beras, dan sayur di piring pelanggan.'),
                       child: const Icon(Icons.info_outline, size: 14, color: AppTheme.textLightColor),
                     ),
                   ],
@@ -301,10 +302,10 @@ Widget _buildSmartInsight(BuildContext context) {
               Expanded(
                 child: Row(
                   children: [
-                    const Text('(-) Pengeluaran Operasional', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
+                    const Text('(-) Pengeluaran lain', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
                     const SizedBox(width: 4),
                     InkWell(
-                      onTap: () => _showSpecificInfo(context, 'Pengeluaran Operasional', 'Biaya di luar menu yang dikeluarkan hari ini, seperti beli stok bulanan (beras/gas), gaji karyawan, listrik, atau peralatan.'),
+                      onTap: () => _showSpecificInfo(context, 'Pengeluaran lain', 'Biaya di luar modal bahan menu, seperti listrik, gaji, dan peralatan.'),
                       child: const Icon(Icons.info_outline, size: 14, color: AppTheme.textLightColor),
                     ),
                   ],
@@ -314,8 +315,8 @@ Widget _buildSmartInsight(BuildContext context) {
             ],
           ),
           const Divider(height: 16, color: Color(0xFFE2E8F0)),
-          _row('Laba Bersih', 'Rp ${fmt.format(summary.netProfit)}', 
-              bold: true, 
+          _row('Untung bersih', 'Rp ${fmt.format(summary.netProfit)}',
+               bold: true, 
               danger: summary.netProfit < 0, 
               positive: summary.netProfit >= 0),
 
@@ -325,7 +326,7 @@ Widget _buildSmartInsight(BuildContext context) {
           // Info Tambahan
           _row('Total Item Terjual', '${summary.totalItems} item'),
           const SizedBox(height: 6),
-          _row('Rata-rata Belanja / Transaksi', 'Rp ${fmt.format(avgTx)}'),
+          _row('Rata-rata pemasukan per transaksi', 'Rp ${fmt.format(avgTx)}'),
           const SizedBox(height: 6),
 
           if (summary.voidTransactionCount > 0) ...[
@@ -336,7 +337,7 @@ Widget _buildSmartInsight(BuildContext context) {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Transaksi Dibatalkan', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
-                    Text('(Tidak masuk omzet)', style: TextStyle(fontSize: 10, color: AppTheme.textLightColor)),
+                    Text('(Tidak masuk pemasukan)', style: TextStyle(fontSize: 10, color: AppTheme.textLightColor)),
                   ],
                 ),
                 Text(
@@ -356,7 +357,7 @@ Widget _buildSmartInsight(BuildContext context) {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Pesanan Dibatalkan', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
-                    Text('(Tidak masuk omzet)', style: TextStyle(fontSize: 10, color: AppTheme.textLightColor)),
+                    Text('(Tidak masuk pemasukan)', style: TextStyle(fontSize: 10, color: AppTheme.textLightColor)),
                   ],
                 ),
                 Text(
@@ -369,7 +370,7 @@ Widget _buildSmartInsight(BuildContext context) {
           ],
 
           if (summary.voidTransactionCount == 0 && summary.voidOpenOrderCount == 0) ...[
-            _row('Pembatalan (Void)', 'Tidak ada', danger: false),
+            _row('Pembatalan', 'Tidak ada', danger: false),
             const SizedBox(height: 6),
           ],
 
@@ -377,13 +378,13 @@ Widget _buildSmartInsight(BuildContext context) {
           
           // PEMISAHAN TUNAI & NON-TUNAI
           _row(
-            'Uang tunai dari penjualan (belum dikurangi belanja dari laci)',
+            'Uang tunai di laci dari penjualan tunai',
             'Rp ${fmt.format(summary.cashExpected)}',
             bold: true,
           ),
           const SizedBox(height: 6),
           _row(
-            'Penerimaan Non-Tunai (QRIS)',
+            'Pembayaran QRIS',
             'Rp ${fmt.format(summary.qrisTotal)}',
             bold: false,
           ),
@@ -439,22 +440,22 @@ Widget _buildSmartInsight(BuildContext context) {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Informasi Alur Laba'),
+        title: const Text('Cara menghitung untung'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Laba Kotor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
+            Text('Untung kotor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
             SizedBox(height: 4),
-            Text('Omzet Penjualan dikurangi HPP (Harga Modal Bahan). Ini adalah keuntungan kotor sebelum dipotong biaya operasional.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+            Text('Pemasukan dikurangi modal bahan. Ini untung sebelum dikurangi pengeluaran lain.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
             SizedBox(height: 12),
-            Text('Laba Bersih', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
+            Text('Untung bersih', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
             SizedBox(height: 4),
-            Text('Laba Kotor dikurangi Pengeluaran Operasional (listrik, gaji, bahan tambahan, dll). Ini adalah uang bersih yang Anda kantongi.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+            Text('Untung kotor dikurangi pengeluaran lain, seperti listrik, gaji, dan peralatan. Ini sisa untung setelah semua biaya.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
             SizedBox(height: 12),
-            Text('Uang tunai dari penjualan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
+            Text('Uang tunai di laci', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
             SizedBox(height: 4),
-            Text('Uang fisik (tunai) yang seharusnya ada di laci kasir dari penjualan. Belum dikurangi pengeluaran.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
+            Text('Uang tunai dari penjualan yang seharusnya ada di laci kasir. Ini belum dikurangi belanja, jadi bukan untung.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
           ],
         ),
         actions: [
