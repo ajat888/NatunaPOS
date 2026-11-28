@@ -9,3 +9,7 @@ Repo ini punya aturan kerja sendiri. Ikuti, jangan disimpulkan dari kebiasaan um
    penyebab, pengaman. Jangan mengubah entri lama tanpa alasan.
 3. Balas dalam bahasa Indonesia. Akhiri jawaban dengan tabel
    `| Path | Aksi | Baris |` dan perintah git push tanpa `cd`.
+4. Push dikerjakan sendiri, bukan diserahkan ke user. Setelah perubahan
+   di-commit, jalankan `git push origin main` (remote SSH sudah siap),
+   lalu laporkan hasilnya. Perintah push di butir 3 tetap ditulis untuk
+   arsip, meski push sudah dilakukan.
