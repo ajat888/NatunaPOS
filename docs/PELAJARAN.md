@@ -81,6 +81,33 @@ bukan dari ingatan.
 - Repo ada di `/sdcard/Documents/NatunaPOS`; jangan mengubah file di luar
   `lib/` dan `api/` tanpa alasan yang dijelaskan.
 
+## P7. `catch` ganda membuat data ditolak diulang selamanya
+
+**Gejala:** indikator sinkronisasi tidak pernah berhenti "menunggu"; jumlah
+perubahan belum terkirim tetap > 0 walau jaringan normal; logout selalu
+dicegat dialog "Data Belum Tersinkron"; void transaksi tidak sampai ke
+server sehingga laporan di perangkat lain masih menghitung penjualan itu.
+
+**Penyebab:** `_pushVoidedTransactions` punya dua `on PostgrestException`
+bersarang (sisa commit `2a8607e`). Handler dalam hanya menjalankan
+`_rejected++` tanpa menandai baris selesai, sedangkan
+`markTransactionRejected` justru ditulis di handler luar yang praktis tidak
+mungkin tereksekusi (error sudah ditangkap handler dalam). Baris tetap
+`is_synced = 0`, jadi ikut terambil `getUnsyncedVoidedTransactions` di
+setiap sync — berulang tanpa akhir.
+
+**Pengaman:**
+
+- Satu blok `try/catch` per operasi push. Jangan menyisakan handler luar
+  yang menangani error yang sama; itu membuat perbaikan terlihat ada
+  padahal mati.
+- Setiap cabang "ditolak permanen" WAJIB memanggil `mark*Rejected` /
+  `mark*Synced`, supaya `countPendingSync()` turun dan tombol logout
+  tidak terkunci.
+- Setelah mengubah `sync_runner_*`, periksa jumlah penangkap error
+  (`grep -c "on PostgrestException" file`) dan pastikan tidak ada cabang
+  `catch` tanpa perubahan status.
+
 ---
 
 ## Checklist sebelum push

@@ -23,7 +23,13 @@ class _SyncPusher {
     failures += await _remapProductCategories(catRes.categoryIdMap);
     productFailures += await _pushProducts(userId, catRes.categoryIdMap);
     failures += await _pushTransactions(userId);
-    failures += await _pushVoidedTransactions(userId);
+    final voidRes = await _pushVoidedTransactions(
+      client: _client,
+      localDb: _localDb,
+      isPermanentRejection: _isPermanentRejection,
+    );
+    failures += voidRes.failures;
+    _rejected += voidRes.rejected;
     return (blocking: failures, products: productFailures + _rejected);
   }
 
@@ -475,44 +481,6 @@ if (tx.isVoided) {
           failures++;
         }
       }
-    }
-    return failures;
-  }
-
-  Future<int> _pushVoidedTransactions(String userId) async {
-    int failures = 0;
-    final unsynced = await _localDb.getUnsyncedVoidedTransactions();
-    for (final tx in unsynced) {
-      try {
-        if (tx.id < 0) {
-  continue;
-}
-        try {
-          await _client.from('transactions').update({
-            'is_voided': true,
-            'void_reason': tx.voidReason,
-            'voided_by': tx.voidedBy,
-            'voided_at':
-                (tx.voidedAt ?? DateTime.now()).toUtc().toIso8601String(),
-          }).eq('id', tx.id);
-          await _localDb.markTransactionVoidSynced(tx.id, skipSync: true);
-        } on PostgrestException catch (e) {
-          debugPrint('Push void tx ${tx.id} failed: $e');
-          if (_isPermanentRejection(e)) {
-            _rejected++;
-          } else {
-            failures++;
-          }
-        }
-        } on PostgrestException catch (e) {
-          debugPrint('Push void tx ${tx.id} failed: $e');
-          if (_isPermanentRejection(e)) {
-            _rejected++;
-            await _localDb.markTransactionRejected(tx.id, skipSync: true);
-          } else {
-            failures++;
-          }
-        }
     }
     return failures;
   }

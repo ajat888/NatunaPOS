@@ -24,6 +24,7 @@ part 'sync_runner_settings.dart';
 part 'sync_runner_expenses_push.dart';
 part 'sync_runner_expenses_pull.dart';
 part 'sync_runner_closings.dart';
+part 'sync_runner_voids.dart';
 
 class SyncRunner {
   final SupabaseClient client;
