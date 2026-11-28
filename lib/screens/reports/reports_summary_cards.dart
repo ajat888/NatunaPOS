@@ -294,7 +294,7 @@ Widget _buildSmartInsight(BuildContext context) {
           
           // PROGRESS BAR VISUAL
           if (summary.totalSales > 0) ...[
-            _buildProgressBar(),
+            _buildProgressBar(summary),
             const SizedBox(height: 12),
           ],
 
@@ -345,7 +345,21 @@ Widget _buildSmartInsight(BuildContext context) {
               positive: summary.netProfit >= 0),
 
           const SizedBox(height: 6),
-          _row('Belanja stok bahan (bukan biaya periode ini)', 'Rp ${fmt.format(summary.totalStockPurchases)}'),
+          _row(
+            'Belanja isi stok (tidak mengurangi untung)',
+            'Rp ${fmt.format(summary.totalStockPurchases)}',
+            onInfo: () => _showSpecificInfo(
+              context,
+              'Belanja isi stok',
+              'Uang untuk membeli bahan persediaan, misalnya beras, minyak, atau gas. '
+                  'Uangnya sudah keluar dari laci, tetapi belum dihitung sebagai biaya '
+                  'penjualan periode ini. Biaya baru muncul saat bahannya terjual, lewat '
+                  '"modal bahan" tiap menu.\n\n'
+                  'Contoh: beli beras Rp 100.000, baru Rp 50.000 yang terpakai untuk menu '
+                  'yang terjual. Yang dihitung biaya hanya Rp 50.000. Kalau Rp 100.000 juga '
+                  'dihitung, untung Anda akan terlihat lebih kecil dari yang sebenarnya.',
+            ),
+          ),
           
           const SizedBox(height: 16),
           const Divider(height: 20, color: Color(0xFFE2E8F0)),
@@ -414,64 +428,6 @@ Widget _buildSmartInsight(BuildContext context) {
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildProgressBar() {
-    final hpp = summary.totalHpp.clamp(0, summary.totalSales);
-    final exp = summary.totalExpenses.clamp(0, summary.totalSales - hpp);
-    final profit = summary.netProfit > 0 ? summary.netProfit.clamp(0, summary.totalSales - hpp - exp) : 0;
-
-    return Container(
-      height: 10,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(5),
-        color: const Color(0xFFE2E8F0),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(5),
-        child: Row(
-          children: [
-            if (hpp > 0) Expanded(flex: hpp, child: Container(color: AppTheme.dangerColor)),
-            if (exp > 0) Expanded(flex: exp, child: Container(color: Colors.orange.shade800)),
-            if (profit > 0) Expanded(flex: profit, child: Container(color: Colors.green.shade700)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(
-    String label,
-    String value, {
-    bool danger = false,
-    bool bold = false,
-    bool positive = false,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-              color: danger ? AppTheme.dangerColor : AppTheme.textLightColor,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-            color: danger 
-                ? AppTheme.dangerColor 
-                : (positive ? Colors.green.shade700 : AppTheme.textColor),
-          ),
-        ),
-      ],
     );
   }
 }

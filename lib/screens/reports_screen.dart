@@ -22,6 +22,7 @@ part 'reports/reports_break_even.dart';
 part 'reports/reports_remaining_target.dart';
 part 'reports/reports_margin_table.dart';
 part 'reports/report_dialogs.dart';
+part 'reports/reports_detail_rows.dart';
 
 enum ReportPreset { today, yesterday, thisMonth, last7, last30, custom }
 

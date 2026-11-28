@@ -87,14 +87,14 @@ void _showDetailInfo(BuildContext context) {
                 'Uang fisik dari penjualan tunai yang seharusnya ada di laci kasir. Ini belum dikurangi belanja, jadi bukan untung.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
             SizedBox(height: 12),
-            Text('Belanja stok bahan',
+            Text('Belanja isi stok',
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                     color: AppTheme.textColor)),
             SizedBox(height: 4),
             Text(
-                'Belanja bahan untuk mengisi stok tidak mengurangi untung periode ini, karena bahannya belum terjual. Belanja itu baru menjadi modal bahan saat menunya terjual.',
+                'Uang untuk membeli bahan persediaan, misalnya beras, minyak, atau gas. Uangnya sudah keluar, tetapi belum dihitung biaya karena bahannya belum terjual. Contoh: beli beras Rp 100.000, baru Rp 50.000 yang terpakai bulan ini — yang dihitung biaya hanya Rp 50.000.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
           ],
         ),
