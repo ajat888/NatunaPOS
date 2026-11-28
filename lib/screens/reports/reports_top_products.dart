@@ -26,7 +26,7 @@ class _ReportsTopProducts extends StatelessWidget {
               Icon(Icons.star, color: Colors.amber, size: 18),
               SizedBox(width: 6),
               Text(
-                'MENU TERLARIS',
+                'MENU PALING LAKU',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -42,8 +42,8 @@ class _ReportsTopProducts extends StatelessWidget {
             final medali = index == 0 ? '🥇' : (index == 1 ? '🥈' : '🥉');
             final profit = (p['profit'] as num?)?.toInt() ?? 0;
             final revenue = (p['revenue'] as num?)?.toInt() ?? 0;
-            final margin = revenue > 0 ? (profit / revenue) * 100 : 0.0;
-            final isLowMargin = margin < 20.0;
+            final margin = _marginPct(p);
+            final isLowMargin = margin < _kMarginTipisPct;
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -79,7 +79,7 @@ class _ReportsTopProducts extends StatelessWidget {
                                   border: Border.all(color: AppTheme.dangerColor.withOpacity(0.5)),
                                 ),
                                 child: const Text(
-                                  'Margin Rendah',
+                                  'Untung tipis',
                                   style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.dangerColor),
                                 ),
                               ),
@@ -87,27 +87,27 @@ class _ReportsTopProducts extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 2,
                           children: [
                             Text(
-                              'Omzet: Rp ${fmt.format(revenue)}',
+                              'Terjual Rp ${fmt.format(revenue)}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppTheme.textLightColor,
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Text(
-                              'Untung: Rp ${fmt.format(profit)}',
+                              'Untung Rp ${fmt.format(profit)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: profit > 0 ? Colors.green.shade700 : AppTheme.dangerColor,
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Text(
-                              '(Margin ${margin.toStringAsFixed(0)}%)',
+                              '(sisa ${margin.toStringAsFixed(0)}% dari harga)',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: isLowMargin ? AppTheme.dangerColor : AppTheme.textLightColor,

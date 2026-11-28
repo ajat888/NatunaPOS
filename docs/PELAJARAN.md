@@ -108,6 +108,40 @@ setiap sync — berulang tanpa akhir.
   (`grep -c "on PostgrestException" file`) dan pastikan tidak ada cabang
   `catch` tanpa perubahan status.
 
+## P8. Pembanding laporan tidak setara jam
+
+**Gejala:** analisis AI menyebut pemasukan "turun Rp 400.000" padahal saat
+itu baru pukul 10 pagi; pemilik mengira penjualan sedang jatuh.
+
+**Penyebab:** `_comparisonPayload` membandingkan periode berjalan (parsial)
+dengan periode sebelumnya yang **penuh**. Field `until_time` sudah dibaca
+prompt, tetapi selalu dikirim `null`, jadi AI tidak pernah membandingkan jam
+yang sama.
+
+**Pengaman:**
+
+- Saat membandingkan periode yang belum selesai, potong periode pembanding
+  pada jam yang sama (`prevStart + selisih waktu berjalan`).
+- Setiap field yang sudah dibaca prompt (`until_time`) harus benar-benar
+  diisi; kalau tidak, hapus field itu.
+- Uji tiga bentuk periode: hari ini, 7 hari berjalan, dan periode lampau.
+
+## P9. Satu menu jadi dua baris di laporan
+
+**Gejala:** nama menu yang sama muncul dua kali di MENU PALING LAKU dan
+Untung per Menu, dengan angka berbeda.
+
+**Penyebab:** `getProductPerformanceBetween` mengelompokkan per
+`product_id, product_name, price, hpp`. Begitu harga atau modal bahan menu
+diubah di tengah periode, transaksi lama dan baru masuk grup berbeda.
+
+**Pengaman:**
+
+- Kelompokkan hanya per produk (`product_id, product_name`), hitung harga
+  dan modal per porsi sebagai rata-rata berbobot (`revenue ~/ qty`).
+- Untuk laporan, satu produk harus satu baris; kalau butuh rincian per
+  harga, buat tampilan terpisah.
+
 ---
 
 ## Checklist sebelum push

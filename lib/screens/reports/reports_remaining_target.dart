@@ -88,7 +88,7 @@ class _ReportsRemainingTarget extends StatelessWidget {
         child: Text(
           mtd.totalSales <= 0
               ? 'Belum bisa dihitung: belum ada penjualan bulan ini'
-              : 'Belum bisa dihitung: margin kotor bulan ini nol atau minus',
+              : 'Belum bisa dihitung: untung kotor bulan ini nol atau minus',
           style: const TextStyle(fontSize: 13, color: AppTheme.textLightColor),
         ),
       );
@@ -115,15 +115,15 @@ class _ReportsRemainingTarget extends StatelessWidget {
           _tgtRow('Sisa hari', '$remainingDays hari'),
           _tgtRow('Sisa biaya tetap yang belum tertutup',
               'Rp ${fmt.format(gap)}'),
-          _tgtRow('Total omzet harian yang dibutuhkan (sisa hari)',
+          _tgtRow('Pemasukan per hari yang dibutuhkan',
               'Rp ${fmt.format(perDayNeeded.round())}'),
-          _tgtRow('Rata-rata omzet harian (total) bulan ini',
+          _tgtRow('Rata-rata pemasukan per hari bulan ini',
               'Rp ${fmt.format(avgDaily.round())}'),
           const SizedBox(height: 8),
           Text(
             paceOk
-                ? 'Pace saat ini sudah cukup untuk impas.'
-                : 'Pace kurang Rp ${fmt.format(paceGap.round())} per hari.',
+                ? 'Aman: rata-rata pemasukan Anda sudah cukup untuk menutup biaya tetap bulan ini.'
+                : 'Kurang Rp ${fmt.format(paceGap.round())} per hari dari yang dibutuhkan.',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -132,7 +132,8 @@ class _ReportsRemainingTarget extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Perkiraan: omzet dibagi margin kotor bulan berjalan, dengan pengeluaran dianggap tertutup dari margin itu.',
+            'Angka "dibutuhkan" adalah total pemasukan per hari di sisa bulan, bukan tambahan di atas rata-rata sekarang. '
+            'Perkiraan memakai untung kotor bulan ini sebagai patokan.',
             style: TextStyle(fontSize: 11, color: AppTheme.textLightColor),
           ),
         ],

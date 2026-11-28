@@ -55,6 +55,7 @@ class _ReportsFilterCard extends StatelessWidget {
             children: [
               _chip('Hari Ini', ReportPreset.today),
               _chip('Kemarin', ReportPreset.yesterday),
+              _chip('Bulan Ini', ReportPreset.thisMonth),
               _chip('7 Hari', ReportPreset.last7),
               _chip('30 Hari', ReportPreset.last30),
             ],

@@ -4,10 +4,12 @@ class _AiAnalysisSheet extends StatelessWidget {
   final String analysis;
   final DateTime from;
   final DateTime to;
+  final int transactionCount;
   const _AiAnalysisSheet({
     required this.analysis,
     required this.from,
     required this.to,
+    required this.transactionCount,
   });
 
   @override
@@ -44,7 +46,7 @@ class _AiAnalysisSheet extends StatelessWidget {
                     const Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
                     const SizedBox(width: 8),
                     const Text(
-                      'Analisa AI',
+                      'Analisis AI',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -101,6 +103,10 @@ class _AiAnalysisSheet extends StatelessWidget {
                           ],
                         ),
                       ),
+                      if (transactionCount < 5) ...[
+                        const SizedBox(height: 8),
+                        _dataWarning(transactionCount),
+                      ],
                       const SizedBox(height: 12),
                       _AiMarkdownView(markdown: analysis),
                       const SizedBox(height: 24),
@@ -120,6 +126,33 @@ class _AiAnalysisSheet extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _dataWarning(int count) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade800.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade800.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: Colors.orange.shade800),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              count == 0
+                  ? 'Belum ada transaksi pada periode ini, jadi saran AI belum bisa dipakai.'
+                  : 'Periode ini baru $count transaksi. Saran AI masih kasar; pilih 7 atau 30 hari untuk gambaran yang lebih stabil.',
+              style: const TextStyle(
+                  fontSize: 11, color: AppTheme.textColor, height: 1.3),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

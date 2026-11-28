@@ -7,7 +7,6 @@ class _ReportsSummaryCards extends StatelessWidget {
 @override
 Widget build(BuildContext context) {
   final fmt = NumberFormat.decimalPattern('id');
-  final totalOut = summary.totalHpp + summary.totalExpenses;
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -25,11 +24,10 @@ Widget build(BuildContext context) {
         children: [
           Expanded(
             child: _summaryCard(
-              'Total Biaya',
-              'Rp ${fmt.format(totalOut)}',
-              Icons.money_off,
-              danger: totalOut > 0,
-              subtitle: 'Modal bahan + pengeluaran lain',
+              'Uang Tunai di Laci',
+              'Rp ${fmt.format(summary.cashExpected)}',
+              Icons.payments_outlined,
+              subtitle: 'Dari penjualan tunai; belum dikurangi belanja',
             ),
           ),
           const SizedBox(width: 8),
@@ -40,7 +38,9 @@ Widget build(BuildContext context) {
               Icons.trending_up,
               danger: summary.netProfit < 0,
               positive: summary.netProfit >= 0,
-              subtitle: summary.netProfit >= 0 ? 'Untung' : 'Rugi',
+              subtitle: summary.netProfit >= 0
+                  ? 'Setelah modal bahan + pengeluaran lain'
+                  : 'Rugi: biaya lebih besar dari pemasukan',
             ),
           ),
         ],
@@ -72,14 +72,38 @@ Widget build(BuildContext context) {
           ),
         ),
       ),
+      const SizedBox(height: 10),
+      const Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 12, color: AppTheme.textLightColor),
+          SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              'Butuh saran? Ketuk ikon ✨ di kanan atas untuk Analisis AI.',
+              style: TextStyle(fontSize: 10, color: AppTheme.textLightColor),
+            ),
+          ),
+        ],
+      ),
     ],
   );
 }
 
 Widget _buildSmartInsight(BuildContext context) {
-  if (summary.totalTransactions == 0) return const SizedBox.shrink();
-
   final fmt = NumberFormat.decimalPattern('id');
+  if (summary.totalTransactions == 0) {
+    final belanja = summary.totalExpenses + summary.totalStockPurchases;
+    if (belanja <= 0) return const SizedBox.shrink();
+    return _insightBanner(
+      context,
+      icon: Icons.info_outline,
+      color: Colors.orange.shade800,
+      title: 'Belum ada penjualan',
+      message:
+          'Belum ada pemasukan pada periode ini, tetapi sudah ada belanja Rp ${fmt.format(belanja)}. Pastikan transaksi penjualan memang belum terjadi, bukan belum tercatat.',
+    );
+  }
+
   String topExpenseText = '';
   if (summary.expenses.isNotEmpty) {
     final sortedExp = List<Expense>.from(summary.expenses)
@@ -265,7 +289,7 @@ Widget _buildSmartInsight(BuildContext context) {
           const SizedBox(height: 12),
           
           // Alur Perhitungan Laba Bersih
-          _row('Pemasukan (omzet)',  'Rp ${fmt.format(summary.totalSales)}', bold: true),
+          _row('Pemasukan',  'Rp ${fmt.format(summary.totalSales)}', bold: true),
           const SizedBox(height: 6),
           
           // PROGRESS BAR VISUAL
@@ -280,10 +304,10 @@ Widget _buildSmartInsight(BuildContext context) {
               Expanded(
                 child: Row(
                   children: [
-                    const Text('(-) Modal bahan (HPP)',  style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
+                    const Text('(-) Modal bahan',  style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
                     const SizedBox(width: 4),
                     InkWell(
-                      onTap: () => _showSpecificInfo(context, 'Modal bahan (HPP)', 'Modal bahan dari setiap menu yang terjual. Contoh: harga daging, beras, dan sayur di piring pelanggan.'),
+                      onTap: () => _showSpecificInfo(context, 'Modal bahan', 'Modal bahan dari setiap menu yang terjual, misalnya harga daging, beras, dan sayur di piring pelanggan. Angkanya diambil dari modal bahan per menu yang Anda isi di daftar menu.'),
                       child: const Icon(Icons.info_outline, size: 14, color: AppTheme.textLightColor),
                     ),
                   ],
@@ -293,7 +317,7 @@ Widget _buildSmartInsight(BuildContext context) {
             ],
           ),
           const Divider(height: 16, color: Color(0xFFE2E8F0)),
-          _row('Laba Kotor', 'Rp ${fmt.format(summary.grossProfit)}', bold: true),
+          _row('Untung kotor', 'Rp ${fmt.format(summary.grossProfit)}', bold: true),
           const SizedBox(height: 6),
 
           Row(
@@ -321,13 +345,13 @@ Widget _buildSmartInsight(BuildContext context) {
               positive: summary.netProfit >= 0),
 
           const SizedBox(height: 6),
-          _row('Belanja bahan (tidak mengurangi untung)', 'Rp ${fmt.format(summary.totalStockPurchases)}'),
+          _row('Belanja stok bahan (bukan biaya periode ini)', 'Rp ${fmt.format(summary.totalStockPurchases)}'),
           
           const SizedBox(height: 16),
           const Divider(height: 20, color: Color(0xFFE2E8F0)),
           
           // Info Tambahan
-          _row('Total Item Terjual', '${summary.totalItems} item'),
+          _row('Jumlah item terjual', '${summary.totalItems} item'),
           const SizedBox(height: 6),
           _row('Rata-rata pemasukan per transaksi', 'Rp ${fmt.format(avgTx)}'),
           const SizedBox(height: 6),
@@ -379,15 +403,8 @@ Widget _buildSmartInsight(BuildContext context) {
 
           const Divider(height: 20, color: Color(0xFFE2E8F0)),
           
-          // PEMISAHAN TUNAI & NON-TUNAI
           _row(
-            'Uang tunai di laci dari penjualan tunai',
-            'Rp ${fmt.format(summary.cashExpected)}',
-            bold: true,
-          ),
-          const SizedBox(height: 6),
-          _row(
-            'Pembayaran QRIS',
+            'Pembayaran QRIS (masuk rekening, bukan laci)',
             'Rp ${fmt.format(summary.qrisTotal)}',
             bold: false,
           ),
@@ -420,50 +437,6 @@ Widget _buildSmartInsight(BuildContext context) {
             if (profit > 0) Expanded(flex: profit, child: Container(color: Colors.green.shade700)),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showSpecificInfo(BuildContext context, String title, String message) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text(title),
-        content: Text(message, style: const TextStyle(fontSize: 13, color: AppTheme.textColor)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('MENGERTI')),
-        ],
-      ),
-    );
-  }
-
-  void _showDetailInfo(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Cara menghitung untung'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Untung kotor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
-            SizedBox(height: 4),
-            Text('Pemasukan dikurangi modal bahan. Ini untung sebelum dikurangi pengeluaran lain.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
-            SizedBox(height: 12),
-            Text('Untung bersih', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
-            SizedBox(height: 4),
-            Text('Untung kotor dikurangi pengeluaran lain, seperti listrik, gaji, dan peralatan. Ini sisa untung setelah semua biaya.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
-            SizedBox(height: 12),
-            Text('Uang tunai di laci', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textColor)),
-            SizedBox(height: 4),
-            Text('Uang tunai dari penjualan yang seharusnya ada di laci kasir. Ini belum dikurangi belanja, jadi bukan untung.', style: TextStyle(fontSize: 12, color: AppTheme.textLightColor)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('MENGERTI')),
-        ],
       ),
     );
   }

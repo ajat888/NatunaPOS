@@ -73,11 +73,19 @@ def _build_prompt(report):
     voids = report.get('voids', []) or []
     comparison = report.get('comparison') or {}
     hourly = report.get('hourly') or []
+    partial_until = period.get('partial_until')
+
+    if period.get('from') != period.get('to'):
+        judul_banding = 'Periode Ini vs Pembanding'
+    elif partial_until:
+        judul_banding = 'Hari Ini vs Pembanding'
+    else:
+        judul_banding = f"Tanggal {period.get('from', '?')} vs Pembanding"
 
     lines = []
     lines.append(f"PERIODE UTAMA: {period.get('from', '?')} s/d {period.get('to', '?')}")
-    if period.get('partial_until'):
-        lines.append(f"(data baru sampai pukul {period['partial_until']}, periode ini belum selesai)")
+    if partial_until:
+        lines.append(f"(data baru sampai pukul {partial_until}, periode ini belum selesai)")
     lines.append('')
     lines.append('RINGKASAN:')
     lines.append(f"- Pemasukan: Rp {_fmt(summary.get('total_sales', 0))}")
@@ -94,7 +102,7 @@ def _build_prompt(report):
         until = f" sampai pukul {cp['until_time']}" if cp.get('until_time') else ''
         cur_gross = int(summary.get('total_sales', 0) or 0) - int(summary.get('total_hpp', 0) or 0)
         prev_gross = int(comparison.get('total_sales', 0) or 0) - int(comparison.get('total_hpp', 0) or 0)
-        lines.append('PEMBANDING (periode penuh sebelumnya dengan panjang sama):')
+        lines.append('PEMBANDING (periode sebelumnya dengan panjang sama, dipotong pada jam yang sama bila periode utama belum selesai):')
         lines.append(f"- Periode: {cp.get('from', '?')} s/d {cp.get('to', '?')}{until}")
         lines.append(f"- Pemasukan periode utama dibanding pembanding: {_delta(summary.get('total_sales', 0), comparison.get('total_sales', 0))}")
         lines.append(f"- Transaksi: {summary.get('total_transactions', 0)} vs {comparison.get('total_transactions', 0)}")
@@ -180,13 +188,16 @@ ATURAN WAJIB:
 3. DILARANG mengarang angka. Semua angka harus berasal dari DATA LAPORAN. Angka 0 pada PEMBANDING hanya berarti tidak ada data pada periode pembanding. DILARANG menyimpulkan sebab tanpa dasar data.
 4. Pakai istilah ini saja: Pemasukan, Modal bahan, Untung kotor, Pengeluaran lain, Untung bersih, Untung per porsi, Titik impas. Jangan memakai HPP, omzet, laba, margin, atau kontribusi.
 5. Setiap saran harus KONKRET, bisa dilakukan minggu ini, dan menyebut target dalam Rupiah. Target diturunkan dari angka DATA LAPORAN, misalnya rata-rata per hari dari TREN HARIAN.
-6. Format Markdown, maksimal 400 kata. Jangan tulis kalimat pembuka, langsung ke isi. Tulis angka dengan format Rp, misalnya Rp 150.000.
+6. Format Markdown sederhana, maksimal 350 kata. Jangan tulis kalimat pembuka, langsung ke bagian Singkatnya. Tulis angka dengan format Rp, misalnya Rp 150.000. DILARANG memakai tabel Markdown, tanda pipa (|), atau huruf miring.
 7. "Pemasukan per hari yang dibutuhkan untuk impas" adalah total per hari di sisa bulan, BUKAN tambahan di atas rata-rata. Bandingkan langsung dengan "Rata-rata pemasukan per hari bulan ini". Jika POLA HARI menulis "belum cukup data", jangan menyebut rata-rata untuk hari itu.
 
 STRUKTUR OUTPUT (WAJIB):
 
-## 📊 Hari Ini vs Pembanding
-2-3 poin. Sebut apakah pemasukan naik atau turun dibanding pembanding, berapa selisihnya dalam Rupiah, dan kemungkinan penyebabnya dari data. Jika data menyebut "belum selesai", jelaskan singkat bahwa pembanding adalah hari penuh sehingga selisihnya belum final.
+## ✅ Singkatnya
+2 kalimat tanpa basa-basi: (1) apakah periode ini untung atau rugi dan berapa Rupiah; (2) satu tindakan paling penting yang harus dilakukan minggu ini, sebut angkanya dalam Rupiah.
+
+## 📊 {judul_banding}
+2-3 poin. Sebut apakah pemasukan naik atau turun dibanding pembanding, berapa selisihnya dalam Rupiah, dan kemungkinan penyebabnya dari data. Jika data menyebut "belum selesai", jelaskan singkat bahwa pembanding sudah dipotong pada jam yang sama, jadi selisihnya masih bisa berubah karena sisa hari belum berjalan.
 
 ## ⚠️ Perhatikan
 Hal yang perlu diwaspadai: void yang tidak wajar (sebut nominal dan siapa yang melakukannya), pengeluaran lain yang besar, atau menu dengan untung per porsi kecil. Jika tidak ada, tulis "Tidak ada yang mendesak."

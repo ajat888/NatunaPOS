@@ -46,7 +46,7 @@ class AiReportService {
         await LocalDb.instance.getDailySalesBreakdown(start, end);
 
     final cutoff = _todayCutoff(end);
-    final comparison = await _comparisonPayload(start, end);
+    final comparison = await _comparisonPayload(start, end, cutoff);
     final hourly =
         await LocalDb.instance.getHourlySalesBreakdown(start, end);
 
@@ -174,21 +174,24 @@ class AiReportService {
   Future<Map<String, dynamic>> _comparisonPayload(
     DateTime start,
     DateTime end,
+    DateTime? cutoff,
   ) async {
     final days = end.difference(start).inDays;
     final prevStart = DateTime(start.year, start.month, start.day - days);
     final prevEnd = DateTime(end.year, end.month, end.day - days);
+    final fairEnd = cutoff == null
+        ? prevEnd
+        : prevStart.add(cutoff.difference(start));
     final db = LocalDb.instance;
-    final sales = await db.getSalesSummaryBetween(prevStart, prevEnd);
-    final hpp = await db.getHppBetween(prevStart, prevEnd);
-    final expenses = await db.getExpenseSummaryBetween(prevStart, prevEnd);
-    final voids =
-        await db.getVoidTransactionsSummaryBetween(prevStart, prevEnd);
+    final sales = await db.getSalesSummaryBetween(prevStart, fairEnd);
+    final hpp = await db.getHppBetween(prevStart, fairEnd);
+    final expenses = await db.getExpenseSummaryBetween(prevStart, fairEnd);
+    final voids = await db.getVoidTransactionsSummaryBetween(prevStart, fairEnd);
     return {
       'period': {
         'from': _fmtDate(prevStart),
         'to': _fmtDate(prevEnd.subtract(const Duration(days: 1))),
-        'until_time': null,
+        'until_time': cutoff == null ? null : _fmtHm(cutoff),
       },
       'total_sales': sales['total'] ?? 0,
       'total_transactions': sales['count'] ?? 0,

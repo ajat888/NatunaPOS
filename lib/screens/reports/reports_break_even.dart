@@ -39,6 +39,7 @@ class _ReportsBreakEvenCard extends StatelessWidget {
     final covered = (contribution / target).clamp(0.0, 1.0).toDouble();
     final reached = contribution >= target;
     final gap = target - contribution;
+    final coveredRupiah = contribution > 0 ? contribution : 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -47,12 +48,17 @@ class _ReportsBreakEvenCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Titik Impas Biaya Tetap',
+            'Titik Impas',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
             ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Pemasukan minimal supaya sewa, listrik, gaji, dan biaya tetap lain bulan ini tertutup.',
+            style: TextStyle(fontSize: 11, color: AppTheme.textLightColor),
           ),
           const SizedBox(height: 12),
           ClipRRect(
@@ -66,27 +72,29 @@ class _ReportsBreakEvenCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${(covered * 100).toStringAsFixed(0)}% tertutup',
+            'Rp ${fmt.format(coveredRupiah)} dari Rp ${fmt.format(target)} '
+            '(${(covered * 100).toStringAsFixed(0)}%)',
             style: const TextStyle(
               fontSize: 12,
               color: AppTheme.textLightColor,
             ),
           ),
           const SizedBox(height: 12),
-          _row('Target periode', 'Rp ${fmt.format(target)}'),
+          _row('Biaya tetap yang harus ditutup', 'Rp ${fmt.format(target)}'),
           _row(
-            'Kontribusi (laba kotor − pengeluaran)',
+            'Untung bersih yang menutup biaya tetap',
             'Rp ${fmt.format(contribution)}',
             danger: contribution < 0,
           ),
           _row(
-            reached ? 'Status' : 'Sisa untuk impas',
-            reached ? 'Impas tercapai' : 'Rp ${fmt.format(gap)}',
+            reached ? 'Status' : 'Masih kurang',
+            reached ? 'Titik impas tercapai' : 'Rp ${fmt.format(gap)}',
             danger: !reached,
           ),
           const SizedBox(height: 8),
           Text(
-            'Biaya tetap ${fmt.format(monthly)} per bulan dibagi proporsional: $days dari $daysInMonth hari.',
+            'Biaya tetap Rp ${fmt.format(monthly)} per bulan dibagi rata ke setiap hari: '
+            '$days dari $daysInMonth hari.',
             style: const TextStyle(
               fontSize: 11,
               color: AppTheme.textLightColor,
@@ -94,7 +102,8 @@ class _ReportsBreakEvenCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Jika sewa, listrik, atau gaji sudah dicatat sebagai pengeluaran, sebaiknya tidak diisi lagi di pengaturan biaya tetap.',
+            'Penting: jika sewa, listrik, atau gaji sudah dicatat di Pengeluaran, '
+            'jangan diisi lagi di biaya tetap. Kalau diisi dua kali, target impas jadi terlalu besar.',
             style: TextStyle(
               fontSize: 11,
               color: AppTheme.textLightColor,

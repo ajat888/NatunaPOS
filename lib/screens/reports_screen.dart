@@ -21,8 +21,11 @@ part 'reports/reports_top_products.dart';
 part 'reports/reports_break_even.dart';
 part 'reports/reports_remaining_target.dart';
 part 'reports/reports_margin_table.dart';
+part 'reports/report_dialogs.dart';
 
-enum ReportPreset { today, yesterday, last7, last30, custom }
+enum ReportPreset { today, yesterday, thisMonth, last7, last30, custom }
+
+const double _kMarginTipisPct = 30;
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -146,6 +149,10 @@ Future<void> _checkPinStatus() async {
         from = today.subtract(const Duration(days: 1));
         to = from;
         break;
+      case ReportPreset.thisMonth:
+        from = DateTime(today.year, today.month, 1);
+        to = today;
+        break;
       case ReportPreset.last7:
         from = today.subtract(const Duration(days: 6));
         to = today;
@@ -222,6 +229,7 @@ Future<void> _openAIAnalysis() async {
         analysis: analysis,
         from: _from,
         to: _to,
+        transactionCount: summary.totalTransactions,
       ),
     ));
     

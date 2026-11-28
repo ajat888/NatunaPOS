@@ -28,7 +28,7 @@ class _ReportsMarginTable extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Margin per Menu',
+            'Untung per Menu',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -36,9 +36,11 @@ class _ReportsMarginTable extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Diurutkan dari margin terkecil. Menu di bawah 30% perlu dievaluasi sebelum diberi diskon.',
-            style: TextStyle(fontSize: 11, color: AppTheme.textLightColor),
+          Text(
+            'Diurutkan dari untung terkecil. Menu dengan untung di bawah '
+            '${_kMarginTipisPct.toStringAsFixed(0)}% dari harga jual '
+            'sebaiknya tidak diberi diskon.',
+            style: const TextStyle(fontSize: 11, color: AppTheme.textLightColor),
           ),
           const SizedBox(height: 12),
           ...rows.map((p) => _marginRow(p, fmt)),
@@ -52,7 +54,7 @@ class _ReportsMarginTable extends StatelessWidget {
     final hpp = p['unit_hpp'] as int;
     final margin = price - hpp;
     final pct = _marginPct(p);
-    final tipis = pct < 30;
+    final tipis = pct < _kMarginTipisPct;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -70,7 +72,7 @@ class _ReportsMarginTable extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Harga ${fmt.format(price)} · HPP ${fmt.format(hpp)}',
+                  'Harga Rp ${fmt.format(price)} · modal bahan Rp ${fmt.format(hpp)}',
                   style: const TextStyle(
                     fontSize: 11,
                     color: AppTheme.textLightColor,
@@ -79,13 +81,25 @@ class _ReportsMarginTable extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            '${fmt.format(margin)} (${pct.toStringAsFixed(0)}%)',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: tipis ? AppTheme.dangerColor : AppTheme.primaryColor,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'Untung Rp ${fmt.format(margin)}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: tipis ? AppTheme.dangerColor : AppTheme.primaryColor,
+                ),
+              ),
+              Text(
+                'sisa ${pct.toStringAsFixed(0)}% dari harga',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: tipis ? AppTheme.dangerColor : AppTheme.textLightColor,
+                ),
+              ),
+            ],
           ),
         ],
       ),
